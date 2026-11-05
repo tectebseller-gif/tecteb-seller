@@ -338,6 +338,17 @@ namespace {
                 $this->put('stock_status', $v);
             }
 
+            /**
+             * Present because the real `WC_Product` has it: a stub that
+             * models a getter away makes «the shop kept its own stock
+             * status» inexpressible, which is how a half-built guard looks
+             * complete (`alpha.59`).
+             */
+            public function get_stock_status(): string
+            {
+                return (string) ($this->data['stock_status'] ?? '');
+            }
+
             public function set_weight(string $v): void
             {
                 $this->put('weight', $v);

@@ -15,6 +15,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\ApplyRefreshSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
+use Tecteb\Marketplace\Modules\Migration\Domain\PreservationRisk;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopTransferTally;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Domain\LinkOwnership;
@@ -735,8 +736,12 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
     public function testABlockingRiskStillNeedsAHuman(): void
     {
         $id = $this->importOne(self::WC_PUBLISHED);
+        // ⛔ `price_scale` rather than `manage_stock` from `alpha.94`: stock
+        // management is released once the product can be read, so a fixture
+        // that kept the old key would call this test green while measuring a
+        // row that no longer blocks anything.
         $this->reader->risks[self::WC_PUBLISHED] = [
-            'manage_stock' => 'مدیریت موجودی خاموش است',
+            'price_scale' => 'قیمت حراج این محصول عدد صحیح نیست',
             'tags' => 'برچسب‌ها فیلدی ندارند',
         ];
 
@@ -744,11 +749,11 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
         $result = $this->transfer()->take($id, [], []);
 
         self::assertSame([$id], $plan['buckets'][OwnershipTransferPlan::RISK_REAL]);
-        self::assertSame(['manage_stock'], $plan['rows'][0]['risks']);
+        self::assertSame(['price_scale'], $plan['rows'][0]['risks']);
         self::assertSame(['tags'], $plan['rows'][0]['disclosed']);
         self::assertFalse($result->ok);
         self::assertSame('ownership_risks_unacknowledged', $result->code);
-        self::assertSame(['manage_stock'], $result->context['risks']);
+        self::assertSame(['price_scale'], $result->context['risks']);
         // Not offered to the refresh batch either: a refresh cannot clear it.
         self::assertSame([], array_map('intval', (array) $plan['refreshable']));
     }
@@ -757,9 +762,9 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
     public function testAnAcknowledgedBlockingRiskGoesThrough(): void
     {
         $id = $this->importOne(self::WC_PUBLISHED);
-        $this->reader->risks[self::WC_PUBLISHED] = ['manage_stock' => 'مدیریت موجودی خاموش است'];
+        $this->reader->risks[self::WC_PUBLISHED] = ['price_scale' => 'قیمت حراج عدد صحیح نیست'];
 
-        $result = $this->transfer()->take($id, ['manage_stock'], []);
+        $result = $this->transfer()->take($id, ['price_scale'], []);
 
         self::assertTrue($result->ok, $result->code);
     }
@@ -826,13 +831,49 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
     }
 
     /**
-     * THE SECOND CONTROL: the release is one key wide.
+     * THE SECOND CONTROL: the release is one key wide, so a key the stamp
+     * does not cover still blocks a stamped row.
      *
-     * `set_manage_stock(true)` is unconditional and OUTSIDE the stamp guard,
-     * so a stamped row still has to answer for it. Without this, a release
-     * that leaked to every key would pass the test above.
+     * Without it, a release that leaked to every key would pass the test
+     * above (`alpha.46`). ⛔ The key is `price_scale` from `alpha.94`:
+     * `manage_stock` used to serve here, and it is now released by its OWN
+     * fact — the product being readable — so the control had to move to a
+     * key no context releases. The sale price's missing scale is that key,
+     * and the reason is written where the release lists are.
      */
-    public function testAStampedRowStillBlocksOnManageStock(): void
+    public function testAStampedRowStillBlocksOnAKeyTheStampDoesNotCover(): void
+    {
+        $id = $this->importOne(self::WC_UNMANAGED);
+        self::assertSame('publish', $this->stampOf($id));
+        $this->reader->risks[self::WC_UNMANAGED]['price_scale'] = 'قیمت حراج عدد صحیح نیست';
+
+        $rows = $this->plan()->plan(self::VENDOR)['rows'];
+        $row = $this->rowFor($rows, $id);
+
+        self::assertSame(OwnershipTransferPlan::RISK_REAL, $row['bucket'], (string) $row['why']);
+        self::assertSame(['price_scale'], (array) $row['risks'], 'and only that one');
+        self::assertContains('manage_stock', (array) $row['disclosed'], 'the released key is still reported');
+    }
+
+    // ===== §۳/۴ a risk the write going away makes impossible (`alpha.94`)
+
+    /**
+     * ⛔ A READABLE product does not block on stock management.
+     *
+     * `set_manage_stock(true)` was the last unconditional write in
+     * `project()` and `$isNew` guarded only the quantity beside it, so the
+     * first projection after a transfer switched management ON and wrote no
+     * number — a managed product with no `_stock` row, which WooCommerce can
+     * report as out of stock. `alpha.93` measured that and could only
+     * disclose it; the write now lives in the `$isNew` arm, so a product this
+     * marketplace did not create keeps its own setting.
+     *
+     * The key STAYS in `BLOCKING` — the owner's §3 keeps it protected and
+     * `PreservationRiskClassificationTest` holds it there. What changed is
+     * that the question is asked with the row's context, and the fact that
+     * releases it is the one that makes its write impossible.
+     */
+    public function testAReadableProductDoesNotBlockOnStockManagement(): void
     {
         $id = $this->importOne(self::WC_UNMANAGED);
         self::assertSame('publish', $this->stampOf($id));
@@ -840,8 +881,53 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
         $rows = $this->plan()->plan(self::VENDOR)['rows'];
         $row = $this->rowFor($rows, $id);
 
-        self::assertSame(OwnershipTransferPlan::RISK_REAL, $row['bucket'], (string) $row['why']);
-        self::assertContains('manage_stock', (array) $row['risks']);
+        self::assertSame(OwnershipTransferPlan::READY, $row['bucket'], (string) $row['why']);
+        self::assertSame([], $row['risks'], 'nothing left to acknowledge');
+        self::assertContains(
+            'manage_stock',
+            (array) $row['disclosed'],
+            'released from blocking, NOT removed from the report'
+        );
+    }
+
+    /**
+     * And the guard reaches the same answer, with the batch's own call.
+     *
+     * `take($id, [], [])` — empty acknowledgement, empty seen-shop — is what
+     * `ApplyOwnershipTransfer` passes, so a planner that said `ready` while
+     * the guard refused would hand the manager a button whose refusal they
+     * could not predict (`alpha.78`).
+     */
+    public function testTheGuardTakesTheRowTheReleaseMadeReady(): void
+    {
+        $id = $this->importOne(self::WC_UNMANAGED);
+        $this->linkProjector($id, self::WC_UNMANAGED);
+
+        $result = $this->transfer()->take($id, [], []);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame(LinkOwnership::Marketplace, $this->products->linkOwnership($id));
+    }
+
+    /**
+     * ⛔ THE CONTROL THAT KEEPS THE RELEASE HONEST: an answer that could not
+     * read the product releases NOTHING.
+     *
+     * `storefrontReadable()` derives the fact from the answer itself — the
+     * absence of the `product` key — so a read that failed cannot become a
+     * licence (`alpha.49`). At plan level such a row is bucketed
+     * `unreadable` before the split is even reached, which is the second line
+     * of the same defence.
+     */
+    public function testAnAnswerThatCouldNotReadTheProductReleasesNothing(): void
+    {
+        self::assertSame(
+            ['product', 'manage_stock'],
+            PreservationRisk::blockingGiven(
+                ['product' => 'محصول خوانده نشد', 'manage_stock' => 'خاموش است'],
+                true
+            )
+        );
     }
 
     /**

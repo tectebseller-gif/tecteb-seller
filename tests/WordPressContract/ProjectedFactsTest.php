@@ -1148,6 +1148,167 @@ final class ProjectedFactsTest extends ContractTestCase
         self::assertSame([244, 246], $after, 'this row is ours and so is its key');
     }
 
+    /**
+     * §۳/۴: A PROJECTION DOES NOT TURN STOCK MANAGEMENT ON FOR A PRODUCT IT
+     * DID NOT CREATE.
+     *
+     * ⛔ **The measurement this exists for.** `set_manage_stock(true)` was
+     * the last unconditional write in `project()`, and `$isNew` guarded only
+     * the quantity beside it. So on shop 102 — 184 products taken in from the
+     * shop, every one of them — the first projection after a transfer
+     * switched stock management ON and wrote no number, and a managed product
+     * with no `_stock` row is one WooCommerce can report as out of stock.
+     * `alpha.93` measured that hazard and could only disclose it; this is the
+     * write going away, which is what lets the risk key be released.
+     *
+     * The rule it now follows is ADR-008's own: «موجودی پس از اولین
+     * projection مال ووکامرس».
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAProjectionDoesNotTurnStockManagementOnForAProductItDidNotCreate(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $first = $this->projector()->project($this->product(description: null));
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+
+        // What an intaken product looks like, and what a manager who handles
+        // stock by hand leaves behind: management off.
+        $shop = \WC_Product::$saved[$wcId];
+        $shop->set_manage_stock(false);
+        $shop->set_stock_status('instock');
+        $shop->save();
+        self::assertFalse(
+            \wc_get_product($wcId)->get_manage_stock(),
+            'the fixture must really start with management off'
+        );
+
+        $second = $this->projector()->project($this->product(description: null, wcProductId: $wcId));
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        $after = \wc_get_product($wcId);
+        self::assertFalse($after->get_manage_stock(), 'the shop keeps its own stock setting');
+        self::assertSame('instock', $after->get_stock_status(), 'and its own stock status');
+    }
+
+    /**
+     * The control: creating a product DOES turn management on and write the
+     * number.
+     *
+     * Without it, a projection that never touched stock at all would pass the
+     * test above and a marketplace product would arrive unmanaged
+     * (`alpha.46`).
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testCreatingAProductTurnsStockManagementOnAndWritesTheQuantity(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $result = $this->projector()->project($this->product(description: null));
+        self::assertTrue($result['ok'], (string) $result['code']);
+
+        $saved = \wc_get_product((int) $result['wc_product_id']);
+        self::assertTrue($saved->get_manage_stock(), 'a product we create is managed');
+        self::assertSame(5, (int) $saved->get_stock_quantity());
+    }
+
+    /**
+     * §۳: A PROJECTION DOES NOT REMOVE A SALE PRICE IT NEVER RECORDED.
+     *
+     * ⛔ The `price_scale` risk's sale half, measured. Intake reads the sale
+     * price through `exactInteger()`, so a shop sale price with a fraction
+     * becomes `salePriceMinor = null` — «no sale» — while the shop still has
+     * one; and on a re-snapshotted row the price write is PERMITTED, because
+     * `ShopEditMerge` answers `WRITE_FRESH` while the shop still holds what we
+     * last wrote. So `applySale()` ran and cleared the shop's sale price
+     * together with both of its dates.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAProjectionDoesNotRemoveASalePriceItNeverRecorded(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $first = $this->projector()->project($this->product(description: null));
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+
+        // A sale price this marketplace never recorded — the fractional one
+        // intake read as «no sale», or simply the manager's own.
+        $shop = \WC_Product::$saved[$wcId];
+        $shop->set_sale_price('150000');
+        $shop->save();
+        self::assertSame('150000', \wc_get_product($wcId)->get_sale_price());
+
+        $second = $this->projector()->project($this->product(description: null, wcProductId: $wcId));
+        self::assertTrue($second['ok'], (string) $second['code']);
+
+        self::assertSame(
+            '150000',
+            \wc_get_product($wcId)->get_sale_price(),
+            'a value we never wrote is not ours to remove'
+        );
+    }
+
+    /**
+     * The control from the other side: the VENDOR's own price change still
+     * removes their sale price.
+     *
+     * `writePrice()` is the vendor's mirror and passes `$oursIsFresh = true`
+     * — «این اختیار نباید محدود شود» (`alpha.83`). Without this control the
+     * fix above would read as «a sale price can never be cleared», which
+     * would take a right away instead of closing a loss.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testTheVendorsOwnPriceChangeStillRemovesTheirSalePrice(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $first = $this->projector()->project(
+            $this->product(description: null, salePriceMinor: 150000)
+        );
+        self::assertTrue($first['ok'], (string) $first['code']);
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame('150000', \wc_get_product($wcId)->get_sale_price());
+
+        // The vendor removes the sale and saves: their row now holds none.
+        $wrote = $this->projector()->writePrice(
+            $this->product(description: null, wcProductId: $wcId)
+        );
+        self::assertTrue($wrote['ok'], (string) $wrote['code']);
+        self::assertSame('', \wc_get_product($wcId)->get_sale_price());
+    }
+
+    /**
+     * And the second control: a sale price the row DOES hold still goes out
+     * on a projection. The release is about clearing, not about writing.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAProjectionStillWritesASalePriceTheRowHolds(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $first = $this->projector()->project($this->product(description: null));
+        $wcId = (int) $first['wc_product_id'];
+        self::assertSame('', \wc_get_product($wcId)->get_sale_price());
+
+        $second = $this->projector()->project(
+            $this->product(description: null, wcProductId: $wcId, salePriceMinor: 120000)
+        );
+        self::assertTrue($second['ok'], (string) $second['code']);
+        self::assertSame('120000', \wc_get_product($wcId)->get_sale_price());
+    }
+
     private function product(
         ?string $description,
         ?int $wcProductId = null,
@@ -1155,7 +1316,8 @@ final class ProjectedFactsTest extends ContractTestCase
         int $priceMinor = 200000,
         array $categoryIds = [],
         string $categoryKey = 'gloves',
-        bool $imported = false
+        bool $imported = false,
+        ?int $salePriceMinor = null
     ): Product {
         return new Product(
             41,
@@ -1166,6 +1328,7 @@ final class ProjectedFactsTest extends ContractTestCase
                 brand: 'آریا طب',
                 shortDescription: 'یک جمله',
                 priceMinor: $priceMinor,
+                salePriceMinor: $salePriceMinor,
                 sku: 'SKU-FACT',
                 stock: 5,
                 description: $description,

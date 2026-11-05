@@ -46,6 +46,9 @@ final class CatalogueIntakeTest extends DatabaseTestCase
     private const WC_READY = 7001;
     private const WC_SHOP = 7002;
 
+    /** A product whose type the four-step form has no shape for. */
+    private const WC_GROUPED = 7009;
+
     private ImportExistingProducts $intake;
     private FakeCatalogueReader $reader;
     private DbProductRepository $products;
@@ -423,6 +426,50 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         self::assertNull($this->products->findObservedByWcProduct(self::WC_READY));
     }
 
+    /**
+     * ⛔ §۱: AN UNSUPPORTED TYPE NEVER BECOMES AN INTAKEN ROW.
+     *
+     * This is the measurement behind «no `type` risk can be among shop 102's
+     * 184». `CatalogueBucket::decide()` appends `type_not_supported` to the
+     * reasons, `judge()` refuses on ANY reason by name before it reads the
+     * product, and `detailsFrom()` would otherwise have stored a `grouped`
+     * product as `simple` — a row whose every later projection writes
+     * simple-product fields onto a product of another shape.
+     *
+     * So `type` stays in `BLOCKING` for the case it is really for: a type
+     * somebody changes in WooCommerce AFTER the intake.
+     */
+    public function testAnUnsupportedTypeIsNeverTakenIn(): void
+    {
+        $this->reader->add(self::WC_GROUPED, [
+            'title' => 'بستهٔ گروهی',
+            'type' => 'grouped',
+        ], ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']);
+
+        $batch = $this->intake->importBatch('intake-1', [self::WC_GROUPED]);
+
+        self::assertSame(0, $batch['counts']['imported']);
+        self::assertSame('type_not_supported', $batch['results'][0]['reason']);
+        self::assertNull($this->products->findObservedByWcProduct(self::WC_GROUPED));
+    }
+
+    /**
+     * The control: the SAME fixture with a supported type IS taken, so the
+     * refusal above is about the type and not about anything else in it.
+     */
+    public function testTheSameProductWithASupportedTypeIsTakenIn(): void
+    {
+        $this->reader->add(self::WC_GROUPED, [
+            'title' => 'بستهٔ گروهی',
+            'type' => 'simple',
+        ], ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']);
+
+        $batch = $this->intake->importBatch('intake-1', [self::WC_GROUPED]);
+
+        self::assertSame(1, $batch['counts']['imported'], (string) ($batch['results'][0]['reason'] ?? ''));
+        self::assertNotNull($this->products->findObservedByWcProduct(self::WC_GROUPED));
+    }
+
     /** A SKU already used in that shop is a conflict for a person to settle. */
     public function testASkuAlreadyUsedInTheShopIsAConflict(): void
     {
@@ -483,11 +530,17 @@ final class CatalogueIntakeTest extends DatabaseTestCase
      * waived: it comes back as a DISCLOSURE, is printed, and is named in the
      * transfer's audit row — asserted in
      * `MirroredStatusAndSnapshotBatchTest` on the real audit table.
+     *
+     * ⛔ And the blocking key is `price_scale` rather than `manage_stock` from
+     * `alpha.94`, because that one is now released by the product being
+     * readable — `project()` writes `set_manage_stock(true)` only when it
+     * CREATES the product. Keeping the old key would have left this test
+     * green while it measured a row that no longer blocks anything.
      */
     public function testAcceptanceIsRefusedUntilTheOverwritingRisksAreAcknowledged(): void
     {
         $this->reader->risks[self::WC_READY] = [
-            'manage_stock' => 'مدیریت موجودی خاموش است',
+            'price_scale' => 'قیمت حراج این محصول عدد صحیح نیست',
             'backorders' => 'سفارش پس‌افت فعال است',
         ];
         $this->intake->importBatch('intake-1', [self::WC_READY]);
@@ -497,7 +550,7 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         $refused = $transfer->take((int) $product?->id);
         self::assertFalse($refused->ok);
         self::assertSame('ownership_risks_unacknowledged', $refused->code);
-        self::assertSame(['manage_stock'], $refused->context['risks'], 'only what a projection writes');
+        self::assertSame(['price_scale'], $refused->context['risks'], 'only what a projection writes');
         self::assertSame(
             LinkOwnership::Observed,
             $this->products->linkOwnership((int) $product->id),
@@ -513,7 +566,7 @@ final class CatalogueIntakeTest extends DatabaseTestCase
         // instead is NOT, which is the half that keeps the guard honest.
         self::assertFalse($transfer->take((int) $product->id, ['backorders'])->ok);
 
-        $taken = $transfer->take((int) $product->id, ['manage_stock']);
+        $taken = $transfer->take((int) $product->id, ['price_scale']);
         self::assertTrue($taken->ok, $taken->code);
         self::assertSame(LinkOwnership::Marketplace, $this->products->linkOwnership((int) $product->id));
     }

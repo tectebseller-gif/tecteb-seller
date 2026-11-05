@@ -3,8 +3,17 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.3.6
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-...........................                                       27 / 27 (100%)
+..........F................                                       27 / 27 (100%)
 
-Time: 00:23.310, Memory: 16.50 MB
+Time: 00:24.766, Memory: 18.50 MB
 
-OK (27 tests, 48660 assertions)
+There was 1 failure:
+
+1) Tecteb\Marketplace\Tests\Packaging\PackagingTest::testEveryDeliveredPackageMatchesTheBytesGitHasForIt
+tecteb-marketplace-core-0.1.0-alpha.94.zip is a delivered ZIP and must stay committed: a hash alone cannot stop a rebuild replacing it
+Failed asserting that 'tecteb-marketplace-core-0.1.0-alpha.94.zip' ends with ".tar.gz".
+
+/home/user/tecteb-seller/tests/Packaging/PackagingTest.php:397
+
+FAILURES!
+Tests: 27, Assertions: 48697, Failures: 1.

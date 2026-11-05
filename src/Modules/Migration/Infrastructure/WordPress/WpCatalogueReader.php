@@ -919,7 +919,19 @@ final class WpCatalogueReader implements CatalogueReaderInterface
             );
         }
         if ($detail['manage_stock'] === false) {
-            $risks['manage_stock'] = 'مدیریت موجودی خاموش است و همگام‌سازی بازارگاه آن را روشن می‌کند.';
+            // ⛔ `alpha.94` states the CONDITION, because until then this
+            // sentence was unconditional and it was true: `project()` called
+            // `set_manage_stock(true)` on every product, and `$isNew` guarded
+            // only the quantity beside it — so a product taken in from the
+            // shop came out of its first projection MANAGING stock with no
+            // `_stock` row, which WooCommerce can report as out of stock.
+            //
+            // The write now lives inside `if ($isNew)`, so a product this
+            // marketplace did not create keeps its own setting; what is left
+            // is what happens to a product it DOES create, and to a vendor
+            // who types a stock number (`writeStock()` still turns management
+            // on, because somebody just typed one).
+            $risks['manage_stock'] = 'مدیریت موجودی این محصول در ووکامرس خاموش است. همگام‌سازی بازارگاه آن را روشن نمی‌کند و مقدار فعلی دست‌نخورده می‌مانَد؛ ولی اگر فروشنده از پنل خودش عددی برای موجودی ثبت کند، همان ذخیره مدیریت موجودی را روشن می‌کند.';
         }
         if ((string) $detail['backorders'] !== 'no') {
             $risks['backorders'] = sprintf(
@@ -945,9 +957,25 @@ final class WpCatalogueReader implements CatalogueReaderInterface
         if ($detail['upsell_ids'] !== [] || $detail['cross_sell_ids'] !== []) {
             $risks['related'] = 'محصولات مرتبط (upsell/cross-sell) در این بازارگاه فیلدی ندارند؛ مقدار فعلی دست‌نخورده می‌مانَد.';
         }
-        if (!$this->isIntegerAmount((string) $detail['regular_price'])
-            || !$this->isIntegerAmount((string) $detail['sale_price'])) {
-            $risks['price_scale'] = 'قیمت این محصول عدد صحیح نیست و این بازارگاه قیمت را به‌صورت عدد صحیح نگه می‌دارد؛ گرد کردنش ممنوع است.';
+        // ⛔ TWO HALVES, AND THEY ARE NOT THE SAME RISK (`alpha.94`).
+        //
+        // A fractional REGULAR price makes `detailsFrom()` return `null`, so
+        // intake refuses the product by name (`price_not_an_integer`) — no
+        // intaken row can carry that half, and the sentence below says which
+        // half this row has rather than describing both.
+        //
+        // A fractional SALE price is read as `null` — «no sale» — while the
+        // shop still has one. Until `alpha.94` the first projection CLEARED
+        // it with both of its dates; `applySale()` now refuses that on a
+        // projection, so what is left is the vendor's next price edit, which
+        // is fresh by construction and does clear it. That is a real loss,
+        // deferred, so this key keeps blocking.
+        $badRegular = !$this->isIntegerAmount((string) $detail['regular_price']);
+        $badSale = !$this->isIntegerAmount((string) $detail['sale_price']);
+        if ($badRegular || $badSale) {
+            $risks['price_scale'] = $badRegular
+                ? 'قیمت اصلی این محصول عدد صحیح نیست و این بازارگاه قیمت را به‌صورت عدد صحیح نگه می‌دارد؛ گرد کردنش ممنوع است.'
+                : 'قیمت حراج این محصول عدد صحیح نیست، پس ردیف بازارگاه «حراجی ندارد» ثبت کرده. همگام‌سازی آن را پاک نمی‌کند، ولی اولین تغییر قیمت از سوی فروشنده قیمت حراج فروشگاه را برمی‌دارد. راه‌حل: قیمت حراج را در ووکامرس به عدد صحیح تبدیل کنید و بعد «بازخوانی اطلاعات» را بزنید.';
         }
         return $risks;
     }

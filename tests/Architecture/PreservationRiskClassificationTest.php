@@ -55,6 +55,25 @@ final class PreservationRiskClassificationTest extends TestCase
         'manage_stock' => ['set_manage_stock'],
     ];
 
+    /** `project()`'s signature, whitespace-free, for `methodBody()`. */
+    private const PROJECT =
+        'publicfunctionproject(Product$product,array$attributes=[],array$variations=[]):array{';
+
+    /** `writePrice()`'s, the other `applySale()` caller. */
+    private const WRITE_PRICE = 'publicfunctionwritePrice(Product$product):array{';
+
+    /**
+     * One method's body, so a setter called on purpose elsewhere in the file
+     * cannot answer a question about this one.
+     *
+     * Brace-matched rather than «up to the next `function`», which cuts a
+     * method in half the moment it contains a closure (`alpha.77`).
+     */
+    private function methodBody(string $relative, string $signature): string
+    {
+        return $this->balancedBlockAfter($this->code($relative), $signature);
+    }
+
     private function code(string $relative): string
     {
         $path = dirname(__DIR__, 2) . '/' . $relative;
@@ -239,6 +258,122 @@ final class PreservationRiskClassificationTest extends TestCase
         self::assertTrue(PreservationRisk::isBlockingGiven('price_scale', true));
         self::assertTrue(PreservationRisk::isBlockingGiven('type', true));
         self::assertTrue(PreservationRisk::isBlockingGiven('product', true));
+    }
+
+    /**
+     * ⛔ `alpha.94`: every key released by «the product exists» is written
+     * ONLY inside `project()`'s `$isNew` arm.
+     *
+     * The same measurement as the stamp's, one fact over. `manage_stock` is
+     * released because `set_manage_stock(true)` moved inside `if ($isNew)` —
+     * so a product this marketplace did not create keeps its own setting —
+     * and the day somebody moves it back out, this test fails rather than the
+     * comment becoming wrong in silence (`alpha.90`).
+     *
+     * Scoped to `project()`'s own body, because the vendor's stock edit
+     * (`writeStock()`) and the variation loop call the same setter on
+     * purpose: there somebody has just typed a number.
+     */
+    public function testEveryKeyReleasedByAnExistingProductIsWrittenOnlyWhenWeCreateIt(): void
+    {
+        $body = $this->methodBody(self::PROJECTOR, self::PROJECT);
+        self::assertNotSame('', $body, 'project() must be findable');
+        $created = $this->balancedBlockAfter($body, 'if($isNew){');
+        self::assertNotSame('', $created, 'project() must still have an $isNew arm');
+
+        foreach (PreservationRisk::HELD_BY_EXISTING_PRODUCT as $key) {
+            self::assertArrayHasKey($key, self::SETTERS, 'unmapped released key: ' . $key);
+            foreach (self::SETTERS[$key] as $setter) {
+                self::assertStringContainsString(
+                    '->' . $setter . '(',
+                    $created,
+                    $key . ' is released by an existing product but ' . $setter
+                        . ' is not inside the $isNew arm'
+                );
+                self::assertSame(
+                    1,
+                    substr_count($body, '->' . $setter . '('),
+                    $setter . ' is called more than once in project(), so one of them is'
+                        . ' outside the arm and the release is a licence'
+                );
+            }
+        }
+    }
+
+    /**
+     * The control: the catalogue visibility is NOT released by an existing
+     * product, and stock management is NOT released by the stamp.
+     *
+     * Each key answers to the one fact that makes its own write impossible.
+     * Without this, a context that released everything would satisfy both
+     * tests above and the four keys the owner's §3 protects would stop
+     * protecting anything (`alpha.46`).
+     */
+    public function testEachKeyIsReleasedByItsOwnFactAndNoOther(): void
+    {
+        self::assertNotContains('catalog_visibility', PreservationRisk::HELD_BY_EXISTING_PRODUCT);
+        self::assertNotContains('manage_stock', PreservationRisk::HELD_WITH_STATUS);
+        self::assertTrue(PreservationRisk::isBlockingGiven('catalog_visibility', false, true));
+        self::assertTrue(PreservationRisk::isBlockingGiven('manage_stock', true, false));
+        foreach (['price_scale', 'type', 'product'] as $key) {
+            self::assertTrue(PreservationRisk::isBlockingGiven($key, true, true), $key);
+        }
+
+        // ⛔ And the key the derivation reads is the key the reader writes.
+        // `storefrontReadable()` answers «could we read it» from the absence
+        // of one name; renaming that name in the reader without renaming the
+        // constant would make every unreadable product look readable, which
+        // is the one direction this must never fail in (`alpha.89`).
+        self::assertSame('product', PreservationRisk::UNREADABLE_KEY);
+        self::assertStringContainsString(
+            "return['" . PreservationRisk::UNREADABLE_KEY . "'=>",
+            (string) preg_replace('/\s+/', '', $this->code(self::READER)),
+            'the reader must answer an unreadable product with exactly that key'
+        );
+    }
+
+    /**
+     * ⛔ `alpha.94`: the sale price is cleared only when our value is FRESH,
+     * and the two callers pass opposite answers on purpose.
+     *
+     * A projection mirrors a row that may be months old, so it may not remove
+     * a sale price it never recorded — the `price_scale` risk's sale half.
+     * `writePrice()` is the vendor's own change, one statement after they
+     * typed it, so there the removal is theirs to make (`alpha.83`). One
+     * rule, two callers, and the text of each call pinned so they cannot
+     * drift apart (`alpha.78`).
+     */
+    public function testTheSalePriceIsClearedOnlyWhenOurValueIsFresh(): void
+    {
+        $project = $this->methodBody(self::PROJECTOR, self::PROJECT);
+        self::assertStringContainsString('$this->applySale($wcProduct,$product,false);', $project);
+        self::assertStringNotContainsString('$this->applySale($wcProduct,$product,true);', $project);
+
+        $write = $this->methodBody(self::PROJECTOR, self::WRITE_PRICE);
+        self::assertNotSame('', $write, 'writePrice() must be findable');
+        self::assertStringContainsString('$this->applySale($wcProduct,$product,true);', $write);
+
+        // And the guard is inside the CLEARING branch, which is the only one
+        // that takes something away.
+        $clearing = $this->balancedBlockAfter(
+            $this->code(self::PROJECTOR),
+            'if($details->salePriceMinor===null){'
+        );
+        self::assertStringContainsString('if(!$oursIsFresh&&', $clearing);
+        self::assertStringContainsString('->set_sale_price(\'\');', $clearing);
+
+        // ⛔ AND IT READS THE SALE PRICE, which only source can say.
+        //
+        // Measured: through `project()` the sale and the regular price give
+        // the SAME answer, because a product whose regular price is empty
+        // never reaches this method at all — `hasPrice()` is false, the whole
+        // price block is skipped and `$priceHeld` is set instead. So a guard
+        // reading `get_regular_price()` behaves identically today and is
+        // wrong for the next caller, and the falsification loop found exactly
+        // that: the mutation survived every behavioural suite (`alpha.77` —
+        // assert in source what no behaviour can reach).
+        self::assertStringContainsString('$wcProduct->get_sale_price()', $clearing);
+        self::assertStringNotContainsString('$wcProduct->get_regular_price()', $clearing);
     }
 
     /**

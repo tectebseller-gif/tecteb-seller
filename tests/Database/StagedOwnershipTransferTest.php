@@ -151,7 +151,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         // And the excluded one is named, with its reason, rather than silently
         // dropped — the half a batch cannot do honestly.
         $named = array_column($plan['rows'], 'risks', 'product_id');
-        self::assertSame(['manage_stock'], $named[$risky]);
+        self::assertSame(['price_scale'], $named[$risky]);
     }
 
     /** A drift puts a row in `drift_fixable` and names the field. */
@@ -417,7 +417,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         $this->importReady();
         $plan = $this->plan()->plan(self::VENDOR);
         // A risk appears between the render and the click.
-        $this->reader->risks[self::WC_READY[2]] = ['manage_stock' => 'مدیریت موجودی خاموش است'];
+        $this->reader->risks[self::WC_READY[2]] = ['price_scale' => 'قیمت حراج این محصول عدد صحیح نیست'];
 
         $result = $this->apply()->apply(self::VENDOR, 0, $plan['ready'], $plan['digest']);
 
@@ -502,7 +502,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         // Now the risk exists. The plan inside `apply()` will see it, so this
         // comes back as `plan_moved` — but the point is the row did NOT move,
         // and the direct call shows which guard refuses it.
-        $this->reader->risks[self::WC_RISKY] = ['manage_stock' => 'مدیریت موجودی خاموش است'];
+        $this->reader->risks[self::WC_RISKY] = ['price_scale' => 'قیمت حراج این محصول عدد صحیح نیست'];
 
         $batch = $this->apply()->apply(self::VENDOR, 0, [$risky], $plan['digest']);
         $single = $this->transfer()->take($risky, [], []);
@@ -557,12 +557,24 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
     }
 
     /** One imported row, then given a preservation risk a human must read. */
+    /**
+     * A row carrying a risk no context releases.
+     *
+     * ⛔ The key is `price_scale` rather than `manage_stock` from
+     * `alpha.94`, and the change is a FIXTURE one: stock management is
+     * released once the shop product can be read, because `project()` now
+     * writes `set_manage_stock(true)` only when it CREATES the product. A
+     * fixture that kept the old key would have gone on calling these four
+     * tests green while measuring a row that is no longer risky — so the
+     * blocker here is the one a missing scale on the sale price makes, which
+     * nothing in `PreservationRisk` releases.
+     */
     private function importRisky(bool $withRisk = true): int
     {
         $batch = $this->intake()->importBatch('staged-risky', [self::WC_RISKY]);
         self::assertTrue($batch['ok'], (string) $batch['code']);
         if ($withRisk) {
-            $this->reader->risks[self::WC_RISKY] = ['manage_stock' => 'مدیریت موجودی خاموش است'];
+            $this->reader->risks[self::WC_RISKY] = ['price_scale' => 'قیمت حراج این محصول عدد صحیح نیست'];
         }
         return (int) $this->products->findObservedByWcProduct(self::WC_RISKY)->id;
     }

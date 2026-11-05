@@ -3,13 +3,13 @@ PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.3.6
 Configuration: /home/user/tecteb-seller/phpunit.xml.dist
 
-...............................................................  63 / 347 ( 18%)
-............................................................... 126 / 347 ( 36%)
-............................................................... 189 / 347 ( 54%)
-............................................................... 252 / 347 ( 72%)
-..........................................<style>.tmc-account-vendor{margin:0 0 1.5em}.tmc-account-vendor__link{display:inline-block;font-size:1rem;line-height:1.6;padding:.7em 1.4em;max-width:100%;white-space:normal;text-align:center}.tmc-account-vendor__note{display:block;margin-top:.6em;font-size:.9rem;opacity:.85}</style><p class="tmc-account-vendor"><a class="button tmc-account-vendor__link" href="https://example.test/?tmc_vendor=dashboard">ورود به داشبورد فروشنده</a><span class="tmc-account-vendor__note">مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.</span></p>..................... 315 / 347 ( 90%)
-................................                                347 / 347 (100%)
+...............................................................  63 / 352 ( 17%)
+............................................................... 126 / 352 ( 35%)
+............................................................... 189 / 352 ( 53%)
+............................................................... 252 / 352 ( 71%)
+...............................................<style>.tmc-account-vendor{margin:0 0 1.5em}.tmc-account-vendor__link{display:inline-block;font-size:1rem;line-height:1.6;padding:.7em 1.4em;max-width:100%;white-space:normal;text-align:center}.tmc-account-vendor__note{display:block;margin-top:.6em;font-size:.9rem;opacity:.85}</style><p class="tmc-account-vendor"><a class="button tmc-account-vendor__link" href="https://example.test/?tmc_vendor=dashboard">ورود به داشبورد فروشنده</a><span class="tmc-account-vendor__note">مدیریت محصول‌ها، سفارش‌ها و تنظیمات فروشگاه شما.</span></p>................ 315 / 352 ( 89%)
+.....................................                           352 / 352 (100%)
 
-Time: 00:05.280, Memory: 34.00 MB
+Time: 00:05.260, Memory: 34.00 MB
 
-OK (347 tests, 1947 assertions)
+OK (352 tests, 1971 assertions)

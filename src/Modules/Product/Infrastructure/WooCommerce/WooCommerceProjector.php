@@ -414,16 +414,44 @@ final class WooCommerceProjector implements CatalogProjectorInterface
                 // its own report, with both numbers on it.
                 if ($shopFieldsMerged['may'][ShopEditMerge::PRICE]) {
                     $wcProduct->set_regular_price((string) $details->priceMinor);
-                    $this->applySale($wcProduct, $product);
+                    // `false`: a projection mirrors a row that may be months
+                    // old, so it may not REMOVE a sale price it never
+                    // recorded. `writePrice()` passes `true`, because there
+                    // the vendor typed the change one statement earlier.
+                    $this->applySale($wcProduct, $product, false);
                 }
             } else {
                 // The sale price is held with it: a sale off a price that does
                 // not exist is a second invented number.
                 $priceHeld = true;
             }
-            $wcProduct->set_manage_stock(true);
+            // NOTHING ABOUT STOCK IS WRITTEN TO A PRODUCT WE DID NOT CREATE.
+            //
+            // ⛔ `set_manage_stock(true)` was the last unconditional write in
+            // this method, and `$isNew` guarded only the NUMBER beside it. So
+            // on a product taken in from the shop — every one of shop 102's
+            // 184 — the first projection after a transfer switched stock
+            // management ON and wrote no quantity, and a managed product with
+            // no `_stock` row is a product WooCommerce can report as out of
+            // stock. `alpha.93` measured that and could only disclose it;
+            // this is the write itself going away.
+            //
+            // The rule it now follows is the one ADR-008 already states:
+            // «موجودی پس از اولین projection مال ووکامرس» — stock belongs to
+            // WooCommerce after the first projection. Re-forcing the flag on
+            // contradicted that for a product whose manager had deliberately
+            // switched it off, and for an intaken product it invented a
+            // setting nobody chose (`alpha.44`'s rule: a value we never wrote
+            // is not ours).
+            //
+            // The VENDOR's own stock edit is a different caller and keeps the
+            // unconditional write: `writeStock()` turns management on because
+            // somebody just typed a number. That split is the whole of
+            // `alpha.83` in one field.
             if ($isNew) {
-                // Only here: afterwards WooCommerce's number is the true one.
+                // Only here: afterwards WooCommerce's numbers are the true
+                // ones, the flag included.
+                $wcProduct->set_manage_stock(true);
                 $wcProduct->set_stock_quantity($details->stock);
                 $wcProduct->set_stock_status($details->stock > 0 ? 'instock' : 'outofstock');
             }
@@ -900,10 +928,36 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         }
     }
 
-    private function applySale(mixed $wcProduct, Product $product): void
+    /**
+     * The sale price — and the one case in which it is not ours to remove.
+     *
+     * ⛔ **Measured.** `ImportExistingProducts::detailsFrom()` reads the sale
+     * price through `exactInteger()`, so a shop sale price with a fraction
+     * becomes `salePriceMinor = null` — «no sale» — while the shop still has
+     * one. The regular price cannot reach this state (intake REFUSES a
+     * fractional one by name, `price_not_an_integer`), so the fractional SALE
+     * price is the only half of the `price_scale` risk an intaken row can
+     * carry. And on a re-snapshotted row the price write is permitted —
+     * `ShopEditMerge::decide()` answers `WRITE` when the two agree, which
+     * after a refresh they do — so this method ran and CLEARED the shop's
+     * sale price together with both of its dates.
+     *
+     * `$oursIsFresh` is the same flag `ShopEditMerge` has taken since
+     * `alpha.83`, from the same two callers and for the same reason: a
+     * projection mirrors a row that may be months old, the vendor's own price
+     * change is fresh by construction. So a projection keeps a sale price it
+     * never recorded, and the vendor who removes their sale still removes it.
+     *
+     * Only the CLEARING branch asks. Writing a sale price we do hold is the
+     * vendor's value going out, which no rule here delays.
+     */
+    private function applySale(mixed $wcProduct, Product $product, bool $oursIsFresh): void
     {
         $details = $product->details;
         if ($details->salePriceMinor === null) {
+            if (!$oursIsFresh && (string) $wcProduct->get_sale_price() !== '') {
+                return;
+            }
             $wcProduct->set_sale_price('');
             $wcProduct->set_date_on_sale_from(null);
             $wcProduct->set_date_on_sale_to(null);
@@ -1498,7 +1552,9 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             ];
         }
         $wcProduct->set_regular_price((string) $details->priceMinor);
-        $this->applySale($wcProduct, $product);
+        // `true`: fresh by construction on this path, as above — so the
+        // vendor who clears their own sale price still clears it.
+        $this->applySale($wcProduct, $product, true);
         try {
             $saved = (int) $wcProduct->save();
         } catch (\Throwable) {

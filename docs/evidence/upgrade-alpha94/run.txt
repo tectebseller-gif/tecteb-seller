@@ -1,0 +1,44 @@
+alpha.93 → alpha.94, read from the two delivered packages
+date: 2026-11-05T09:51:48Z
+
+PASS 0a both packages exist — yes
+    old: 79a2a0434fd23081f11249a3eec56468b4550a9f349111eeff485d96f80edfe0
+    new: 82473bde4a741b53a41b8374aea3b9cdc3738700dbcefe6a8fc8860b2c1976a7
+
+PASS 1a alpha.93 declares structure — 38
+PASS 1b alpha.94 declares structure — 38
+PASS 1c the structure does not move — same
+
+PASS 2a migration file count — 38
+PASS 2b the same migration files — identical
+PASS 2c no migration's bytes changed — 0
+
+NOTE 3a no step was added, so going back to alpha.93 runs no migration
+     and undoes none: MigrationRunner never lowers a structure version.
+     The cost of a rollback this round is the GUARD plus two WRITES:
+     alpha.93 asks for a stock-management tick again on the rows
+     alpha.94 releases — and those rows leave the re-snapshot offer with
+     it, because risk_real is not in REFRESHABLE. And alpha.93's first
+     projection switches stock management back on and clears a sale
+     price nobody recorded, so a rollback AFTER a transfer restores the
+     very hazard this package removes. Nothing this round WRITES has to
+     be reversed; what comes back is a write.
+
+source files that differ between the two packages:
+    src/Modules/Migration/Domain/PreservationRisk.php
+    src/Modules/Migration/Infrastructure/WordPress/WpCatalogueReader.php
+    src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php
+PASS 4a only the risk and projection paths moved — 3
+
+PASS 5a alpha.93 writes the stock flag unconditionally — yes
+PASS 5b alpha.94 writes it only when it creates the product — yes
+PASS 5c alpha.93 clears a sale price with no freshness question — yes
+PASS 5d alpha.94 asks before clearing, and the two callers disagree — yes
+PASS 5e alpha.94 releases manage_stock on a readable product — yes
+PASS 5f and alpha.94 keeps the four protected keys blocking — yes
+
+⛔ Not Run, and not a pass: installing either package, running the
+   upgrade on a site, the batched re-snapshot, the transfer, and reading
+   the five product fields afterwards. This script compares packages.
+
+checks: 14 · passed: 14 · failed: 0

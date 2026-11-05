@@ -21,7 +21,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Domain;
  *
  * | key                 | setters in `project()` |
  * |---------------------|------------------------|
- * | `manage_stock`      | **3** — and one is unconditional |
+ * | `manage_stock`      | **3** — and from `alpha.94` NONE of them is unconditional |
  * | `catalog_visibility`| **2** |
  * | `dimensions`        | 0 (`set_length`/`set_width`/`set_height`) |
  * | `shipping_class`    | 0 (`set_shipping_class_id`) |
@@ -36,16 +36,25 @@ namespace Tecteb\Marketplace\Modules\Migration\Domain;
  *
  * ### What stays blocking, and why each one earns it
  *
- *  * **`manage_stock`** — `set_manage_stock(true)` is unconditional, so the
- *    first save switches a vendor's manual stock handling on.
+ *  * **`manage_stock`** — written only when `project()` CREATES the product
+ *    (`alpha.94`); on a product this marketplace did not create the shop's
+ *    own setting stands, so the key is released by
+ *    `HELD_BY_EXISTING_PRODUCT` below while staying in this list.
  *  * **`catalog_visibility`** — written from the marketplace status whenever
  *    the row carries no mirrored stamp, so `search`-only or `hidden` becomes
  *    `visible`.
  *  * **`price_scale`** — the shop holds a fractional price this marketplace
- *    cannot store as an integer. Nothing is overwritten, and it still blocks:
- *    `ImportExistingProducts::detailsFrom()` cannot even build the snapshot,
- *    so neither the drift report nor the re-snapshot can run for that row —
- *    and rounding money has been forbidden since `alpha.39`.
+ *    cannot store as an integer, and rounding money has been forbidden since
+ *    `alpha.39`. ⛔ **Measured on `alpha.93`:** the two halves of this key are
+ *    not the same risk. A fractional REGULAR price makes
+ *    `ImportExistingProducts::detailsFrom()` return `null`, so intake refuses
+ *    the product by name (`price_not_an_integer`) and no intaken row can
+ *    carry that half at all. A fractional SALE price is read as `null` —
+ *    «no sale» — while the shop still has one, and until `alpha.94`
+ *    `applySale()` then CLEARED it on the first projection. That write is now
+ *    refused for a projection, so what remains is a deferred loss on the
+ *    vendor's next price edit — real, which is why the key keeps blocking and
+ *    is not released by anything here.
  *  * **`type`** — a type the four-step form has no shape for. `project()`
  *    branches on `simple` versus `variable` and treats anything else as the
  *    former.
@@ -155,24 +164,67 @@ final class PreservationRisk
         'catalog_visibility',
     ];
 
+    /**
+     * Released once the shop product can be READ — because then the next
+     * projection will not create it, and the write is in the `$isNew` arm.
+     *
+     * ⛔ From `alpha.94`. `set_manage_stock(true)` was unconditional, which
+     * is exactly why `alpha.93` had to leave this key blocking for a stamped
+     * row too; the fix is the write moving inside `if ($isNew)` in
+     * `WooCommerceProjector::project()`, so a product this marketplace did
+     * not create keeps its own stock setting — the rule ADR-008 already
+     * states («موجودی پس از اولین projection مال ووکامرس»).
+     *
+     * The fact is derived from the answer itself rather than passed in:
+     * `preservationRisksFrom([])` returns `['product' => …]` and NOTHING
+     * else, so «the array does not name `product`» is «the product was
+     * read», from the one read both callers already share (`alpha.78`). A
+     * caller that could read nothing gets `[]`, where there is nothing to
+     * release.
+     */
+    public const HELD_BY_EXISTING_PRODUCT = [
+        'manage_stock',
+    ];
+
+    /** The key whose presence means the product could not be read at all. */
+    public const UNREADABLE_KEY = 'product';
+
     public static function isBlocking(string $key): bool
     {
         return !in_array($key, self::DISCLOSURE, true);
     }
 
     /**
-     * Whether this key blocks GIVEN what the row's stamp makes possible.
+     * Whether this key blocks GIVEN what the row's context makes possible.
      *
-     * `$statusHeld` false is the conservative answer, so a caller that
-     * cannot tell gets the pre-`alpha.93` behaviour rather than a release
-     * (`alpha.89`).
+     * One mechanism, one question per key: a key is released only by the fact
+     * that makes ITS write impossible, and every fact defaults to the
+     * conservative answer — so a caller that cannot tell gets the behaviour
+     * of the round before the release rather than a licence (`alpha.89`).
      */
-    public static function isBlockingGiven(string $key, bool $statusHeld): bool
-    {
+    public static function isBlockingGiven(
+        string $key,
+        bool $statusHeld,
+        bool $storefrontReadable = false
+    ): bool {
         if ($statusHeld && in_array($key, self::HELD_WITH_STATUS, true)) {
             return false;
         }
+        if ($storefrontReadable && in_array($key, self::HELD_BY_EXISTING_PRODUCT, true)) {
+            return false;
+        }
         return self::isBlocking($key);
+    }
+
+    /**
+     * Whether one `preservationRisksFrom()` answer describes a product that
+     * was read.
+     *
+     * @param array<string,string> $risks
+     */
+    public static function storefrontReadable(array $risks): bool
+    {
+        return $risks !== [] && !array_key_exists(self::UNREADABLE_KEY, $risks);
     }
 
     /**
@@ -183,9 +235,10 @@ final class PreservationRisk
      */
     public static function blockingGiven(array $risks, bool $statusHeld): array
     {
+        $readable = self::storefrontReadable($risks);
         return array_values(array_filter(
             array_keys($risks),
-            static fn (string $key): bool => self::isBlockingGiven($key, $statusHeld)
+            static fn (string $key): bool => self::isBlockingGiven($key, $statusHeld, $readable)
         ));
     }
 
@@ -198,9 +251,10 @@ final class PreservationRisk
      */
     public static function disclosuresGiven(array $risks, bool $statusHeld): array
     {
+        $readable = self::storefrontReadable($risks);
         return array_values(array_filter(
             array_keys($risks),
-            static fn (string $key): bool => !self::isBlockingGiven($key, $statusHeld)
+            static fn (string $key): bool => !self::isBlockingGiven($key, $statusHeld, $readable)
         ));
     }
 
