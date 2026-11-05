@@ -256,7 +256,7 @@ wizard و آن صفحه نمی‌توانند دو جواب بدهند. جلوگ
 | unit | **۷۵۴** | ۰ |
 | architecture | **۲۴۸** | ۰ |
 | contract | **۳۶۰** | ۰ |
-| database | **۱۰۶۳** | ۰ |
+| database | **۱۰۶۵** | ۰ |
 | packaging | ۲۷ | ۰ |
 
 `php -l` روی **۶۲۸** فایل با **۸٫۳٫۶** و ۰ شکست · PHPCompatibility با
@@ -270,7 +270,7 @@ wizard و آن صفحه نمی‌توانند دو جواب بدهند. جلوگ
 | انتقال مالکیت مرحله‌ای | `StagedOwnershipTransferTest`, `OwnershipTransferUnitOfWorkTest` |
 | اجرای مجدد بدون تکرار | `StatusReconciliationFlowTest::testItIsIdempotent` + `DokanImportJobTest` |
 | قطع عملیات و ادامه | `DokanImportJobTest` (SIGKILL واقعی، cursor) |
-| **اختلاف Published / Draft** | `StorefrontStatusReconciliationTest` (۱۱) + `StatusReconciliationFlowTest` (۲۵) |
+| **اختلاف Published / Draft** | `StorefrontStatusReconciliationTest` (۱۱) + `StatusReconciliationFlowTest` (۲۷) |
 | حفظ قیمت و موجودی | `testNothingButTheStatusChanges` (digest کلِ ردیف) |
 | حفظ دسته‌های چندگانه | `CategoryLinkFlowTest` |
 | حفظ SKU | `testNothingButTheStatusChanges` |
