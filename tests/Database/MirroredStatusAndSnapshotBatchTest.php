@@ -55,6 +55,18 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
     /** A second one, so a batch has more than a single row. */
     private const WC_SECOND = 8302;
 
+    /** Published, and `hidden` in the catalogue — the §5 subject. */
+    private const WC_HIDDEN = 8303;
+
+    /**
+     * `draft` in the shop AND hidden, so an unstamped row AGREES about the
+     * publish state and the risk question is the only one left.
+     */
+    private const WC_DRAFT_HIDDEN = 8304;
+
+    /** Published, with stock management off — the risk no stamp releases. */
+    private const WC_UNMANAGED = 8305;
+
     private WpDatabase $db;
     private DbProductRepository $products;
     private DbVendorRepository $vendors;
@@ -90,6 +102,54 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
                 ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
             );
         }
+
+        // §5's three, each carrying the finding the real reader would derive
+        // from the same product. The fake answers from `$risks`, keyed off
+        // the detail's own id, so it cannot tell the planner one thing and
+        // the guard another (`alpha.59`).
+        $this->reader->add(
+            self::WC_HIDDEN,
+            [
+                'title' => 'کالای پنهان',
+                'regular_price' => '450000',
+                'sku' => 'WC-' . self::WC_HIDDEN,
+                'status' => 'publish',
+                'catalog_visibility' => 'hidden',
+            ],
+            ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+        );
+        $this->reader->risks[self::WC_HIDDEN] = [
+            'catalog_visibility' => 'نمایش در فهرست «hidden» است و این بازارگاه فیلدی برایش ندارد.',
+        ];
+        $this->reader->add(
+            self::WC_DRAFT_HIDDEN,
+            [
+                'title' => 'کالای پیش‌نویسِ پنهان',
+                'regular_price' => '450000',
+                'sku' => 'WC-' . self::WC_DRAFT_HIDDEN,
+                'status' => 'draft',
+                'catalog_visibility' => 'hidden',
+            ],
+            ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+        );
+        $this->reader->risks[self::WC_DRAFT_HIDDEN] = [
+            'catalog_visibility' => 'نمایش در فهرست «hidden» است و این بازارگاه فیلدی برایش ندارد.',
+        ];
+        $this->reader->add(
+            self::WC_UNMANAGED,
+            [
+                'title' => 'کالای بی‌مدیریت موجودی',
+                'regular_price' => '450000',
+                'sku' => 'WC-' . self::WC_UNMANAGED,
+                'status' => 'publish',
+                'manage_stock' => false,
+            ],
+            ['author_id' => self::VENDOR, 'vendor_profile' => 'approved']
+        );
+        $this->reader->risks[self::WC_UNMANAGED] = [
+            'manage_stock' => 'مدیریت موجودی خاموش است و همگام‌سازی بازارگاه آن را روشن می‌کند.',
+        ];
+
         $this->projector = new FakeCatalogProjector();
     }
 
@@ -705,6 +765,201 @@ final class MirroredStatusAndSnapshotBatchTest extends DatabaseTestCase
     }
 
     // ============================================================== fixtures
+
+    // ===== §5 a risk the stamp makes impossible, and the three controls
+
+    /**
+     * ⛔ THE NUMBER THIS SECTION IS FOR: shop 102, 184 rows, 0 ready.
+     *
+     * After migration 38 stamped every one of those rows, `project()` writes
+     * NEITHER the status nor the catalogue visibility — both are inside
+     * `if (!$statusHeld)` (`WooCommerceProjector.php:218-222`). So a stamped
+     * row cannot lose a `hidden` or `search` visibility, and until
+     * `alpha.93` the gate demanded a tick for it anyway: a blocker on a
+     * write that cannot happen, which is the `alpha.91` §1-الف shape one key
+     * later.
+     *
+     * The key is NOT moved to `DISCLOSURE` — the owner's §3 keeps it
+     * protected and `PreservationRiskClassificationTest` holds it in
+     * `BLOCKING`. What changed is that the question is asked WITH the row's
+     * stamp.
+     */
+    public function testAStampedRowDoesNotBlockOnAVisibilityItCannotLose(): void
+    {
+        $id = $this->importOne(self::WC_HIDDEN);
+        self::assertSame('publish', $this->stampOf($id), 'the intake stamped it');
+
+        $rows = $this->plan()->plan(self::VENDOR)['rows'];
+        $row = $this->rowFor($rows, $id);
+
+        self::assertSame(OwnershipTransferPlan::READY, $row['bucket'], (string) $row['why']);
+        self::assertSame([], $row['risks'], 'nothing left to acknowledge');
+        self::assertContains(
+            'catalog_visibility',
+            (array) $row['disclosed'],
+            'released from blocking, NOT removed from the report'
+        );
+        self::assertSame(ProjectedStatus::HELD, $row['status']);
+    }
+
+    /**
+     * THE CONTROL: with no stamp, the same finding still blocks.
+     *
+     * The shop sits at `draft` here on purpose, so the publish state AGREES
+     * and the row reaches the risk question at all — an unstamped row beside
+     * a `publish` product is `STATUS_BLOCKED` first, and would have proved
+     * nothing about the visibility (precedence is a decision, not an order
+     * of reading).
+     */
+    public function testAnUnstampedRowStillBlocksOnTheSameVisibility(): void
+    {
+        $id = $this->importOne(self::WC_DRAFT_HIDDEN);
+        $this->clearStamp($id);
+
+        $rows = $this->plan()->plan(self::VENDOR)['rows'];
+        $row = $this->rowFor($rows, $id);
+
+        self::assertSame(ProjectedStatus::AGREES, $row['status'], 'draft beside draft');
+        self::assertSame(OwnershipTransferPlan::RISK_REAL, $row['bucket'], (string) $row['why']);
+        self::assertContains('catalog_visibility', (array) $row['risks']);
+        self::assertNotContains('catalog_visibility', (array) $row['disclosed']);
+    }
+
+    /**
+     * THE SECOND CONTROL: the release is one key wide.
+     *
+     * `set_manage_stock(true)` is unconditional and OUTSIDE the stamp guard,
+     * so a stamped row still has to answer for it. Without this, a release
+     * that leaked to every key would pass the test above.
+     */
+    public function testAStampedRowStillBlocksOnManageStock(): void
+    {
+        $id = $this->importOne(self::WC_UNMANAGED);
+        self::assertSame('publish', $this->stampOf($id));
+
+        $rows = $this->plan()->plan(self::VENDOR)['rows'];
+        $row = $this->rowFor($rows, $id);
+
+        self::assertSame(OwnershipTransferPlan::RISK_REAL, $row['bucket'], (string) $row['why']);
+        self::assertContains('manage_stock', (array) $row['risks']);
+    }
+
+    /**
+     * And the guard reaches the SAME answer the planner offered.
+     *
+     * `take($id, [], [])` is the batch's call — empty acknowledgement, empty
+     * seen-shop — so this is what `ApplyOwnershipTransfer` would do. A
+     * planner that bucketed `ready` while the guard still refused would hand
+     * the manager a button whose refusal they could not predict
+     * (`alpha.78`), and that is exactly what a stamp-blind guard would do.
+     */
+    public function testTheGuardAcceptsWhatThePlannerCalledReady(): void
+    {
+        $stamped = $this->importOne(self::WC_HIDDEN);
+        $this->linkProjector($stamped, self::WC_HIDDEN);
+
+        $result = $this->transfer()->take($stamped, [], []);
+        self::assertTrue($result->ok, (string) $result->code);
+        self::assertSame(
+            LinkOwnership::Marketplace,
+            $this->products->linkOwnership($stamped),
+            'the row moved'
+        );
+
+        // The other half: unstamped, and refused BY NAME with no tick.
+        $unstamped = $this->importOne(self::WC_DRAFT_HIDDEN);
+        $this->clearStamp($unstamped);
+        $this->linkProjector($unstamped, self::WC_DRAFT_HIDDEN);
+
+        $refused = $this->transfer()->take($unstamped, [], []);
+        self::assertFalse($refused->ok);
+        self::assertSame('ownership_risks_unacknowledged', $refused->code);
+        self::assertContains('catalog_visibility', (array) ($refused->context['risks'] ?? []));
+        self::assertSame(
+            LinkOwnership::Observed,
+            $this->products->linkOwnership($unstamped),
+            'and did not move'
+        );
+    }
+
+    /**
+     * THE OWNER'S CONSTRAINT, MEASURED: the transfer changes nothing.
+     *
+     * «قیمت، موجودی، SKU، دسته‌ها، وضعیت انتشار و اطلاعات محصولات ووکامرس
+     * باید حفظ شوند» — asserted on BOTH sides of the one write this round
+     * makes reachable, because a release that let a product through is only
+     * safe if going through costs the product nothing.
+     */
+    public function testTakingAReleasedRowChangesNeitherTheShopNorTheFiveFields(): void
+    {
+        $id = $this->importOne(self::WC_HIDDEN);
+        $this->linkProjector($id, self::WC_HIDDEN);
+
+        $shopBefore = $this->shopProductDigest(self::WC_HIDDEN);
+        $rowBefore = $this->rowFields($id);
+
+        $result = $this->transfer()->take($id, [], []);
+        self::assertTrue($result->ok, (string) $result->code);
+
+        // ⛔ The PRODUCT's own fields, not `shopDigest()`: that one also
+        // carries the double's bookkeeping, and `claimStorefrontPost()`
+        // legitimately records the status it found (`_tmc_claimed_from_status`
+        // — one of the three keys the claim writes). Asserting on it would
+        // report the claim as a change to the product, which it is not.
+        self::assertSame(
+            $shopBefore,
+            $this->shopProductDigest(self::WC_HIDDEN),
+            'status, price, stock, sku, categories and visibility of the SHOP product'
+        );
+        self::assertSame($rowBefore, $this->rowFields($id), 'status, price, stock, sku, category');
+        // And no visibility was written at all — the fake records one only
+        // when `set_catalog_visibility()` is actually reached.
+        self::assertSame('', $this->projector->visibilityOf(self::WC_HIDDEN), 'no visibility write');
+        self::assertSame('publish', $this->stampOf($id), 'the stamp that holds it survives');
+    }
+
+    /** A released key is recorded, so the trail can answer «did anybody know?». */
+    public function testTheReleasedKeyTravelsIntoTheAuditRow(): void
+    {
+        $id = $this->importOne(self::WC_HIDDEN);
+        $this->linkProjector($id, self::WC_HIDDEN);
+
+        $result = $this->transfer()->take($id, [], []);
+        self::assertTrue($result->ok, (string) $result->code);
+
+        $disclosed = '';
+        foreach ($this->auditPayloads(AuditEventCatalog::DOKAN_OWNERSHIP_CHANGED) as $payload) {
+            $disclosed .= (string) ($payload['disclosed'] ?? '');
+        }
+        self::assertStringContainsString('catalog_visibility', $disclosed);
+    }
+
+    /** The SHOP product's own fields — nothing the double keeps about itself. */
+    private function shopProductDigest(int $wcId): string
+    {
+        $detail = $this->reader->detail($wcId);
+        return (string) json_encode([
+            'status' => (string) ($detail['status'] ?? ''),
+            'catalog_visibility' => (string) ($detail['catalog_visibility'] ?? ''),
+            'regular_price' => (string) ($detail['regular_price'] ?? ''),
+            'sale_price' => (string) ($detail['sale_price'] ?? ''),
+            'stock_quantity' => (string) ($detail['stock_quantity'] ?? ''),
+            'sku' => (string) ($detail['sku'] ?? ''),
+            'category_ids' => (array) ($detail['category_ids'] ?? []),
+            'manage_stock' => (bool) ($detail['manage_stock'] ?? false),
+        ]);
+    }
+
+    /** @param list<array<string,mixed>> $rows */
+    private function rowFor(array $rows, int $productId): array
+    {
+        foreach ($rows as $row) {
+            if ((int) ($row['product_id'] ?? 0) === $productId) {
+                return $row;
+            }
+        }
+        self::fail('the plan did not list product ' . $productId);
+    }
 
     private function importOne(int $wcId): int
     {

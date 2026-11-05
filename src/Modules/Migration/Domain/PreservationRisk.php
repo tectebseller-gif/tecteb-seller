@@ -101,9 +101,107 @@ final class PreservationRisk
         'related',
     ];
 
+    /**
+     * Blocking keys the projection writes ONLY while the row carries no
+     * `mirrored_status` stamp — so a stamped row cannot lose them.
+     *
+     * ### ⛔ The measurement, and why this list is not empty
+     *
+     * `WooCommerceProjector::project()` writes the catalogue visibility in
+     * ONE place and it is inside the stamp guard
+     * (`WooCommerceProjector.php:218-222`):
+     *
+     * ```php
+     * $statusHeld = $product->storefrontStatusIsHeld();
+     * if (!$statusHeld) {
+     *     $wcProduct->set_status(ProjectedStatus::statusOf($product->status));
+     *     $wcProduct->set_catalog_visibility(ProjectedStatus::visibilityOf($product->status));
+     * }
+     * ```
+     *
+     * The only other `set_catalog_visibility()` in that file is in
+     * `withdraw()` (line 526) — a manager deliberately taking a product off
+     * sale, not a projection — so for a HELD row the count of projection
+     * writes is **zero**, exactly as it is for the six disclosures.
+     *
+     * And `storefrontStatusIsHeld()` is `mirroredStatus !== null && trim(...)
+     * !== ''` (`Product.php:121-124`), which is the same predicate
+     * `ProjectedStatus::decide()` answers `HELD` for — the same three values,
+     * read once. `PreservationRiskClassificationTest` pins that this list
+     * holds only keys the projector writes under `!$statusHeld`, so the day
+     * one moves out of that `if` the test fails rather than this comment
+     * becoming wrong in silence (`alpha.90`).
+     *
+     * ### Why the key stays in BLOCKING and is released here instead
+     *
+     * The owner's §3 names `catalog_visibility` among four whose protection
+     * «باید حفظ شود», and `testTheFourProtectedKeysStayBlocking()` holds it
+     * in `BLOCKING`. Both stay true: the classification is unchanged, and
+     * what this adds is the ROW's context — on an unstamped row the key
+     * blocks exactly as before. Nothing is waived for anybody; a question
+     * with no consequence stops being asked (`alpha.87`).
+     *
+     * ### ⛔ And the hazard is deferred, not gone — so it is disclosed
+     *
+     * `updateStatus()` clears the stamp the moment a human in this
+     * marketplace decides the status, and from the next projection the
+     * visibility IS written. So a product at `hidden` or `search` keeps its
+     * value through the transfer and through every sync — and would lose it
+     * if a manager later publishes or unpublishes it from this panel. That
+     * is why the released key is still printed, with a sentence that says
+     * so, and never silently dropped.
+     */
+    public const HELD_WITH_STATUS = [
+        'catalog_visibility',
+    ];
+
     public static function isBlocking(string $key): bool
     {
         return !in_array($key, self::DISCLOSURE, true);
+    }
+
+    /**
+     * Whether this key blocks GIVEN what the row's stamp makes possible.
+     *
+     * `$statusHeld` false is the conservative answer, so a caller that
+     * cannot tell gets the pre-`alpha.93` behaviour rather than a release
+     * (`alpha.89`).
+     */
+    public static function isBlockingGiven(string $key, bool $statusHeld): bool
+    {
+        if ($statusHeld && in_array($key, self::HELD_WITH_STATUS, true)) {
+            return false;
+        }
+        return self::isBlocking($key);
+    }
+
+    /**
+     * The blocking keys of one answer, for a row whose stamp state is known.
+     *
+     * @param array<string,string> $risks
+     * @return list<string>
+     */
+    public static function blockingGiven(array $risks, bool $statusHeld): array
+    {
+        return array_values(array_filter(
+            array_keys($risks),
+            static fn (string $key): bool => self::isBlockingGiven($key, $statusHeld)
+        ));
+    }
+
+    /**
+     * The disclosure keys of the same answer, including any released by the
+     * stamp — because a released key is REPORTED, not removed.
+     *
+     * @param array<string,string> $risks
+     * @return list<string>
+     */
+    public static function disclosuresGiven(array $risks, bool $statusHeld): array
+    {
+        return array_values(array_filter(
+            array_keys($risks),
+            static fn (string $key): bool => !self::isBlockingGiven($key, $statusHeld)
+        ));
     }
 
     /**

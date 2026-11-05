@@ -897,11 +897,24 @@ final class WpCatalogueReader implements CatalogueReaderInterface
         }
         if ((string) $detail['catalog_visibility'] !== 'visible') {
             // `project()` writes catalogue visibility from the marketplace
-            // STATUS — `visible` for published, `hidden` otherwise — so any
-            // other value is lost on the first projection. There is no field
-            // for it in the four-step form.
+            // STATUS — `visible` for published, `hidden` otherwise — and it
+            // does so INSIDE the `mirrored_status` guard
+            // (`WooCommerceProjector.php:218-222`). There is no field for it
+            // in the four-step form either way.
+            //
+            // ⛔ So the sentence states the CONDITION. Until `alpha.93` it
+            // promised «اولین همگام‌سازی آن را به visible برمی‌گرداند»
+            // unconditionally, and on a stamped row that is false: the write
+            // is behind the same flag that holds the status, so a held row
+            // cannot lose this value. The gate read the old sentence and
+            // blocked 184 stamped rows on a write that could not happen —
+            // the `alpha.91` §1-الف shape, one key later.
+            //
+            // Who releases it is `PreservationRisk::blockingGiven()`, which
+            // knows the row's stamp; this reader only sees the product, so it
+            // says what is true for both cases and names which is which.
             $risks['catalog_visibility'] = sprintf(
-                'نمایش در فهرست «%s» است و این بازارگاه فیلدی برایش ندارد؛ اولین همگام‌سازی آن را به «visible» برمی‌گرداند.',
+                'نمایش در فهرست «%s» است و این بازارگاه فیلدی برایش ندارد. تا وقتی مهر وضعیت روی ردیف باشد، همگام‌سازی آن را نمی‌نویسد و مقدار فعلی دست‌نخورده می‌مانَد؛ ولی اگر مدیر وضعیت را از پنل بازارگاه عوض کند مهر پاک می‌شود و از آن پس همگام‌سازی این مقدار را از وضعیت ردیف می‌نویسد.',
                 (string) $detail['catalog_visibility']
             );
         }

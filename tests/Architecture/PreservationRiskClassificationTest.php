@@ -49,6 +49,10 @@ final class PreservationRiskClassificationTest extends TestCase
         'related' => ['set_upsell_ids', 'set_cross_sell_ids'],
         'backorders' => ['set_backorders'],
         'sold_individually' => ['set_sold_individually'],
+        // The two the projector DOES write, so the released-key test can
+        // look them up as well as the disclosures.
+        'catalog_visibility' => ['set_catalog_visibility'],
+        'manage_stock' => ['set_manage_stock'],
     ];
 
     private function code(string $relative): string
@@ -154,8 +158,13 @@ final class PreservationRiskClassificationTest extends TestCase
     public function testTheGuardAsksForBlockingKeysOnly(): void
     {
         $code = $this->code(self::TRANSFER);
+        // From `alpha.93` the split reads the row's stamp, so the pinned text
+        // is the stamp-aware call. Both older spellings must be gone:
+        // `array_keys($risks)` made a shipping class as blocking as stock
+        // management, and `blockingIn($risks)` kept blocking a stamped row on
+        // a catalogue-visibility write that cannot happen.
         self::assertStringContainsString(
-            'array_diff(PreservationRisk::blockingIn($risks), $acknowledged)',
+            'PreservationRisk::blockingGiven($risks, $statusHeld)',
             $code
         );
         self::assertStringNotContainsString(
@@ -163,13 +172,101 @@ final class PreservationRiskClassificationTest extends TestCase
             $code,
             'the old all-keys spelling must be gone'
         );
+        self::assertStringNotContainsString(
+            'array_diff(PreservationRisk::blockingIn($risks), $acknowledged)',
+            $code,
+            'the stamp-blind spelling must be gone'
+        );
     }
 
     /** The disclosures reach the audit row, so the trail is not silent. */
     public function testTheDisclosuresAreRecorded(): void
     {
         $code = $this->code(self::TRANSFER);
-        self::assertStringContainsString('PreservationRisk::disclosuresIn($risks)', $code);
+        self::assertStringContainsString(
+            'PreservationRisk::disclosuresGiven($risks, $statusHeld)',
+            $code
+        );
         self::assertStringContainsString("'disclosed' => implode(',', \$disclosed)", $code);
+    }
+
+    /**
+     * ⛔ THE MEASUREMENT BEHIND `HELD_WITH_STATUS`.
+     *
+     * A key may be released by the stamp only if the projector writes it
+     * INSIDE `if (!$statusHeld) { … }`. The block is extracted by matching
+     * braces rather than read to the next `function` (`alpha.77`), so a
+     * setter moved one line below the closing brace fails here instead of
+     * becoming silently waivable.
+     */
+    public function testEveryStampReleasedKeyIsWrittenOnlyInsideTheStampGuard(): void
+    {
+        $code = $this->code(self::PROJECTOR);
+        $block = $this->balancedBlockAfter($code, 'if(!$statusHeld){');
+        self::assertNotSame('', $block, 'the stamp guard block was not found in the projector');
+
+        self::assertNotSame([], PreservationRisk::HELD_WITH_STATUS, 'the list should not be empty');
+        foreach (PreservationRisk::HELD_WITH_STATUS as $key) {
+            // Released keys must be keys that were blocking in the first
+            // place — releasing a disclosure would be a rule about nothing.
+            self::assertContains($key, PreservationRisk::BLOCKING, $key);
+            self::assertArrayHasKey($key, self::SETTERS, 'unmapped released key: ' . $key);
+            foreach (self::SETTERS[$key] as $setter) {
+                self::assertStringContainsString(
+                    '->' . $setter . '(',
+                    $block,
+                    $key . ' is released by the stamp but ' . $setter . ' is not inside the guard'
+                );
+            }
+        }
+    }
+
+    /**
+     * The control: `manage_stock` is NOT inside that guard.
+     *
+     * Without it, a guard block that happened to contain every setter would
+     * pass the test above and every risk would become stamp-releasable
+     * (`alpha.46`). `set_manage_stock(true)` is unconditional, which is
+     * exactly why it stays blocking for a stamped row too.
+     */
+    public function testManageStockIsNotReleasedByTheStamp(): void
+    {
+        $code = $this->code(self::PROJECTOR);
+        $block = $this->balancedBlockAfter($code, 'if(!$statusHeld){');
+        self::assertStringNotContainsString('->set_manage_stock(', $block);
+        self::assertNotContains('manage_stock', PreservationRisk::HELD_WITH_STATUS);
+        self::assertTrue(PreservationRisk::isBlockingGiven('manage_stock', true));
+        self::assertTrue(PreservationRisk::isBlockingGiven('price_scale', true));
+        self::assertTrue(PreservationRisk::isBlockingGiven('type', true));
+        self::assertTrue(PreservationRisk::isBlockingGiven('product', true));
+    }
+
+    /**
+     * The body of the first brace-balanced block following `$needle`.
+     *
+     * `$code` is already comment-stripped and whitespace-free, so the needle
+     * is written without spaces.
+     */
+    private function balancedBlockAfter(string $code, string $needle): string
+    {
+        $bare = preg_replace('/\s+/', '', $code) ?? '';
+        $at = strpos($bare, $needle);
+        if ($at === false) {
+            return '';
+        }
+        $from = $at + strlen($needle);
+        $depth = 1;
+        for ($i = $from, $n = strlen($bare); $i < $n; $i++) {
+            $char = $bare[$i];
+            if ($char === '{') {
+                $depth++;
+            } elseif ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($bare, $from, $i - $from);
+                }
+            }
+        }
+        return '';
     }
 }

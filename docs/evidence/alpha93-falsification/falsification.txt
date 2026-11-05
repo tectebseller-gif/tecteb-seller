@@ -1,0 +1,39 @@
+alpha.93 falsification — 8 mutations
+tree: 905daf7 14 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline database:MirroredStatusAndSnapshotBatchTest: 0
+baseline database:StagedOwnershipTransferTest: 0
+
+1. no key is ever released, so a stamped row blocks on a write that cannot happen
+    database failures: 4 (wanted at least 4) — red
+    restored byte for byte: yes
+2. the stamp is inverted, so held rows block and unstamped rows are released
+    database failures: 5 (wanted at least 5) — red
+    restored byte for byte: yes
+3. manage_stock is released by the stamp, though its setter is unconditional
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+4. a released key is dropped from the report instead of disclosed
+    database failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+5. the planner goes stamp-blind, so it never offers what the guard would accept
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. the guard goes stamp-blind, so it refuses the rows the planner offered
+    database failures: 3 (wanted at least 3) — red
+    restored byte for byte: yes
+7. the guard treats every row as held, so an unstamped row is released too
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. the visibility write leaves the stamp guard, so a held row could lose it after all
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final database:MirroredStatusAndSnapshotBatchTest: 0
+final database:StagedOwnershipTransferTest: 0
+
+mutations: 8 · problems: 0

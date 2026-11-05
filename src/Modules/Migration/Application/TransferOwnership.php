@@ -154,6 +154,16 @@ final class TransferOwnership
                 ]
             );
         }
+        // THE STAMP STATE, FROM THE VERDICT ALREADY READ — no second read.
+        //
+        // ⛔ `alpha.93`: a HELD row cannot lose its catalogue visibility,
+        // because `project()` writes it inside the same `if (!$statusHeld)`
+        // that holds the status (`WooCommerceProjector.php:218-222`). Asking
+        // for a tick about it blocked every one of shop 102's 184 stamped
+        // rows on a write that cannot happen. `null` — a build with no
+        // catalogue — stays `false`, so the conservative answer is the one a
+        // caller gets when nothing could be read (`alpha.89`).
+        $statusHeld = $status !== null && $status['verdict'] === ProjectedStatus::HELD;
         $risks = $this->risksFor($productId);
         // ONLY THE RISKS A PROJECTION WOULD ACTUALLY OVERWRITE NEED A TICK.
         //
@@ -169,7 +179,10 @@ final class TransferOwnership
         // of a field nobody writes. Every blocking key still needs its own
         // acknowledgement, and the batch still passes an empty array — so no
         // real risk can be waived without a human, whatever the split says.
-        $unacknowledged = array_values(array_diff(PreservationRisk::blockingIn($risks), $acknowledged));
+        $unacknowledged = array_values(array_diff(
+            PreservationRisk::blockingGiven($risks, $statusHeld),
+            $acknowledged
+        ));
         if ($unacknowledged !== []) {
             return OperationResult::failure('ownership_risks_unacknowledged', [
                 'product_id' => $productId,
@@ -216,7 +229,7 @@ final class TransferOwnership
             LinkOwnership::Observed,
             LinkOwnership::Marketplace,
             'ownership_taken',
-            PreservationRisk::disclosuresIn($risks)
+            PreservationRisk::disclosuresGiven($risks, $statusHeld)
         );
     }
 
@@ -294,17 +307,23 @@ final class TransferOwnership
         }
         $shopStatus = (string) ($detail['status'] ?? '');
         $risks = $this->catalogue->preservationRisksFrom($detail);
+        // Decided BEFORE the split, because from `alpha.93` the split reads
+        // it: a screen that classified the risks without the stamp would
+        // print a tick the guard no longer wants, which is the «two answers
+        // to one question» shape (`alpha.78`).
+        $verdict = ProjectedStatus::decide($product->status, $product->mirroredStatus, $shopStatus);
+        $statusHeld = $verdict === ProjectedStatus::HELD;
         return [
             'readable' => true,
             'risks' => $risks,
-            'blocking' => PreservationRisk::blockingIn($risks),
-            'disclosed' => PreservationRisk::disclosuresIn($risks),
+            'blocking' => PreservationRisk::blockingGiven($risks, $statusHeld),
+            'disclosed' => PreservationRisk::disclosuresGiven($risks, $statusHeld),
             'drift' => $this->intake->driftFrom($product, $detail),
             // THE SAME VERDICT `take()` WILL REACH, from the read already
             // done. One rule, two callers: a page that showed a different
             // answer from the one the guard uses would let a manager press a
             // button whose refusal they had no way to predict (`alpha.78`).
-            'status' => ProjectedStatus::decide($product->status, $product->mirroredStatus, $shopStatus),
+            'status' => $verdict,
             'shop_status' => $shopStatus,
             'would_write' => ProjectedStatus::statusOf($product->status),
         ];

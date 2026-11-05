@@ -262,12 +262,22 @@ final class OwnershipTransferPlan
         }
         $risks = $this->catalogue->preservationRisksFrom($detail);
         $drift = $this->intake->driftFrom($product, $detail);
-        $blocking = PreservationRisk::blockingIn($risks);
         $shopStatus = (string) ($detail['status'] ?? '');
-        // The SAME pure rule the guard reaches, from the read already done.
+        // The SAME pure rule the guard reaches, from the read already done —
+        // and decided BEFORE the risks are split, because from `alpha.93`
+        // the split reads it.
         $status = ProjectedStatus::decide($product->status, $product->mirroredStatus, $shopStatus);
+        // ⛔ A HELD row cannot lose its catalogue visibility: `project()`
+        // writes it inside the very `if (!$statusHeld)` that holds the
+        // status. Shop 102's 184 rows are all stamped after migration 38, so
+        // every `catalog_visibility` finding there was a blocker on a write
+        // that cannot happen — and `take()` derives the same flag from the
+        // same verdict, so this planner cannot offer a row the guard refuses
+        // (`alpha.78`).
+        $statusHeld = $status === ProjectedStatus::HELD;
+        $blocking = PreservationRisk::blockingGiven($risks, $statusHeld);
         $base['risks'] = $blocking;
-        $base['disclosed'] = PreservationRisk::disclosuresIn($risks);
+        $base['disclosed'] = PreservationRisk::disclosuresGiven($risks, $statusHeld);
         $base['drift'] = array_values(array_map(
             static fn (array $pair): string => (string) ($pair['label'] ?? ''),
             $drift

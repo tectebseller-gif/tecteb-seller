@@ -1,0 +1,38 @@
+alpha.92 → alpha.93, read from the two delivered packages
+date: 2026-11-05T08:39:28Z
+
+PASS 0a both packages exist — yes
+    old: 2f45d8fdec7b0b592d7b514591ee1c064327e688a13c45048e378c70986a3847
+    new: 79a2a0434fd23081f11249a3eec56468b4550a9f349111eeff485d96f80edfe0
+
+PASS 1a alpha.92 declares structure — 38
+PASS 1b alpha.93 declares structure — 38
+PASS 1c the structure does not move — same
+
+PASS 2a migration file count — 38
+PASS 2b the same migration files — identical
+PASS 2c no migration's bytes changed — 0
+
+NOTE 3a no step was added, so going back to alpha.92 runs no migration
+     and undoes none: MigrationRunner never lowers a structure version.
+     The cost of a rollback this round is the GUARD, not the data —
+     alpha.92 asks for a catalogue-visibility tick again on the rows
+     alpha.93 releases. Nothing written by alpha.93 has to be reversed,
+     because this round writes nothing new.
+
+source files that differ between the two packages:
+    src/Modules/Migration/Application/OwnershipTransferPlan.php
+    src/Modules/Migration/Application/TransferOwnership.php
+    src/Modules/Migration/Domain/PreservationRisk.php
+    src/Modules/Migration/Infrastructure/WordPress/WpCatalogueReader.php
+PASS 4a only the risk-classification path moved — 4
+
+PASS 5a alpha.92 asks the stamp-blind question — yes
+PASS 5b alpha.93 asks it WITH the stamp — yes
+PASS 5c and alpha.93 keeps the four protected keys blocking — yes
+
+⛔ Not Run, and not a pass: installing either package, running the
+   upgrade on a site, the batched re-snapshot, the transfer, and reading
+   the five product fields afterwards. This script compares packages.
+
+checks: 11 · passed: 11 · failed: 0
