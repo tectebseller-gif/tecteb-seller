@@ -26,6 +26,9 @@ use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanSnapshot;
+use Tecteb\Marketplace\Modules\Migration\Presentation\MigrationWizardText;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
@@ -137,6 +140,7 @@ final class HandoverPage
         // First, and read only: «اولین گام پس از نصب فقط دیدن پیش‌نمایش
         // سوابق باشد، نه اجرای خودکار ورود.» Nothing on this page starts an
         // import by being looked at.
+        $this->renderWizard($shops, $request, $fa);
         $this->renderRecordPreview($scopeIds, $scope, $fa);
         if ($shops === []) {
             echo Components::notice('info', __('هیچ فروشگاه واردشده‌ای پیدا نشد. ردیف‌های بالا صاحبان سابقه‌اند، نه فروشگاه‌های این بازارگاه؛ جدول وضعیت مهاجرت دربارهٔ فروشگاه‌های واردشده است و چیزی برای نشان‌دادن ندارد.', 'tecteb-marketplace-core'));
@@ -155,6 +159,117 @@ final class HandoverPage
             $this->renderFinance($recordSubjects, $fa);
         }
         echo Components::shellClose();
+    }
+
+    /**
+     * The twelve steps, for one shop, and not one of them is a button.
+     *
+     * ⛔ **It is a checklist, and reading it starts nothing.** The owner's §3
+     * asks for an automatic migration and then says «خودکارسازی به معنی
+     * اجرای بدون اجازه نیست», which is the whole design: every step is judged
+     * from what is stored and points at the screen that already does that
+     * work. The services it reads are the ones the staged transfer, the
+     * snapshot batch, the status repair and the completeness table use, so
+     * the wizard cannot disagree with the pages it sends a manager to — it is
+     * reading the same answers.
+     *
+     * Four statuses, and the fourth is the one that matters: a step nobody
+     * could measure says so, and «آماده» is withheld until every step is
+     * `DONE` rather than merely «not blocked».
+     *
+     * @param list<int> $shops
+     */
+    private function renderWizard(array $shops, Request $request, callable $fa): void
+    {
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('مسیر مهاجرت سایت', 'tecteb-marketplace-core') . '</h2>';
+        if ($shops === []) {
+            echo '<p>' . esc_html__('تا فروشگاهی وارد نشده باشد، مسیری برای گزارش نیست.', 'tecteb-marketplace-core')
+                . '</p></section>';
+            return;
+        }
+        $shop = $request->queryInt('wz_shop');
+        if (!in_array($shop, $shops, true)) {
+            $shop = (int) $shops[0];
+        }
+        echo $this->wizardShopPicker($shops, $shop, $fa);
+
+        $snapshot = $this->container->get(MigrationPlanSnapshot::class)->of($shop);
+        $steps = MigrationPlanChecklist::steps($snapshot);
+        $tally = MigrationPlanChecklist::tally($steps);
+
+        echo '<p>' . esc_html(sprintf(
+            /* translators: 1: done, 2: total, 3: waiting, 4: blocked, 5: unmeasured */
+            __('%1$s گام از %2$s انجام شده — %3$s در انتظار، %4$s مسدود، %5$s اندازه‌گیری‌نشده.', 'tecteb-marketplace-core'),
+            $fa((string) $tally['done']),
+            $fa((string) $tally['total']),
+            $fa((string) $tally['todo']),
+            $fa((string) $tally['blocked']),
+            $fa((string) $tally['unknown'])
+        )) . '</p>';
+        echo Components::notice(
+            $tally['ready'] === true ? 'success' : 'info',
+            $tally['ready'] === true
+                ? __('هر دوازده گام انجام شده است. از این لحظه غیرفعال‌کردن دکان یک تصمیم عملیاتی است، و این افزونه آن را انجام نمی‌دهد.', 'tecteb-marketplace-core')
+                : __('تا وقتی هر دوازده گام انجام نشده، این فروشگاه «آمادهٔ خروج از دکان» خوانده نمی‌شود. گامِ اندازه‌گیری‌نشده هم انجام‌نشده حساب می‌شود.', 'tecteb-marketplace-core')
+        );
+
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول مسیر مهاجرت', 'tecteb-marketplace-core') . '">'
+            . '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('گام', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('کار', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('توضیح', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('کجا انجام می‌شود', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        $number = 0;
+        foreach ($steps as $step) {
+            $number++;
+            $key = (string) $step['key'];
+            $where = MigrationWizardText::target($key);
+            echo '<tr><td>' . esc_html($fa((string) $number)) . '</td>'
+                . '<td>' . esc_html(MigrationWizardText::step($key)) . '</td>'
+                . '<td>' . esc_html(MigrationWizardText::status((string) $step['status'])) . '</td>'
+                . '<td>' . esc_html(MigrationWizardText::explain(
+                    (string) $step['status'],
+                    (string) $step['blocker'],
+                    (string) $step['detail'],
+                    $fa
+                )) . '</td>'
+                . '<td>' . ($where === ''
+                    ? esc_html__('—', 'tecteb-marketplace-core')
+                    : '<a href="' . esc_url(admin_url($where)) . '">'
+                        . esc_html__('رفتن', 'tecteb-marketplace-core') . '</a>')
+                . '</td></tr>';
+        }
+        echo '</tbody></table></div>';
+        echo Components::moreDetails(
+            [
+                __('این جدول هیچ‌چیزی را اجرا نمی‌کند و باز کردنش هیچ داده‌ای را عوض نمی‌کند. هر گام از همان سرویسی خوانده می‌شود که صفحهٔ مربوطش از آن می‌خواند، پس این صفحه و آن صفحه نمی‌توانند دو جواب بدهند.', 'tecteb-marketplace-core'),
+                __('«اندازه‌گیری‌نشده» یعنی خواندن انجام نشد یا اسکن به آخر نرسید؛ با «انجام‌شده» یکی گرفته نمی‌شود و جلوی اعلام آمادگی را می‌گیرد.', 'tecteb-marketplace-core'),
+                __('غیرفعال‌کردن دکان، حذف دادهٔ دکان و پاک‌سازی قاعده‌های بازنویسی هیچ‌کدام کار این افزونه نیست؛ گام دوازدهم فقط می‌گوید که می‌توانید انجامشان بدهید.', 'tecteb-marketplace-core'),
+            ],
+            __('این مسیر چه می‌کند و چه نمی‌کند', 'tecteb-marketplace-core')
+        );
+        echo '</section>';
+    }
+
+    /** @param list<int> $shops */
+    private function wizardShopPicker(array $shops, int $current, callable $fa): string
+    {
+        $out = '<form method="get" class="tmc-inline-form">'
+            . '<input type="hidden" name="page" value="' . esc_attr(self::SLUG) . '">'
+            . '<label class="tmc-field__label" for="wz-shop">'
+            . esc_html__('فروشگاه', 'tecteb-marketplace-core') . '</label>'
+            . '<select id="wz-shop" name="wz_shop">';
+        foreach ($shops as $shopId) {
+            $out .= '<option value="' . esc_attr((string) $shopId) . '"'
+                . ((int) $shopId === $current ? ' selected' : '') . '>'
+                . esc_html('#' . $fa((string) $shopId)) . '</option>';
+        }
+        return $out . '</select><button type="submit" class="button">'
+            . esc_html__('نمایش', 'tecteb-marketplace-core') . '</button></form>';
     }
 
     /**

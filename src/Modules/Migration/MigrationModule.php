@@ -12,7 +12,9 @@ use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Contracts\ModuleInterface;
 use Tecteb\Marketplace\Contracts\ModuleKind;
 use Tecteb\Marketplace\Contracts\ModuleManifest;
+use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\OptionStoreInterface;
+use Tecteb\Marketplace\Modules\Finance\Application\MoneyScaleRollbackGate;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Jobs\JobBudget;
 use Tecteb\Marketplace\Core\Jobs\JobRunner;
@@ -45,6 +47,8 @@ use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyRefreshSnapshot;
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileStorefrontStatus;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
 use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
@@ -299,6 +303,31 @@ final class MigrationModule implements ModuleInterface
             // (`alpha.78`).
             $c->get(OwnershipTransferPlan::class),
             $c->get(TransferOwnership::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(AuditLogger::class)
+        ));
+
+        $c->bind(MigrationPlanSnapshot::class, static fn (ContainerInterface $c) => new MigrationPlanSnapshot(
+            $c->get(MigrationCompleteness::class),
+            $c->get(ShopTransferTally::class),
+            $c->get(ReconcileStorefrontStatus::class),
+            $c->get(OptionStoreInterface::class),
+            // Each one optional and asked for with `has()`, because the
+            // snapshot's whole contract is that an absent fact arrives as
+            // `null` and lands its step on «اندازه‌گیری‌نشده» rather than on
+            // a number nobody measured.
+            $c->has(DependencyProbeInterface::class) ? $c->get(DependencyProbeInterface::class) : null,
+            $c->has(DokanReaderInterface::class) ? $c->get(DokanReaderInterface::class) : null,
+            $c->has(MoneyScaleRollbackGate::class) ? $c->get(MoneyScaleRollbackGate::class) : null
+        ));
+
+        $c->bind(ReconcileStorefrontStatus::class, static fn (ContainerInterface $c) => new ReconcileStorefrontStatus(
+            $c->get(ProductRepositoryInterface::class),
+            // Conditional, like every other consumer of the catalogue: a
+            // build with no WooCommerce has nothing to compare the status
+            // against, and the service answers «I read nothing» rather than
+            // «everything agrees».
+            $c->has(CatalogueReaderInterface::class) ? $c->get(CatalogueReaderInterface::class) : null,
             $c->get(CapabilityCheckerInterface::class),
             $c->get(AuditLogger::class)
         ));

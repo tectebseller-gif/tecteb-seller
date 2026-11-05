@@ -1153,6 +1153,55 @@ final class DbProductRepository implements ProductRepositoryInterface
         return $written !== null;
     }
 
+    public function reconcileStatusToStorefront(
+        int $productId,
+        ProductStatus $target,
+        ProductStatus $expectedStatus,
+        string $expectedStamp
+    ): bool {
+        if (!$this->mayWrite()) {
+            return false;
+        }
+        $expectedStamp = trim($expectedStamp);
+        if ($expectedStamp === '') {
+            // A blank expectation would make the stamp guard match nothing
+            // AND would be indistinguishable from «this row has no stamp»,
+            // which is the one case this path must never write. Refuse rather
+            // than send a statement that cannot succeed (`alpha.49`).
+            return false;
+        }
+        $written = $this->db->execute(
+            'UPDATE `' . $this->products() . '`
+                SET status = %s, updated_at = %s, row_version = row_version + 1
+              WHERE id = %d
+                AND status = %s
+                AND `' . M0032ProductMirroredStatus::MIRRORED . '` = %s',
+            [
+                $target->value,
+                $this->now(),
+                $productId,
+                $expectedStatus->value,
+                mb_substr($expectedStamp, 0, 20),
+            ]
+        );
+        if ($written === null) {
+            return false;                       // a real storage failure
+        }
+        // `row_version = row_version + 1` changes a column on every match, so
+        // zero rows here really does mean the `WHERE` did not match — the
+        // stamp was cleared by a manager's decision, or the status moved
+        // under a vendor's submission, between the preview and the press.
+        //
+        // ⛔ And bumping `row_version` is not only for that. The status
+        // decides which save path a vendor's form takes
+        // (`ProductStatus::isEditableByVendor`), so a form opened while the
+        // row said `draft` MUST fail its optimistic-lock check rather than
+        // save in place against a product that is live. The opposite of
+        // `recordMirroredStatusWhenAbsent`, which records an observation and
+        // deliberately leaves the counter alone.
+        return (int) $written === 1;
+    }
+
     public function setCategoryWhenEmpty(int $productId, string $categoryKey): string
     {
         if (!$this->mayWrite()) {
@@ -1988,6 +2037,18 @@ final class DbProductRepository implements ProductRepositoryInterface
             'SELECT * FROM `' . $this->products() . '`
               WHERE vendor_user_id = %d AND id > %d AND ' . self::OBSERVED . '
               ORDER BY id ASC LIMIT ' . max(1, min(500, $limit)),
+            [$vendorUserId, max(0, $afterId)]
+        ));
+    }
+
+    public function stampedForVendorAfter(int $vendorUserId, int $afterId = 0, int $limit = 50): array
+    {
+        return array_map([$this, 'hydrate'], $this->db->getResults(
+            'SELECT * FROM `' . $this->products() . '`
+              WHERE vendor_user_id = %d AND id > %d
+                AND `' . M0032ProductMirroredStatus::MIRRORED . '` IS NOT NULL
+                AND `' . M0032ProductMirroredStatus::MIRRORED . "` <> ''
+              ORDER BY id ASC LIMIT " . max(1, min(500, $limit)),
             [$vendorUserId, max(0, $afterId)]
         ));
     }

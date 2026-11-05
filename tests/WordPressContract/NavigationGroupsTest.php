@@ -85,11 +85,14 @@ final class NavigationGroupsTest extends ContractTestCase
         $groups = AdminNavigation::groups($items, 'tmc-audit');
 
         $keys = array_column($groups, 'key');
-        self::assertSame(
-            [AdminNavigation::EVERYDAY, AdminNavigation::SALES, AdminNavigation::CONTENT, AdminNavigation::TOOLS, AdminNavigation::SETUP],
-            $keys,
-            'five groups, in order, and no «سایر بخش‌ها»'
-        );
+        // ⛔ Asserted against the DEFINITION's own key order rather than a
+        // list typed here: the owner's §5 reshaped these groups, and a test
+        // that spelled them out would have had to be edited to agree with
+        // whatever the code now says — which is no test at all (`alpha.34`).
+        // What matters is that every defined group is drawn, in order, and
+        // that «سایر بخش‌ها» is not among them.
+        self::assertSame(array_keys(AdminNavigation::GROUPS), $keys, 'every group, in order');
+        self::assertNotContains(AdminNavigation::OTHER, $keys, 'no page is left ungrouped');
 
         $flat = [];
         foreach ($groups as $group) {
@@ -117,9 +120,17 @@ final class NavigationGroupsTest extends ContractTestCase
 
         $html = Components::shellOpen('ممیزی', 'tmc-audit', 'نسخه آزمایشی');
 
-        // The group row: all five, with «تنظیمات و ابزارها» marked.
-        foreach (['روزمره', 'فروش و مالی', 'محتوا و گزارش', 'تنظیمات و ابزارها', 'راه‌اندازی و مهاجرت'] as $label) {
-            self::assertStringContainsString('>' . $label . '</a>', $html, 'group ' . $label);
+        // The group row: every group, with the open one marked. ⛔ The labels
+        // come from `groupLabel()` rather than being typed: the owner's §5
+        // renamed and regrouped these, and a test that spelled them out would
+        // have to be edited into agreement with whatever the code now says,
+        // which is no test at all (`alpha.34`).
+        foreach (array_keys(AdminNavigation::GROUPS) as $group) {
+            self::assertStringContainsString(
+                '>' . AdminNavigation::groupLabel((string) $group) . '</a>',
+                $html,
+                'group ' . $group
+            );
         }
         self::assertStringContainsString('aria-current="true"', $html, 'the open group says so');
         self::assertStringContainsString('aria-current="page"', $html, 'the current page says so');
@@ -129,7 +140,7 @@ final class NavigationGroupsTest extends ContractTestCase
         self::assertSame(1, substr_count($html, 'aria-current="page"'));
 
         // The open group's pages are there…
-        foreach (['ممیزی', 'صف و سلامت اجرا', 'رویدادها و API', 'تنظیمات', 'ماژول‌ها', 'سلامت'] as $label) {
+        foreach (['ممیزی', 'صف و سلامت اجرا', 'رویدادها و API', 'سلامت'] as $label) {
             self::assertStringContainsString($label, $html, 'page ' . $label . ' of the open group');
         }
         // …and no other group's are. Measured on the page LINKS rather than on
@@ -137,22 +148,26 @@ final class NavigationGroupsTest extends ContractTestCase
         // the question here is whether a link was drawn.
         $links = substr_count($html, '<a class="tmc-nav__link');
         self::assertSame(
-            count(AdminNavigation::GROUPS[AdminNavigation::TOOLS]),
+            count(AdminNavigation::GROUPS[AdminNavigation::HEALTH]),
             $links,
             'only the open group draws page links'
         );
-        self::assertSame(5, substr_count($html, '<a class="tmc-nav__group'), 'five group links');
+        self::assertSame(
+            count(AdminNavigation::GROUPS),
+            substr_count($html, '<a class="tmc-nav__group'),
+            'one link per group'
+        );
 
         // A direct link to another group's page opens THAT group, with nothing
         // stored anywhere.
         $other = Components::shellOpen('مهاجرت از دکان', 'tmc-import', 'نسخه آزمایشی');
         self::assertStringContainsString('is-current" href', $other);
         self::assertSame(
-            count(AdminNavigation::GROUPS[AdminNavigation::SETUP]),
+            count(AdminNavigation::GROUPS[AdminNavigation::MIGRATION]),
             substr_count($other, '<a class="tmc-nav__link'),
-            'the setup group is the open one now'
+            'the migration group is the open one now'
         );
-        self::assertStringNotContainsString('>ممیزی</a>', $other, 'the tools group is closed');
+        self::assertStringNotContainsString('>ممیزی</a>', $other, 'the health group is closed');
     }
 
     /**
@@ -170,17 +185,21 @@ final class NavigationGroupsTest extends ContractTestCase
         $this->loginAdmin();
         do_action('admin_menu');
 
-        // Only «بررسی محصولات» — one page, in «روزمره».
+        // Only «بررسی محصولات» — one page, in «محصولات».
         State::loginAs(2, ['tmc_review_products']);
 
         $groups = AdminNavigation::groups(Navigation::items(), 'tmc-product-review');
-        self::assertSame([AdminNavigation::EVERYDAY], array_column($groups, 'key'));
+        self::assertSame([AdminNavigation::PRODUCTS], array_column($groups, 'key'));
         self::assertSame(['tmc-product-review'], array_column($groups[0]['items'], 'slug'));
         self::assertTrue($groups[0]['current']);
 
         $html = Components::shellOpen('بررسی محصولات', 'tmc-product-review', '');
         self::assertStringNotContainsString('tmc-audit', $html, 'a page they cannot open is not linked');
-        self::assertStringNotContainsString('راه‌اندازی و مهاجرت', $html, 'an empty group is not a heading');
+        self::assertStringNotContainsString(
+            AdminNavigation::groupLabel(AdminNavigation::MIGRATION),
+            $html,
+            'an empty group is not a heading'
+        );
         self::assertSame(1, substr_count($html, '<a class="tmc-nav__group'));
     }
 
@@ -210,7 +229,10 @@ final class NavigationGroupsTest extends ContractTestCase
         self::assertSame(0, substr_count($html, 'onclick'));
         self::assertSame(0, substr_count($html, '<button'));
         // «گروه › صفحه» on the closed toggle, so a collapsed menu still says
-        // where you are.
-        self::assertStringContainsString('روزمره › پیشخوان', $html);
+        // where you are — built from the definition, for the reason above.
+        self::assertStringContainsString(
+            AdminNavigation::groupLabel(AdminNavigation::groupOf('tmc-dashboard')) . ' › پیشخوان',
+            $html
+        );
     }
 }

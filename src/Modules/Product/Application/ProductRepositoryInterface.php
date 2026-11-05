@@ -523,6 +523,49 @@ interface ProductRepositoryInterface
     public function recordMirroredStatusWhenAbsent(int $productId, string $storefrontStatus): bool;
 
     /**
+     * Bring `status` into line with the storefront, for ONE row whose status
+     * this plugin has provably never decided.
+     *
+     * The rule that chooses the rows is `StorefrontStatusReconciliation` and
+     * its docblock carries the reasoning. This method's job is to make that
+     * rule unforgeable, so three things are in the statement rather than in a
+     * read before it (`alpha.50`):
+     *
+     *  * **the stamp, by value.** A `NULL` stamp never matches, so a row whose
+     *    status the projector owns cannot be written by this path however the
+     *    caller is mistaken; and a stamp that MOVED between the preview and
+     *    the press refuses, because `updateStatus()` clears it in the same
+     *    statement as a manager's decision and that decision must win.
+     *  * **the status, by value.** A row that changed status in between — a
+     *    vendor pressing «ارسال برای بررسی» — refuses rather than having the
+     *    submission overwritten.
+     *  * **`row_version = row_version + 1`**, so a column always changes and
+     *    zero rows unambiguously means the `WHERE` did not match rather than
+     *    «it already said that» — wpdb does not set `CLIENT_FOUND_ROWS`
+     *    (`alpha.50`), so without this a same-second rewrite would read as a
+     *    storage failure.
+     *
+     * ⛔ **It writes `status` and nothing else.** Not the stamp — clearing it
+     * would release the catalogue visibility and let the next projection
+     * write `visible` over a deliberate `exclude-from-catalog`. Not
+     * `review_note`, which carries a manager's sentence to the vendor. Not
+     * `published_at`, because this marketplace did not publish the product
+     * and inventing a date would be a worse record than an empty one. And
+     * nothing in `wp_posts`: the storefront is the reference here, not the
+     * subject.
+     *
+     * `true` means this row now carries the storefront's status. `false` means
+     * the guards did not match or the statement was refused, and the caller
+     * must report the row by name rather than counting it as repaired.
+     */
+    public function reconcileStatusToStorefront(
+        int $productId,
+        ProductStatus $target,
+        ProductStatus $expectedStatus,
+        string $expectedStamp
+    ): bool;
+
+    /**
      * Every `product_cat` term recorded for this product, or `null`.
      *
      * THREE answers, and the third is the point: `null` means the question
@@ -820,6 +863,30 @@ interface ProductRepositoryInterface
      *         details to compare them against the shop
      */
     public function observedForVendorAfter(int $vendorUserId, int $afterId = 0, int $limit = 50): array;
+
+    /**
+     * One shop's STAMPED rows, from a cursor — whatever their ownership.
+     *
+     * ⛔ **Why not `observedForVendorAfter()`.** That read filters to
+     * `observed`, and the rows this one is for are the ones a staged transfer
+     * has ALREADY moved to `marketplace`: `setLinkOwnership()` does not touch
+     * the stamp, so a transferred row keeps it and keeps the wrong status
+     * column with it. Scoping the status repair to `observed` would make it
+     * unable to reach the only site that needs it.
+     *
+     * The stamp is the scope instead, and it is the right one: a stamp means
+     * `project()` has never written this row's status, so the column cannot
+     * be a decision this marketplace made — the whole argument in
+     * `StorefrontStatusReconciliation`. Ownership says who manages the
+     * product and answers a different question.
+     *
+     * Keyset on `id` for the reason the method above gives: the caller walks
+     * a whole catalogue and `OFFSET` on a moving table skips rows.
+     *
+     * @return list<Product> hydrated, because the caller needs each row's
+     *         status and stamp to decide, and its WooCommerce id to ask the shop
+     */
+    public function stampedForVendorAfter(int $vendorUserId, int $afterId = 0, int $limit = 50): array;
 
     public function linkOwnership(int $productId): LinkOwnership;
 

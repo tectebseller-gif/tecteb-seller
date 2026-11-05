@@ -9,7 +9,8 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\ModulesPage;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\SettingsPage;
 
 /**
- * The twenty-two manager screens, in five groups — written ONCE.
+ * The twenty-five manager screens, in eight groups and one temporary one —
+ * written ONCE.
  *
  * Two lists used to decide where a page appears: the WordPress submenu, built
  * in `MenuRegistrar` in the order the modules happened to register, and the
@@ -17,7 +18,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\SettingsPage;
  * They could not disagree about WHICH pages exist (both read
  * `AdminExtensions::pages()`), but they could and did disagree about order —
  * and neither had any notion of a group. The owner's complaint was the result:
- * «همهٔ گزینه‌ها یک‌جا باز»، twenty-two pills above every page, with the four
+ * «همهٔ گزینه‌ها یک‌جا باز»، twenty-five pills above every page, with the four
  * screens somebody opens every day sitting between a migration tool and an
  * event log.
  *
@@ -36,11 +37,43 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\SettingsPage;
  */
 final class AdminNavigation
 {
-    public const EVERYDAY = 'everyday';
-    public const SALES = 'sales';
-    public const CONTENT = 'content';
-    public const TOOLS = 'tools';
-    public const SETUP = 'setup';
+    public const DASHBOARD = 'dashboard';
+    public const SHOPS = 'shops';
+    public const PRODUCTS = 'products';
+    public const ORDERS = 'orders';
+    public const FINANCE = 'finance';
+    public const REQUESTS = 'requests';
+    public const SETTINGS = 'settings';
+    public const HEALTH = 'health';
+
+    /**
+     * The migration tools, kept apart on purpose.
+     *
+     * The owner's §5: «ابزارهای مهاجرت … را در یک بخش مدیریتی محدود و مشخص
+     * سازمان‌دهی کن» and «پس از تأیید موفقیت مهاجرت سایت اصلی، بتوان
+     * ابزارهای موقت را با یک مرحله پاک‌سازی کنترل‌شده از رابط و بسته نهایی
+     * حذف کرد.»
+     *
+     * ⛔ So this group is LAST and named as temporary on the screen, and the
+     * cleanup is ONE EDIT: delete this array's entry and the three page
+     * classes it names. That is «یک مرحله پاک‌سازی کنترل‌شده» taken at its
+     * word — a code change in a release, not a runtime switch.
+     *
+     * A runtime flag was considered and rejected. A hidden page whose address
+     * still works is a page a manager cannot find and cannot be told about,
+     * and «ویرایش دستی یک ردیف option» as the way back is the shape
+     * `alpha.80` calls worse than having no gate at all. Removing the tools is
+     * a decision about a release; until that release they are visible, named
+     * as temporary, and out of the way.
+     *
+     * ⛔ **And nothing is deleted while the migration can still need
+     * resuming.** `docs/dokan-exit-blockers-alpha89-fa.md` holds the list of
+     * what may go and in which order; the migration CODE — the steps, the
+     * finance archive, the rollback — stays whatever happens to the menu,
+     * because a step already shipped can never be unshipped.
+     */
+    public const MIGRATION = 'migration';
+
     /** Where a registered page with no group goes, so it can never vanish. */
     public const OTHER = 'other';
 
@@ -55,37 +88,59 @@ final class AdminNavigation
      * @var array<string,list<string>>
      */
     public const GROUPS = [
-        self::EVERYDAY => [
+        // 1 — پیشخوان
+        self::DASHBOARD => [
             'tmc-dashboard',
-            'tmc-product-review',
-            'tmc-vendor-applications',
-            'tmc-vendor-shops',
-            'tmc-vendor-documents',
-            'tmc-tickets',
         ],
-        self::SALES => [
+        // 2 — فروشگاه‌ها و فروشندگان: the shop's own file, its application,
+        //     and the document types an application is judged against.
+        self::SHOPS => [
+            'tmc-vendor-shops',
+            'tmc-vendor-applications',
+            'tmc-vendor-documents',
+        ],
+        // 3 — محصولات: review, the spec templates a product is judged
+        //     against, and the reviews customers leave on one.
+        self::PRODUCTS => [
+            'tmc-product-review',
+            'tmc-spec-templates',
+            'tmc-reviews',
+        ],
+        // 4 — سفارش‌ها: the marketplace's selling state, and the returns
+        //     that come out of an order.
+        self::ORDERS => [
             'tmc-storefront',
+            'tmc-returns',
+        ],
+        // 5 — کمیسیون و تسویه
+        self::FINANCE => [
             'tmc-commission-rules',
             'tmc-withdrawals',
             'tmc-supplier-payments',
-            'tmc-returns',
             'tmc-wholesale',
         ],
-        self::CONTENT => [
-            'tmc-spec-templates',
-            'tmc-reviews',
-            'tmc-reports',
+        // 6 — درخواست‌ها و اعلان‌ها
+        self::REQUESTS => [
+            'tmc-tickets',
         ],
-        self::TOOLS => [
+        // 7 — تنظیمات: the settings, the module switches, and the first-run
+        //     checklist that only ever points at them.
+        self::SETTINGS => [
             'tmc-settings',
             'tmc-modules',
+            'tmc-setup',
+        ],
+        // 8 — سلامت سیستم و گزارش‌ها: everything whose job is to say what
+        //     happened — health, the figures, the queue, the outbox, the trail.
+        self::HEALTH => [
             'tmc-health',
+            'tmc-reports',
             'tmc-jobs',
             'tmc-events',
             'tmc-audit',
         ],
-        self::SETUP => [
-            'tmc-setup',
+        // and last, apart, and temporary.
+        self::MIGRATION => [
             'tmc-import',
             'tmc-handover',
             'tmc-minmax-exit',
@@ -95,15 +150,6 @@ final class AdminNavigation
         ],
     ];
 
-    /**
-     * The four pages this module owns, in the order `MenuRegistrar` builds them.
-     *
-     * Listed here rather than in the registrar so that one place knows every
-     * slug: the reconciliation test can then ask THIS class for the full set
-     * instead of instantiating a registrar that needs WordPress.
-     *
-     * @var list<class-string<Pages\AbstractPage>>
-     */
     public const CORE_PAGES = [
         DashboardPage::class,
         HealthPage::class,
@@ -114,13 +160,24 @@ final class AdminNavigation
     public static function groupLabel(string $group): string
     {
         return match ($group) {
-            self::EVERYDAY => __('روزمره', 'tecteb-marketplace-core'),
-            self::SALES => __('فروش و مالی', 'tecteb-marketplace-core'),
-            self::CONTENT => __('محتوا و گزارش', 'tecteb-marketplace-core'),
-            self::TOOLS => __('تنظیمات و ابزارها', 'tecteb-marketplace-core'),
-            self::SETUP => __('راه‌اندازی و مهاجرت', 'tecteb-marketplace-core'),
+            self::DASHBOARD => __('پیشخوان', 'tecteb-marketplace-core'),
+            self::SHOPS => __('فروشگاه‌ها و فروشندگان', 'tecteb-marketplace-core'),
+            self::PRODUCTS => __('محصولات', 'tecteb-marketplace-core'),
+            self::ORDERS => __('سفارش‌ها', 'tecteb-marketplace-core'),
+            self::FINANCE => __('کمیسیون و تسویه', 'tecteb-marketplace-core'),
+            self::REQUESTS => __('درخواست‌ها و اعلان‌ها', 'tecteb-marketplace-core'),
+            self::SETTINGS => __('تنظیمات', 'tecteb-marketplace-core'),
+            self::HEALTH => __('سلامت سیستم و گزارش‌ها', 'tecteb-marketplace-core'),
+            // Named as temporary on the screen, so nobody has to remember it.
+            self::MIGRATION => __('مهاجرت از دکان (موقت)', 'tecteb-marketplace-core'),
             default => __('سایر بخش‌ها', 'tecteb-marketplace-core'),
         };
+    }
+
+    /** Whether a slug belongs to the temporary migration section. */
+    public static function isMigrationTool(string $slug): bool
+    {
+        return in_array($slug, self::GROUPS[self::MIGRATION], true);
     }
 
     /** Which group a slug belongs to, or '' when no group claims it. */

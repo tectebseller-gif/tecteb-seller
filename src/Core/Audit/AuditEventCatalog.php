@@ -212,6 +212,23 @@ final class AuditEventCatalog
     public const CATALOGUE_SNAPSHOT_BATCH = 'migration.snapshot_batch';
 
     /**
+     * Bringing this plugin's own `status` column back into line with the
+     * storefront, for rows whose status the projector has never written.
+     *
+     * Its own event, and the per-row figures go in it rather than a tally:
+     * «قبل از هر تغییر مهم، وضعیت قبلی ثبت شود». `from` and `to` are the two
+     * statuses and `stamp` is the proof of scope — a row without one is never
+     * in this list, so the trail records WHY each row was eligible and not
+     * only that it moved.
+     *
+     * Written on BOTH paths, for the reason the batch above gives: a run that
+     * repaired eleven rows and stopped on the twelfth has changed which save
+     * path eleven vendors' forms take, and a trail that recorded only
+     * complete runs would have nothing to say about it.
+     */
+    public const STATUS_RECONCILED = 'migration.status_reconciled';
+
+    /**
      * Bringing products this shop already has into the marketplace as
      * OBSERVED rows — and undoing that.
      *
@@ -423,6 +440,7 @@ final class AuditEventCatalog
             self::DOKAN_OWNERSHIP_HALF_WRITTEN => ['product_id', 'wc_product_id', 'from', 'to'],
             self::DOKAN_OWNERSHIP_BATCH => ['vendor_id', 'requested', 'moved', 'stopped_at', 'reason'],
             self::CATALOGUE_SNAPSHOT_BATCH => ['vendor_id', 'requested', 'refreshed', 'stopped_at', 'reason'],
+            self::STATUS_RECONCILED => ['vendor_id', 'requested', 'repaired', 'stopped_at', 'reason', 'rows'],
             self::CATALOGUE_INTAKE => ['run_id', 'imported', 'skipped', 'failed'],
             self::CATALOGUE_INTAKE_ROLLED_BACK => ['run_id', 'removed', 'kept'],
             self::DOKAN_STAFF_GRANTED => ['vendor_id', 'staff_user_id', 'dokan_role', 'preset', 'status'],

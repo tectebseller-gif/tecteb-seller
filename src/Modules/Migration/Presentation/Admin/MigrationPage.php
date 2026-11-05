@@ -10,6 +10,8 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpJobScheduler;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanMigrationPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportFromDokan;
@@ -19,6 +21,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopTransferTally;
 use Tecteb\Marketplace\Modules\Product\Domain\ProjectedStatus;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyRefreshSnapshot;
+use Tecteb\Marketplace\Modules\Migration\Application\ReconcileStorefrontStatus;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -371,6 +374,7 @@ final class MigrationPage
         $this->renderStagedRows($plan, $fa);
         echo $this->stagedApplyForm($plan, $shop, $after, $fa);
         echo $this->refreshBatchForm($plan, $shop, $after, $fa);
+        echo $this->statusRepairCard($shop, $after, $fa);
         echo $this->stagedPager($plan, $shop, $fa);
         echo '</section>';
     }
@@ -480,6 +484,153 @@ final class MigrationPage
             . ' value="apply_refresh_batch">'
             . esc_html__('بازخوانی اطلاعات این دسته', 'tecteb-marketplace-core')
             . '</button></form>';
+    }
+
+    /**
+     * The status repair — this plugin's own column, against the storefront.
+     *
+     * ⛔ **Why this card exists at all.** On a site whose products were
+     * imported by a package older than `alpha.92`, every imported row carries
+     * `draft` while the product is live: the old intake wrote
+     * `ProductStatus::Draft` unconditionally, migration 38 filled the STAMP
+     * and deliberately left the status column alone, and nothing since brings
+     * the two together — `refreshFrom()` rewrites thirteen fields and not
+     * this one, and refuses a row the transfer has already moved anyway. The
+     * consequences are in `StorefrontStatusReconciliation`'s docblock and the
+     * middle one is not cosmetic: a `draft` row is vendor-editable, so a
+     * sensitive change to a LIVE product never reaches the review queue.
+     *
+     * It is drawn only when there is something to repair, so a healthy site
+     * never sees a migration-era control it has no use for.
+     */
+    private function statusRepairCard(int $shop, int $after, callable $fa): string
+    {
+        $plan = $this->container->get(ReconcileStorefrontStatus::class)->plan($shop, $after);
+        $ids = array_map('intval', (array) $plan['repairable']);
+        // ⛔ THIS CARD PAGES ITSELF, and that is not a nicety.
+        //
+        // `stagedPager()` below is built from the OWNERSHIP plan, which walks
+        // `observedForVendorAfter()` — only the rows the transfer has not
+        // moved yet. This card walks STAMPED rows, and the stamp SURVIVES the
+        // transfer (`setLinkOwnership()` does not touch it). So on a shop
+        // whose transfer is already finished the ownership plan returns no
+        // rows, its `finished` is true and its `cursor` is nought — and that
+        // pager prints NOTHING, while this card still has rows on the pages
+        // after this one.
+        //
+        // That is the shape staging reports: 184 rows already transferred,
+        // fifty scanned to a page, and no control to reach the rest. A cursor
+        // that is computed and never read is the defect `alpha.85` took
+        // apart, and the shop this card was written for is precisely the case
+        // that reaches it. So the cursor read here is THIS plan's own.
+        $pager = $this->statusRepairPager($plan, $shop);
+        if ($ids === []) {
+            // Nothing to repair HERE is not nothing to repair anywhere. Say
+            // which of the two it is, and keep the way forward on the page.
+            if ($pager === '') {
+                return '';
+            }
+            return '<h3>' . esc_html__('اصلاح وضعیت انتشار در بازارگاه', 'tecteb-marketplace-core') . '</h3>'
+                . '<p>' . esc_html__('در این صفحه ردیفی برای اصلاح نیست — ممکن است در صفحه‌های بعد باشد.', 'tecteb-marketplace-core') . '</p>'
+                . $pager;
+        }
+        $out = '<h3>' . esc_html__('اصلاح وضعیت انتشار در بازارگاه', 'tecteb-marketplace-core') . '</h3>';
+        $out .= '<p>' . esc_html(sprintf(
+            /* translators: %s: how many rows disagree with the shop */
+            __('در این صفحه، وضعیتِ ثبت‌شدهٔ %s ردیف با وضعیت واقعی همان محصول در ووکامرس یکی نیست. مرجع، ووکامرس است.', 'tecteb-marketplace-core'),
+            $fa((string) count($ids))
+        )) . '</p>';
+        $out .= '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول اصلاح وضعیت', 'tecteb-marketplace-core') . '">'
+            . '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('ردیف بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('محصول', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت در بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت در ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('پس از اصلاح', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>';
+        foreach ((array) $plan['rows'] as $row) {
+            $row = (array) $row;
+            // Only the rows this press would move are listed. The others are
+            // counted in the shop tally above, so nothing is hidden by the
+            // narrowing — and a table of twenty-five rows nobody can act on
+            // is the kind of screen `alpha.85` took apart.
+            if (!in_array((int) $row['product_id'], $ids, true)) {
+                continue;
+            }
+            $out .= '<tr><td>' . esc_html($fa((string) $row['product_id'])) . '</td>'
+                . '<td>' . esc_html(ProductMessages::displayTitle(
+                    (string) $row['title'],
+                    (int) $row['product_id']
+                )) . '</td>'
+                . '<td>' . esc_html(self::statusName((string) $row['row_status'])) . '</td>'
+                . '<td>' . esc_html(ProductMessages::shopStatus((string) $row['shop_status'])) . '</td>'
+                . '<td>' . esc_html(self::statusName((string) $row['target'])) . '</td>'
+                . '</tr>';
+        }
+        $out .= '</tbody></table></div>';
+        $out .= Components::moreDetails(
+            [
+                __('تنها ستون وضعیتِ خودِ بازارگاه نوشته می‌شود. قیمت، موجودی، SKU، دسته‌بندی، تصویر، فروشنده، محدودیت خرید و مهر وضعیت دست‌نخورده می‌مانند، و هیچ‌چیزی روی محصول ووکامرس نوشته نمی‌شود.', 'tecteb-marketplace-core'),
+                __('فقط ردیف‌هایی اصلاح می‌شوند که مهر وضعیت دارند — یعنی همگام‌سازی هرگز وضعیتشان را ننوشته، پس مقدار فعلی تصمیم هیچ‌کس نیست. ردیفی که مدیر دربارهٔ آن تصمیم گرفته باشد مهر ندارد و اصلاح نمی‌شود.', 'tecteb-marketplace-core'),
+                __('ردیفی که در انتظار بررسی یا تعلیق‌شده است دست نمی‌خورد، و وضعیتی که این بازارگاه نمی‌تواند بیان کند با نام رد می‌شود.', 'tecteb-marketplace-core'),
+                __('این کارت دربارهٔ همین صفحه است و هر فشار تا ۲۵ ردیف. برای ردیف‌های بعدی، پیوند «ادامهٔ اصلاح وضعیت از اینجا» را در پایین همین کارت بزنید؛ تا وقتی آن پیوند چاپ می‌شود، صفحهٔ دیگری مانده است.', 'tecteb-marketplace-core'),
+            ],
+            __('این اصلاح چه می‌کند و چه نمی‌کند', 'tecteb-marketplace-core')
+        );
+        $form = '<form method="post" class="tmc-inline-form">'
+            . wp_nonce_field(self::NONCE, 'tmc_migration_nonce', true, false)
+            . '<input type="hidden" name="tv_shop" value="' . esc_attr((string) $shop) . '">'
+            . '<input type="hidden" name="tv_after" value="' . esc_attr((string) $after) . '">'
+            . '<input type="hidden" name="status_digest" value="'
+            . esc_attr((string) $plan['digest']) . '">';
+        foreach ($ids as $productId) {
+            $form .= '<input type="hidden" name="status_fix[]" value="' . esc_attr((string) $productId) . '">';
+        }
+        $form .= '<p class="tmc-field__desc">' . esc_html(sprintf(
+            /* translators: %s: how many rows this click repairs */
+            __('این دکمه وضعیتِ ثبت‌شدهٔ %s ردیف را با ووکامرس هماهنگ می‌کند و سرِ اولین خطا می‌ایستد.', 'tecteb-marketplace-core'),
+            $fa((string) count($ids))
+        )) . '</p>';
+        return $out . $form . '<button type="submit" class="button" name="migration_action"'
+            . ' value="apply_status_repair">'
+            . esc_html__('اصلاح وضعیت این دسته', 'tecteb-marketplace-core')
+            . '</button></form>' . $pager;
+    }
+
+    /**
+     * The way to the next page of stamped rows, from THIS plan's own cursor.
+     *
+     * Printed only when it would go somewhere — a cursor that did not move
+     * links back to the page you are on, which is how `alpha.85` described a
+     * pager that looks like progress and is not. `finished` here means the
+     * scan saw fewer rows than its limit, so there is no page after it.
+     *
+     * @param array<string,mixed> $plan
+     */
+    private function statusRepairPager(array $plan, int $shop): string
+    {
+        $cursor = (int) $plan['cursor'];
+        if ($plan['finished'] === true || $cursor <= 0) {
+            return '';
+        }
+        return '<p><a class="button" href="' . esc_url(add_query_arg(
+            ['page' => self::SLUG, 'tv_shop' => $shop, 'tv_after' => $cursor],
+            admin_url('admin.php')
+        )) . '">' . esc_html__('ادامهٔ اصلاح وضعیت از اینجا', 'tecteb-marketplace-core') . '</a></p>';
+    }
+
+    /**
+     * The Persian name of a stored status value.
+     *
+     * `ProductMessages::status()` takes the enum, and the plan carries the
+     * stored string — so the mapping happens once, here, rather than every
+     * row doing its own `tryFrom` and printing a raw `draft` when it fails.
+     */
+    private static function statusName(string $value): string
+    {
+        $status = ProductStatus::tryFrom(trim($value));
+        return $status === null ? trim($value) : ProductMessages::status($status);
     }
 
     /** @param list<int> $shops */
@@ -1110,6 +1261,36 @@ final class MigrationPage
                 return 'err:' . sprintf(
                     /* translators: 1: refreshed count, 2: product row id, 3: refusal code */
                     __('بازخوانی سرِ محصول %2$s ایستاد (%3$s). تا آن لحظه %1$s ردیف بازخوانی شده بود و همان‌ها تازه مانده‌اند؛ بقیه دست‌نخورده‌اند.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $done),
+                    PersianDigits::toPersian((string) $result['stopped_at']),
+                    (string) $result['reason']
+                );
+            }
+            return 'err:' . self::batchRefusal((string) $result['code']);
+        }
+
+        if ($action === 'apply_status_repair') {
+            $result = $this->container->get(ReconcileStorefrontStatus::class)->apply(
+                $request->postInt('tv_shop'),
+                $request->postInt('tv_after'),
+                $request->postIdList('status_fix'),
+                $request->postKey('status_digest')
+            );
+            $done = count((array) $result['repaired']);
+            if ($result['ok'] === true) {
+                return 'ok:' . sprintf(
+                    /* translators: %s: how many rows were brought into line */
+                    __('وضعیتِ ثبت‌شدهٔ %s ردیف با ووکامرس هماهنگ شد. هیچ‌چیزی روی محصول ووکامرس نوشته نشد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $done)
+                );
+            }
+            // Both halves, for the reason the two batches above give them: a
+            // run that did part of its work has changed which save path those
+            // vendors' forms take, and a count with no id cannot be acted on.
+            if ($result['code'] === 'stopped') {
+                return 'err:' . sprintf(
+                    /* translators: 1: repaired count, 2: product row id, 3: refusal code */
+                    __('اصلاح سرِ محصول %2$s ایستاد (%3$s). تا آن لحظه وضعیت %1$s ردیف هماهنگ شده بود و همان‌ها هماهنگ مانده‌اند؛ بقیه دست‌نخورده‌اند.', 'tecteb-marketplace-core'),
                     PersianDigits::toPersian((string) $done),
                     PersianDigits::toPersian((string) $result['stopped_at']),
                     (string) $result['reason']

@@ -1,0 +1,111 @@
+<?php
+declare(strict_types=1);
+
+namespace Tecteb\Marketplace\Modules\Migration\Application;
+
+use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
+use Tecteb\Marketplace\Contracts\OptionStoreInterface;
+use Tecteb\Marketplace\Core\Migration\SchemaVersion;
+use Tecteb\Marketplace\Modules\Finance\Application\MoneyScaleRollbackGate;
+
+/**
+ * Everything `MigrationPlanChecklist` needs, read ONCE, for one shop.
+ *
+ * ### Why a gatherer rather than twelve reads in the view
+ *
+ * Because the checklist is pure and must stay that way, and because a view
+ * that asked each service itself would ask some of them twice — the tally and
+ * the completeness both want the ownership counts, and `ShopTransferTally::of()`
+ * walks a whole catalogue. One snapshot, one walk.
+ *
+ * ### It reads and nothing else
+ *
+ * No method here writes, and `MigrationWizardIsReadOnly` asserts the absent
+ * verbs from this file's bytes. That is the owner's «اجرای آزمایشی بدون تغییر
+ * داده‌ها» as a property of the class rather than a sentence in a docblock:
+ * opening the wizard cannot start an import, move ownership, grant a permission
+ * or touch a WooCommerce product, because there is no code here that could.
+ *
+ * ⛔ **Every absent fact arrives as `null`, never as nought.** A service that
+ * is not bound, a count that failed, a scan that stopped at its ceiling — each
+ * one makes its step `UNKNOWN`, and `UNKNOWN` never counts towards «آماده».
+ * A snapshot that filled a gap with zero would make the checklist confident
+ * about something nobody measured.
+ */
+final class MigrationPlanSnapshot
+{
+    public function __construct(
+        private readonly MigrationCompleteness $completeness,
+        private readonly ShopTransferTally $tally,
+        private readonly ReconcileStorefrontStatus $status,
+        private readonly OptionStoreInterface $options,
+        private readonly ?DependencyProbeInterface $probe = null,
+        private readonly ?DokanReaderInterface $dokan = null,
+        private readonly ?MoneyScaleRollbackGate $rollback = null
+    ) {
+    }
+
+    /**
+     * The shops this wizard can report on.
+     *
+     * The same list the completeness table is built from, so the wizard and
+     * the gates below it cannot be about different sets of shops.
+     *
+     * @return list<int>
+     */
+    public function shops(): array
+    {
+        return $this->completeness->shopVendorUserIds();
+    }
+
+    /**
+     * One shop's whole picture.
+     *
+     * @return array<string,mixed> the shape `MigrationPlanChecklist::steps()` takes
+     */
+    public function of(int $vendorUserId): array
+    {
+        $tally = $this->tally->of($vendorUserId);
+        $counts = (array) $tally['counts'];
+        // ⛔ A scan that stopped short reports its FIGURES as unreadable
+        // rather than reporting the part it reached as the whole. The tally
+        // itself prints `scanned` for a manager to read; the checklist must
+        // not judge on it (`alpha.75`).
+        $finished = $tally['finished'] === true && $tally['checked'] === true;
+
+        $gates = $this->completeness->forVendor($vendorUserId);
+        $detail = (array) ($gates['detail'] ?? []);
+
+        $statusPlan = $this->status->plan($vendorUserId);
+
+        return [
+            'php_version' => $this->probe?->phpVersion() ?? '',
+            'platform_version' => $this->probe?->platformVersion(),
+            'woocommerce_active' => $this->probe?->woocommerceAvailable() ?? false,
+            'woocommerce_version' => $this->probe?->woocommerceVersion(),
+            // `null` when there is no reader bound at all, which is a
+            // different answer from «Dokan is not running» and lands the step
+            // on `UNKNOWN` rather than `BLOCKED`.
+            'dokan_running' => $this->dokan?->isAvailable(),
+            'schema_version' => (int) $this->options->get(SchemaVersion::OPTION, 0),
+            'schema_target' => SchemaVersion::TARGET,
+            'rollback' => (string) ($this->rollback?->check()['verdict'] ?? ''),
+            'shops' => count($this->shops()),
+            'observed' => (int) ($detail['products_observed'] ?? 0),
+            'marketplace' => (int) ($detail['products_marketplace'] ?? 0),
+            'scan_finished' => $finished,
+            'ready' => $finished ? (int) ($counts[OwnershipTransferPlan::READY] ?? 0) : null,
+            'drift_fixable' => $finished ? (int) ($counts[OwnershipTransferPlan::DRIFT_FIXABLE] ?? 0) : null,
+            'risk_real' => $finished ? (int) ($counts[OwnershipTransferPlan::RISK_REAL] ?? 0) : null,
+            // ⛔ This page's walk, not the whole catalogue's — and it says so
+            // by being `null` when the status scan did not reach the end
+            // either. The repair's own card prints the page figure beside its
+            // button, which is where a number a manager acts on belongs.
+            'status_repairable' => $statusPlan['finished'] === true
+                ? count((array) $statusPlan['repairable'])
+                : null,
+            'transfer_runs' => count((array) $this->options->get(ImportFromDokan::RUNS_OPTION, [])),
+            'gates_missing' => array_values(array_map('strval', (array) ($gates['missing'] ?? []))),
+        ];
+    }
+}

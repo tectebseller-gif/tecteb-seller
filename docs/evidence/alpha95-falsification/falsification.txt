@@ -1,0 +1,83 @@
+alpha.95 falsification — 22 mutations
+tree: 8f9b9a8 32 modified paths
+
+baseline architecture:: 0
+baseline unit:: 0
+baseline contract:NavigationGroupsTest: 0
+baseline contract:MigrationWizardTextTest: 0
+baseline database:StatusReconciliationFlowTest: 0
+
+1. the stamp guard goes: an unstamped row becomes repairable
+    unit failures: 2 (wanted at least 2) — red
+    restored byte for byte: yes
+2. the in-flight guard goes: a submission can be overwritten
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+3. an unreadable shop status reads as agreement
+    unit failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+4. the scope widens to every status
+    unit failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+5. the status guard leaves the WHERE
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+6. the stamp guard leaves the WHERE
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+7. the row_version bump goes, so nought rows becomes ambiguous
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+8. the SET widens to the review note
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+9. a blank stamp expectation is sent rather than refused
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+10. the digest compare goes
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+11. a subset is filtered instead of refused
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+12. the re-read inside the loop goes: the preview's verdict is trusted
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+13. the trail is written only when the whole run succeeded
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+14. a caller without the permission is told the walk is over
+    database failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+15. the repair card is never drawn
+    database failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+16. the wizard card is never drawn
+    database failures: 2 (wanted at least 1) — red
+    restored byte for byte: yes
+17. readiness means «nothing blocked» rather than «all done»
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+18. an unmeasured rollback reads as safe
+    unit failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+19. Dokan not running stops being a blocker
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+20. a structure ahead of this package reads as at the target
+    unit failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+21. a short scan's figures are reported as the whole shop's
+    architecture failures: 1 (wanted at least 1) — red
+    restored byte for byte: yes
+22. the migration tools lose their own section
+    contract failures: 3 (wanted at least 1) — red
+    restored byte for byte: yes
+
+final architecture:: 0
+final unit:: 0
+final contract:NavigationGroupsTest: 0
+final contract:MigrationWizardTextTest: 0
+final database:StatusReconciliationFlowTest: 0
+
+mutations: 22 · problems: 0

@@ -114,16 +114,41 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
         // edited in `AdminNavigation` and not reflected here would be caught
         // only by the slug-by-slug loop failing with an off-by-one message
         // about the wrong page.
+        //
+        // ⛔ The SET must match exactly, and the ORDER comes from the
+        // definition rather than from the order the rows are written here.
+        // The owner's §5 regrouped the sidebar, and a list typed in this file
+        // would then have had to be re-typed to agree with the code — a test
+        // that is edited into agreement is no test (`alpha.34`). What still
+        // matters, and is still asserted, is that no page is missing, no page
+        // is extra, and every page keeps its capability and its label.
+        $expectedBySlug = [];
+        foreach ($expected as [$slug, $cap, $label]) {
+            $expectedBySlug[$slug] = [$cap, $label];
+        }
+        $order = \Tecteb\Marketplace\Modules\Admin\Presentation\AdminNavigation::order();
         self::assertSame(
-            array_column($expected, 0),
-            \Tecteb\Marketplace\Modules\Admin\Presentation\AdminNavigation::order(),
-            'the navigation groups and the expected sidebar order are one decision'
+            array_values(array_unique($order)),
+            $order,
+            'no slug may appear in two groups'
+        );
+        $sortedExpected = array_keys($expectedBySlug);
+        $sortedOrder = $order;
+        sort($sortedExpected);
+        sort($sortedOrder);
+        self::assertSame(
+            $sortedExpected,
+            $sortedOrder,
+            'the navigation groups and the expected page set are one decision'
         );
         self::assertCount(count($expected), $subs);
-        foreach ($expected as $i => [$slug, $cap, $label]) {
-            self::assertSame($slug, $subs[$i]['slug']);
-            self::assertSame($cap, $subs[$i]['capability']);
-            self::assertSame($label, self::withoutBubble((string) $subs[$i]['menuTitle']));
+        self::assertSame($order, array_column($subs, 'slug'), 'the sidebar follows the definition');
+        foreach ($subs as $sub) {
+            $slug = (string) $sub['slug'];
+            self::assertArrayHasKey($slug, $expectedBySlug, 'unexpected page ' . $slug);
+            [$cap, $label] = $expectedBySlug[$slug];
+            self::assertSame($cap, $sub['capability'], $slug);
+            self::assertSame($label, self::withoutBubble((string) $sub['menuTitle']), $slug);
         }
         foreach (State::$menus as $m) {
             self::assertStringNotContainsString('dokan', strtolower($m['slug']));
