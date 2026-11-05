@@ -16,6 +16,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\CatalogueReaderInterface;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileStorefrontStatus;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\HandoverPage;
@@ -711,6 +712,201 @@ final class StatusReconciliationFlowTest extends DatabaseTestCase
         self::assertStringNotContainsString('هر دوازده گام انجام شده است', $html);
     }
 
+    // ============================================ step 7 of the wizard
+
+    /**
+     * ⛔ **Step 7 could never be measured on the shop it was written for.**
+     *
+     * The owner read «همگام‌سازی امن داده قابل اصلاح: اندازه‌گیری‌نشده» on a
+     * shop whose status repair had already been run to the end, and the
+     * reason is not the data: `MigrationPlanSnapshot` asked
+     * `ReconcileStorefrontStatus::plan()` — ONE PAGE, fifty rows — and that
+     * plan's `finished` is «the page came back short». A shop with fifty or
+     * more stamped rows therefore has a full first page for ever, because the
+     * STAMP SURVIVES THE REPAIR by design, so `status_repairable` was `null`
+     * on every render and the step was `UNKNOWN` no matter how much work a
+     * manager did.
+     *
+     * Fifty-one rows that ALL AGREE with the shop is the clearest form of it:
+     * there is nothing to repair anywhere, and the old reading still could
+     * not say so.
+     */
+    public function testTheSyncStepIsMeasuredWhenNothingInTheShopNeedsRepair(): void
+    {
+        $this->seedStampedRows(51, false);
+
+        $state = $this->snapshotOf(self::VENDOR);
+
+        self::assertSame(0, $state['status_repairable'], 'nothing to repair, and that is a number');
+        self::assertSame(
+            MigrationPlanChecklist::DONE,
+            $this->stepOf($state, MigrationPlanChecklist::STEP_SYNC)['status']
+        );
+    }
+
+    /**
+     * And the walk reaches past the first page, which is the other half: a
+     * row that needs repair on page two must be COUNTED, not missed. A step
+     * that said «۰ مانده» while row fifty-one disagreed would be worse than
+     * one that said «نمی‌دانم».
+     */
+    public function testTheSyncStepCountsARowThatOnlyPageTwoCanSee(): void
+    {
+        $ids = $this->seedStampedRows(51, false);
+        $last = (int) $ids[array_key_last($ids)];
+        $this->setStatus($last, ProductStatus::Draft);
+
+        $state = $this->snapshotOf(self::VENDOR);
+        $sync = $this->stepOf($state, MigrationPlanChecklist::STEP_SYNC);
+
+        self::assertSame(1, $state['status_repairable']);
+        self::assertSame(MigrationPlanChecklist::TODO, $sync['status']);
+        self::assertSame('fixable_differences_left', $sync['blocker']);
+    }
+
+    /**
+     * ⛔ And «I could not look» is still not nought. A caller without the
+     * capability reads nothing, and the step stays `UNKNOWN` — the
+     * `alpha.68` rule, kept through the change.
+     */
+    public function testAWalkThatCouldNotReadReportsNoNumberAtAll(): void
+    {
+        $this->seedStampedRows(2, false);
+
+        $tally = $this->service(null, [])->tally(self::VENDOR);
+
+        self::assertFalse($tally['finished']);
+        self::assertSame(0, $tally['scanned']);
+    }
+
+    /**
+     * ⛔ **And a bulk read that FAILED is not «nothing needs repair».**
+     *
+     * This is the fault my own fix would have had: when `statusesOf()` comes
+     * back `null`, every row's verdict is `UNREADABLE`, so `counts[REPAIR]`
+     * is nought and the walk still reaches the end — and a tally that read
+     * «finished, nought repairable» off that would have made step 7 say
+     * «انجام شده» about a shop nobody could look at. So the walk carries
+     * `readable` as its own fact, ANDed across pages, and the wizard withholds
+     * the figure (`alpha.68`, `alpha.89`).
+     *
+     * ⛔ And the OTHER direction is the point of keeping them apart: a single
+     * product that is genuinely gone is `UNREADABLE` too, and that one must
+     * NOT make the step unmeasurable — it is a known row that this control
+     * cannot fix, named on the card, and the next test pins it.
+     */
+    public function testABulkReadThatFailedIsNotNothingToRepair(): void
+    {
+        $this->seedStampedRows(2, true);
+        $this->reader->statusesUnreadable = true;
+
+        $tally = $this->service()->tally(self::VENDOR);
+
+        self::assertTrue($tally['finished'], 'the walk still reached the end');
+        self::assertFalse($tally['readable'], 'but it could not read a single status');
+        self::assertSame(0, $tally['repairable']);
+
+        $state = $this->snapshotOf(self::VENDOR);
+        self::assertNull($state['status_repairable']);
+        self::assertSame(
+            MigrationPlanChecklist::UNKNOWN,
+            $this->stepOf($state, MigrationPlanChecklist::STEP_SYNC)['status']
+        );
+    }
+
+    /** One product gone is a known row, not an unmeasurable shop. */
+    public function testOneProductThatIsGoneStillLeavesTheShopMeasurable(): void
+    {
+        $ids = $this->seedStampedRows(2, false);
+        unset($this->reader->details[array_key_first($ids)]);
+
+        $state = $this->snapshotOf(self::VENDOR);
+
+        self::assertSame(0, $state['status_repairable'], 'nothing is repairable, and that is known');
+        self::assertSame(
+            MigrationPlanChecklist::DONE,
+            $this->stepOf($state, MigrationPlanChecklist::STEP_SYNC)['status']
+        );
+    }
+
+    /**
+     * The whole-shop walk and the page it pages: one rule, two entry points.
+     * A row the card offers must be a row the tally counts, or the wizard and
+     * the screen are about different catalogues (`alpha.78`).
+     */
+    public function testTheTallyAndTheCardAgreeAboutWhatIsRepairable(): void
+    {
+        $this->seedStampedRows(51, true);
+        $service = $this->service();
+
+        $tally = $service->tally(self::VENDOR);
+        $page = $service->plan(self::VENDOR);
+
+        self::assertTrue($tally['finished']);
+        self::assertSame(51, $tally['repairable']);
+        self::assertSame(51, $tally['scanned']);
+        // The card is capped at one batch; the tally is not, and says so.
+        self::assertSame(ReconcileStorefrontStatus::BATCH_LIMIT, count((array) $page['repairable']));
+    }
+
+    /**
+     * ⛔ **A fragment that no page writes is a link to the top of a page.**
+     *
+     * The slug check in the contract suite covers half the `alpha.17` rule —
+     * the address — and this covers the other half: the PLACE. Step 7's
+     * «رفتن» opened the import page at the Dokan dry run while the control it
+     * is about was a section further down, which is an address that is right
+     * and a link that is wrong.
+     *
+     * It lives HERE and not beside the slug check because the staged-transfer
+     * section is only drawn when a shop exists, and in the contract suite
+     * that depended on rows a previous suite had left behind — a test that
+     * passes because of somebody else's fixture is a test that will pass with
+     * the anchor gone.
+     */
+    public function testEveryAnchorTheWizardNamesIsPrintedByTheMigrationPage(): void
+    {
+        $this->asShop102();
+        $anchors = [];
+        foreach (MigrationPlanChecklist::ORDER as $key) {
+            $target = MigrationWizardText::target($key, self::VENDOR);
+            if (str_contains($target, '#')) {
+                $anchors[substr($target, strpos($target, '#') + 1)] = $key;
+            }
+        }
+        self::assertNotSame([], $anchors, 'at least one step must point at an anchor');
+
+        $html = $this->renderMigrationPage();
+
+        foreach ($anchors as $anchor => $key) {
+            self::assertStringContainsString(
+                'id="' . $anchor . '"',
+                $html,
+                $key . ' points at #' . $anchor . ', which this page does not print'
+            );
+        }
+    }
+
+    /**
+     * ⛔ The «رفتن» link of step 7 landed on the bare import page — the same
+     * address steps 4 and 5 use, whose top is the Dokan dry run. So the one
+     * control the step is about was two screens down and the shop was
+     * whichever one the page defaults to. It carries the shop and the anchor
+     * now, and this test reads it from the RENDERED page.
+     */
+    public function testTheSyncStepLinksToTheRepairCardOfThisVeryShop(): void
+    {
+        $this->asShop102();
+
+        $html = $this->renderHandoverPage();
+
+        self::assertStringContainsString(
+            'tv_shop=' . self::VENDOR . '#' . MigrationPage::ANCHOR_SYNC,
+            html_entity_decode($html, ENT_QUOTES),
+            'step 7 must point at this shop\'s repair card'
+        );
+    }
+
     // ================================================================ fixtures
 
     /**
@@ -886,6 +1082,35 @@ final class StatusReconciliationFlowTest extends DatabaseTestCase
             State::$currentUserId = $user;
             unset($_GET['page'], $_GET['wz_shop']);
         }
+    }
+
+    /**
+     * The wizard's state for one shop, through the real container binding.
+     *
+     * @return array<string,mixed>
+     */
+    private function snapshotOf(int $vendorUserId): array
+    {
+        $this->bootPlugin(true);
+        $this->loginAdmin();
+        $container = Bootstrap::container();
+        $reader = $this->reader;
+        $container->bind(CatalogueReaderInterface::class, static fn (): FakeCatalogueReader => $reader);
+        return $container->get(MigrationPlanSnapshot::class)->of($vendorUserId);
+    }
+
+    /**
+     * @param array<string,mixed> $state
+     * @return array{key:string, status:string, blocker:string, detail:string}
+     */
+    private function stepOf(array $state, string $key): array
+    {
+        foreach (MigrationPlanChecklist::steps($state) as $step) {
+            if ($step['key'] === $key) {
+                return $step;
+            }
+        }
+        self::fail('no step ' . $key);
     }
 
     private function stampOf(int $productId): ?string

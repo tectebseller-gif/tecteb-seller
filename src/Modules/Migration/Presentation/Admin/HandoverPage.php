@@ -227,7 +227,9 @@ final class HandoverPage
         foreach ($steps as $step) {
             $number++;
             $key = (string) $step['key'];
-            $where = MigrationWizardText::target($key);
+            // The shop this card is about travels with the link, so «رفتن»
+            // does not land on whichever shop the other page defaults to.
+            $where = MigrationWizardText::target($key, $shop);
             echo '<tr><td>' . esc_html($fa((string) $number)) . '</td>'
                 . '<td>' . esc_html(MigrationWizardText::step($key)) . '</td>'
                 . '<td>' . esc_html(MigrationWizardText::status((string) $step['status'])) . '</td>'

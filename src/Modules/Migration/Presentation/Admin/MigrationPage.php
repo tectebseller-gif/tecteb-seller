@@ -41,6 +41,31 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 final class MigrationPage
 {
     public const SLUG = 'tmc-import';
+
+    /**
+     * Where the staged-transfer section begins, so a link can land ON it.
+     *
+     * ⛔ **Why these two constants exist.** The wizard's «رفتن» for steps 6
+     * to 10 pointed at `admin.php?page=tmc-import` with no shop and no
+     * fragment — the SAME address steps 4 and 5 use, whose top is the Dokan
+     * dry run. So a manager following step 7 landed on a different part of a
+     * long page, about whichever shop the page defaults to. A link that goes
+     * to the right page and the wrong place is the `alpha.85` lesson in
+     * presentation: find the control you tell somebody to press.
+     */
+    public const ANCHOR_TRANSFER = 'tmc-staged-transfer';
+
+    /**
+     * The two batch controls of wizard step 7 — «همگام‌سازی امن دادهٔ قابل
+     * اصلاح» — in one wrapper.
+     *
+     * It is a wrapper rather than an id on either control because BOTH of
+     * them are conditional: the refresh form is drawn when something is
+     * fixable on this page and the repair card when something is repairable
+     * on it, and a fragment that sometimes resolves is worse than one that
+     * always does. The wrapper exists whenever the section does.
+     */
+    public const ANCHOR_SYNC = 'tmc-sync-controls';
     public const CAPABILITY = Capabilities::REVIEW_VENDOR;
     private const NONCE = 'tmc_dokan_migration';
     private const PLAN_TRANSIENT = 'tmc_dokan_plan';
@@ -337,7 +362,8 @@ final class MigrationPage
     {
         $completeness = $this->container->get(MigrationCompleteness::class);
         $shops = $completeness->shopVendorUserIds();
-        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+        echo '<section class="tmc-card" id="' . esc_attr(self::ANCHOR_TRANSFER) . '">'
+            . '<h2 class="tmc-card__title">'
             . esc_html__('انتقال مالکیت مرحله‌ای', 'tecteb-marketplace-core') . '</h2>';
         if ($shops === []) {
             echo '<p>' . esc_html__('هیچ فروشگاه واردشده‌ای نیست.', 'tecteb-marketplace-core')
@@ -373,8 +399,12 @@ final class MigrationPage
 
         $this->renderStagedRows($plan, $fa);
         echo $this->stagedApplyForm($plan, $shop, $after, $fa);
-        echo $this->refreshBatchForm($plan, $shop, $after, $fa);
-        echo $this->statusRepairCard($shop, $after, $fa);
+        // Wizard step 7's two controls, wrapped so its «رفتن» can land here
+        // rather than at the top of the page.
+        echo '<div id="' . esc_attr(self::ANCHOR_SYNC) . '">'
+            . $this->refreshBatchForm($plan, $shop, $after, $fa)
+            . $this->statusRepairCard($shop, $after, $fa)
+            . '</div>';
         echo $this->stagedPager($plan, $shop, $fa);
         echo '</section>';
     }

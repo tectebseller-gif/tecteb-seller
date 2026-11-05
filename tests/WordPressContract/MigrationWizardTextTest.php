@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist as Plan;
+use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 use Tecteb\Marketplace\Modules\Migration\Presentation\MigrationWizardText as Text;
 
 /**
@@ -116,21 +117,25 @@ final class MigrationWizardTextTest extends ContractTestCase
     public function testEveryTargetIsAReachableAdminPath(): void
     {
         foreach (Plan::ORDER as $key) {
-            $target = Text::target($key);
-            if ($target === '') {
-                continue;
+            foreach ([0, 102] as $shop) {
+                $target = Text::target($key, $shop);
+                if ($target === '') {
+                    continue;
+                }
+                self::assertMatchesRegularExpression(
+                    '~^(admin\.php\?page=[a-z0-9-]+(&tv_shop=\d+)?(#[a-z0-9-]+)?|plugins\.php)$~',
+                    $target,
+                    $key . ' has a malformed target for shop ' . $shop
+                );
             }
-            self::assertMatchesRegularExpression(
-                '~^(admin\.php\?page=[a-z0-9-]+|plugins\.php)$~',
-                $target,
-                $key . ' has a malformed target'
-            );
         }
     }
 
     /**
      * ⛔ And every page a target names is one this build really registers —
-     * the `alpha.17` fault was a printed link to a page that 404s.
+     * the `alpha.17` fault was a printed link to a page that 404s. The shop
+     * and the fragment are stripped first, because neither is part of the
+     * page's identity.
      */
     public function testEveryTargetedPageIsRegistered(): void
     {
@@ -141,12 +146,39 @@ final class MigrationWizardTextTest extends ContractTestCase
         self::assertNotSame([], $slugs, 'the fixture must register some pages');
 
         foreach (Plan::ORDER as $key) {
-            $target = Text::target($key);
+            $target = Text::target($key, 102);
             if ($target === '' || !str_contains($target, 'page=')) {
                 continue;
             }
             $slug = substr($target, strpos($target, 'page=') + 5);
+            $slug = (string) preg_replace('~[&#].*$~', '', $slug);
             self::assertContains($slug, $slugs, $key . ' points at an unregistered page: ' . $slug);
         }
+    }
+
+    /**
+     * And the shop travels, so the link is about the row the manager read.
+     *
+     * The other direction too: a caller with no shop in hand must get a URL
+     * with no shop rather than a guess at one (`alpha.68` on a query string).
+     */
+    public function testTheShopTravelsWithTheTransferSteps(): void
+    {
+        self::assertStringContainsString('tv_shop=102', Text::target(Plan::STEP_SYNC, 102));
+        self::assertStringNotContainsString('tv_shop', Text::target(Plan::STEP_SYNC, 0));
+        // Steps 4 and 5 are the Dokan import at the TOP of that page, so they
+        // keep the bare address on purpose.
+        self::assertStringNotContainsString('#', Text::target(Plan::STEP_DRY_RUN, 102));
+        self::assertStringNotContainsString('#', Text::target(Plan::STEP_INVENTORY, 102));
+    }
+
+    /** Step 7's anchor is the sync controls, not the section they sit in. */
+    public function testStepSevenPointsAtItsOwnControls(): void
+    {
+        self::assertStringEndsWith('#' . MigrationPage::ANCHOR_SYNC, Text::target(Plan::STEP_SYNC, 102));
+        self::assertStringEndsWith(
+            '#' . MigrationPage::ANCHOR_TRANSFER,
+            Text::target(Plan::STEP_TRANSFER, 102)
+        );
     }
 }

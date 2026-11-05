@@ -1,0 +1,133 @@
+alpha.96 falsification — 15 mutations
+database filter inside the loop: StatusReconciliationFlowTest|BulkProductStatusReadTest|MigrationPlanChecklistTest|AdminPagesRenderTest|MirroredStatusBackfillTest
+the closing baseline runs the database suite UNFILTERED
+tree: e100a01 (plus the uncommitted round)
+
+=== 1/15 the sync figure goes back to reading page one
+    file:   src/Modules/Migration/Application/MigrationPlanSnapshot.php
+    expect: architecture, database
+applied
+    architecture: 1
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/15 the whole-shop walk stops after its first page
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: database
+applied
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/15 the ceiling is removed, so an admin request may loop unbounded
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: architecture
+applied
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/15 a walk that could not read says it finished
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: architecture, database
+applied
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/15 the shop figure inherits the button's batch limit
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/15 a page nobody could read counts as nothing to repair
+    file:   src/Modules/Migration/Application/MigrationPlanSnapshot.php
+    expect: architecture, database
+applied
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/15 the page claims it could read whatever came back
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/15 the status map is keyed by position instead of by product id
+    file:   src/Modules/Migration/Infrastructure/WordPress/WpCatalogueReader.php
+    expect: database
+applied
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/15 the write reads the status through its own door
+    file:   src/Modules/Migration/Application/ReconcileStorefrontStatus.php
+    expect: architecture
+applied
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/15 a short bulk read is reported as a map with holes in it
+    file:   src/Modules/Migration/Infrastructure/WordPress/WpCatalogueReader.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/15 the bulk read trusts an id of any post type
+    file:   src/Modules/Migration/Infrastructure/WordPress/WpCatalogueReader.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/15 step 7 goes back to the bare import page
+    file:   src/Modules/Migration/Presentation/MigrationWizardText.php
+    expect: contract, database
+applied
+    contract: 2
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/15 the shop stops travelling with the link
+    file:   src/Modules/Migration/Presentation/Admin/HandoverPage.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/15 the sync controls lose the anchor the wizard points at
+    file:   src/Modules/Migration/Presentation/Admin/MigrationPage.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15/15 the staged-transfer section loses its anchor
+    file:   src/Modules/Migration/Presentation/Admin/MigrationPage.php
+    expect: database
+applied
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0

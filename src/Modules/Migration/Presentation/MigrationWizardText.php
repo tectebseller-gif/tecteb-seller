@@ -128,20 +128,43 @@ final class MigrationWizardText
     /**
      * Where the step is done, as an admin path — or `''` when it is this very
      * page or a decision outside the plugin.
+     *
+     * ⛔ **The shop and the fragment are part of the answer.** Steps 6 to 10
+     * all happen inside ONE section of the import page, and until this round
+     * every one of them pointed at `admin.php?page=tmc-import` with neither —
+     * the same bare address steps 4 and 5 use, whose top is the Dokan dry
+     * run. So a manager who followed «رفتن» for step 7 landed on the dry-run
+     * result of whichever shop the page defaults to and had to find the
+     * repair control himself, which is how «گام ۷ اندازه‌گیری‌نشده است»
+     * turned into «این لینک جای اشتباهی می‌رود».
+     *
+     * Steps 4 and 5 keep the bare page on purpose: the Dokan import IS at the
+     * top, so a fragment would move them away from their own control.
+     *
+     * @param int $shop the shop the wizard row is about; `0` leaves it out,
+     *   which is what a caller that has no shop in hand should send rather
+     *   than a guess.
      */
-    public static function target(string $key): string
+    public static function target(string $key, int $shop = 0): string
     {
+        $transfer = 'admin.php?page=' . MigrationPage::SLUG
+            . ($shop > 0 ? '&tv_shop=' . $shop : '');
         return match ($key) {
             // Health prints the PHP, WordPress and structure figures, and the
             // rollback verdict beside them.
             Plan::STEP_ENVIRONMENT, Plan::STEP_BACKUP => 'admin.php?page=' . HealthPage::SLUG,
             Plan::STEP_PLUGINS => 'plugins.php',
             Plan::STEP_INVENTORY, Plan::STEP_DRY_RUN => 'admin.php?page=' . MigrationPage::SLUG,
+            // The whole-shop figures, the rows table and the consent press
+            // are all in that section, and the section is below the dry run.
             Plan::STEP_DIFFERENCES,
-            Plan::STEP_SYNC,
             Plan::STEP_PLAN,
             Plan::STEP_CONSENT,
-            Plan::STEP_TRANSFER => 'admin.php?page=' . MigrationPage::SLUG,
+            Plan::STEP_TRANSFER => $transfer . '#' . MigrationPage::ANCHOR_TRANSFER,
+            // And step 7 lands on its own two controls — the batch refresh
+            // and the status repair — rather than on the top of a section
+            // whose rows table can be fifty rows long.
+            Plan::STEP_SYNC => $transfer . '#' . MigrationPage::ANCHOR_SYNC,
             // The gates are on this page, below this card.
             Plan::STEP_VALIDATE, Plan::STEP_EXIT_READY => '',
             default => '',

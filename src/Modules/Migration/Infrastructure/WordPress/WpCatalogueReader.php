@@ -717,6 +717,49 @@ final class WpCatalogueReader implements CatalogueReaderInterface
         ];
     }
 
+    public function statusesOf(array $wcProductIds): ?array
+    {
+        $ids = [];
+        foreach ($wcProductIds as $id) {
+            $id = (int) $id;
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+        $ids = array_keys($ids);
+        if ($ids === []) {
+            // Nothing asked, nothing unreadable: an empty question has an
+            // empty answer, and that is not a failure.
+            return [];
+        }
+        if (!$this->isAvailable()) {
+            return null;
+        }
+        $in = implode(',', array_map('intval', $ids));
+        // The post types `wc_get_product()` would accept, so a row pointing
+        // at an id WordPress has since given to a page does not read that
+        // page's status.
+        $where = 'WHERE ID IN (' . $in . ") AND post_type IN ('product','product_variation')";
+        $posts = '`' . $this->db->prefix() . 'posts`';
+        // ⛔ The count FIRST and separately, because the list cannot tell a
+        // failed statement from an empty result (`alpha.8`). A list shorter
+        // than the count is a read that came up short, and the whole answer
+        // is then `null` rather than a map with holes in it.
+        $expected = $this->db->getVar('SELECT COUNT(*) FROM ' . $posts . ' ' . $where);
+        if ($expected === null) {
+            return null;
+        }
+        $rows = $this->db->getResults('SELECT ID, post_status FROM ' . $posts . ' ' . $where);
+        if (count($rows) !== (int) $expected) {
+            return null;
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $out[(int) ($row['ID'] ?? 0)] = (string) ($row['post_status'] ?? '');
+        }
+        return $out;
+    }
+
     public function quantityRule(int $wcProductId): array
     {
         $meta = [];

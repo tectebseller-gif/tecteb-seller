@@ -76,7 +76,13 @@ final class MigrationPlanSnapshot
         $gates = $this->completeness->forVendor($vendorUserId);
         $detail = (array) ($gates['detail'] ?? []);
 
-        $statusPlan = $this->status->plan($vendorUserId);
+        // ⛔ The WHOLE shop, not page one. `plan()` answers about fifty rows
+        // and its `finished` means «the page came back short», so a shop with
+        // fifty or more stamped rows made this figure `null` for ever — the
+        // stamp survives the repair by design, so page one is always full.
+        // Step 7 therefore read «اندازه‌گیری‌نشده» on the very shop it was
+        // written for, however much repairing a manager had done.
+        $statusTally = $this->status->tally($vendorUserId);
 
         return [
             'php_version' => $this->probe?->phpVersion() ?? '',
@@ -97,12 +103,16 @@ final class MigrationPlanSnapshot
             'ready' => $finished ? (int) ($counts[OwnershipTransferPlan::READY] ?? 0) : null,
             'drift_fixable' => $finished ? (int) ($counts[OwnershipTransferPlan::DRIFT_FIXABLE] ?? 0) : null,
             'risk_real' => $finished ? (int) ($counts[OwnershipTransferPlan::RISK_REAL] ?? 0) : null,
-            // ⛔ This page's walk, not the whole catalogue's — and it says so
-            // by being `null` when the status scan did not reach the end
-            // either. The repair's own card prints the page figure beside its
-            // button, which is where a number a manager acts on belongs.
-            'status_repairable' => $statusPlan['finished'] === true
-                ? count((array) $statusPlan['repairable'])
+            // ⛔ `null` when the walk did not reach the end OR could not
+            // read a page of statuses — the declared page ceiling, a missing
+            // capability, a missing WooCommerce, a broken read. The
+            // repair's own card still prints its PAGE figure beside its
+            // button, because that is the number a press acts on; this one is
+            // the number a readiness claim rests on, and they are different
+            // questions about the same rows.
+            'status_repairable' => $statusTally['finished'] === true
+                && $statusTally['readable'] === true
+                ? (int) $statusTally['repairable']
                 : null,
             'transfer_runs' => count((array) $this->options->get(ImportFromDokan::RUNS_OPTION, [])),
             'gates_missing' => array_values(array_map('strval', (array) ($gates['missing'] ?? []))),

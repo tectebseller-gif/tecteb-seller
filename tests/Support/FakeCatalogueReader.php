@@ -31,6 +31,15 @@ final class FakeCatalogueReader implements CatalogueReaderInterface
     /** @var array<int,array<string,mixed>> wc id => the detail */
     public array $details = [];
 
+    /**
+     * Make every bulk status read answer «I could not read».
+     *
+     * The state a real site is in when WooCommerce is gone or the read
+     * broke — which must make the wizard's step `UNKNOWN` rather than
+     * «nothing needs repair» (`alpha.68`).
+     */
+    public bool $statusesUnreadable = false;
+
     /** @var array<int,array<string,mixed>> wc id => the vendor signals */
     public array $signals = [];
 
@@ -366,6 +375,28 @@ final class FakeCatalogueReader implements CatalogueReaderInterface
     public function detail(int $wcProductId): array
     {
         return $this->details[$wcProductId] ?? [];
+    }
+
+    /**
+     * ⛔ Modelled from the SAME store `detail()` reads, so a test that makes
+     * a product unreadable by removing it from `$details` makes it unreadable
+     * through both doors. A fake that answered one of them generously would
+     * make the `UNREADABLE` branch unexpressible, which is the `alpha.59`
+     * fault with a status in it.
+     */
+    public function statusesOf(array $wcProductIds): ?array
+    {
+        if ($this->statusesUnreadable) {
+            return null;
+        }
+        $out = [];
+        foreach ($wcProductIds as $id) {
+            $id = (int) $id;
+            if ($id > 0 && array_key_exists($id, $this->details)) {
+                $out[$id] = (string) ($this->details[$id]['status'] ?? '');
+            }
+        }
+        return $out;
     }
 
     public function quantityRule(int $wcProductId): array

@@ -229,6 +229,41 @@ final class StatusReconciliationIsNarrowTest extends TestCase
     }
 
     /**
+     * ⛔ **One field, read in bulk — and `detail()` is gone from this path.**
+     *
+     * This service used to call `$this->reader->detail($wcId)` per row and
+     * read `['status']` out of it and nothing else: a `wc_get_product()`
+     * load, a brand term query and a permalink lookup, to learn one word.
+     * Fifty rows meant fifty product loads, which is the 552-read shape
+     * `alpha.91` took apart on the hand-over screen — and it is what made the
+     * whole-shop walk unaffordable, so step 7 of the wizard went unmeasured
+     * instead of being paid for.
+     *
+     * So `detail()` must stay out, and BOTH the preview and the write must
+     * read through the one helper: a guard that came from a different door
+     * than the offer is the `alpha.78` fault.
+     */
+    public function testTheStatusPathReadsOneFieldInBulk(): void
+    {
+        $code = $this->code(self::SERVICE);
+        self::assertStringNotContainsString(
+            '->detail(',
+            $code,
+            'reading a whole product to learn its status is what this path stopped doing'
+        );
+        self::assertSame(
+            1,
+            substr_count($code, '->statusesOf('),
+            'exactly one place asks the reader for statuses'
+        );
+        self::assertSame(
+            2,
+            substr_count($code, '$this->statusesFor('),
+            'the preview and the write both read through it'
+        );
+    }
+
+    /**
      * The rule itself asks nothing of the world: no database, no WordPress,
      * no reader. It is three values in and a verdict out, which is what makes
      * the unit test able to cover every case.

@@ -147,6 +147,38 @@ interface CatalogueReaderInterface
     public function detail(int $wcProductId): array;
 
     /**
+     * The publish status of many products, in one read — the ONE field a
+     * status question needs.
+     *
+     * ⛔ **Why this exists beside `detail()`.** `ReconcileStorefrontStatus`
+     * used `detail()` and then read `['status']` out of it and nothing else:
+     * a whole `wc_get_product()` load, a brand term query and a permalink
+     * lookup, per row, to learn one word. One page of fifty cost fifty
+     * product loads, and a walk of shop 102's 184 stamped rows cost 184 —
+     * the shape `alpha.91` took apart on the hand-over screen, re-created one
+     * module over.
+     *
+     * So this returns facts, in bulk, and the verdict stays in
+     * `StorefrontStatusReconciliation` where it can be read and tested. The
+     * rule is NOT expressible in SQL without writing it twice, which is the
+     * `alpha.87` fault; this reads `post_status` and nothing decides anything
+     * here.
+     *
+     * ⛔ **And `null` is «I could not read», which is not «none of them are
+     * there».** `getResults()` answers `[]` for an empty table and for a
+     * failed statement alike (`alpha.8`), so the count is asked SEPARATELY
+     * and a short list makes the whole answer `null`. An id that is simply
+     * absent from a successful read is a product that is gone, and the caller
+     * reports that per row.
+     *
+     * @param list<int> $wcProductIds
+     * @return array<int,string>|null WooCommerce id => `post_status`; ids that
+     *   are not products of this site are absent, and `null` means the read
+     *   itself could not be trusted.
+     */
+    public function statusesOf(array $wcProductIds): ?array;
+
+    /**
      * The purchase-quantity rule the product's own meta rows express.
      *
      * Asked because a Min Max handover may already have written those three

@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist as P
 final class MigrationWizardIsReadOnlyTest extends TestCase
 {
     private const CHECKLIST = 'src/Modules/Migration/Application/MigrationPlanChecklist.php';
+    private const STATUS = 'src/Modules/Migration/Application/ReconcileStorefrontStatus.php';
     private const SNAPSHOT = 'src/Modules/Migration/Application/MigrationPlanSnapshot.php';
     private const TEXT = 'src/Modules/Migration/Presentation/MigrationWizardText.php';
 
@@ -119,6 +120,74 @@ final class MigrationWizardIsReadOnlyTest extends TestCase
         self::assertStringContainsString(
             ":null,", $tight,
             'and the withheld answer is null rather than nought'
+        );
+    }
+
+    /**
+     * ⛔ **Step 7's figure is about the SHOP, not about page one.**
+     *
+     * The snapshot used to ask `ReconcileStorefrontStatus::plan()`, whose
+     * `finished` means «this page of fifty came back short». The stamp
+     * survives the repair on purpose, so a shop with fifty or more stamped
+     * rows had a full first page for ever: `status_repairable` was `null` on
+     * every render and «همگام‌سازی امن دادهٔ قابل اصلاح» read
+     * «اندازه‌گیری‌نشده» however much a manager repaired.
+     *
+     * Going back to `plan()` here is therefore the regression, and it is a
+     * one-word edit. This pins both directions: the whole-shop walk is called
+     * and the page walk is not.
+     */
+    public function testTheSyncFigureComesFromTheWholeShopWalk(): void
+    {
+        $code = $this->code(self::SNAPSHOT);
+        self::assertStringContainsString(
+            '$this->status->tally(',
+            $code,
+            'the sync figure must come from the whole-shop walk'
+        );
+        self::assertStringNotContainsString(
+            '$this->status->plan(',
+            $code,
+            'a figure about the shop must not be read from one page'
+        );
+        $tight = (string) preg_replace('/\s+/', '', $code);
+        // ⛔ BOTH halves: the walk reached the end AND it could read. Dropping
+        // the second would make «nought repairable» off a page nobody could
+        // read look like «nothing needs repair» — the fault my own first
+        // version of this had, and the reason `plan()` carries `readable`
+        // apart from the per-row `UNREADABLE` verdict.
+        self::assertStringContainsString(
+            "'status_repairable'=>\$statusTally['finished']===true"
+            . "&&\$statusTally['readable']===true?",
+            $tight,
+            'the figure is withheld unless the walk both ended and could read'
+        );
+        self::assertStringContainsString(
+            ':null,',
+            $tight,
+            'and the withheld answer is null rather than nought'
+        );
+    }
+
+    /**
+     * And that walk declares a ceiling, because an admin request is not a job.
+     *
+     * `ShopTransferTally` learned this in `alpha.92`; a second unbounded loop
+     * in the same page render would be the same stall with a different name.
+     * Reaching the ceiling must make `finished` false — a partial count
+     * printed as the whole is the fault the fourth status exists for.
+     */
+    public function testTheWholeShopStatusWalkIsBounded(): void
+    {
+        $tight = (string) preg_replace('/\s+/', '', $this->code(self::STATUS));
+        self::assertStringContainsString('publicconstMAX_PAGES=40;', $tight);
+        self::assertStringContainsString('if($pages>=self::MAX_PAGES){', $tight);
+        self::assertStringContainsString('$stoppedForPages=true;', $tight);
+        // `finished` is only ever set on the planner's own end-of-walk.
+        self::assertSame(
+            1,
+            substr_count($tight, '$finished=true;'),
+            'only reaching the end may say the walk finished'
         );
     }
 
