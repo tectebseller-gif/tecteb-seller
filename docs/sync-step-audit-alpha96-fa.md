@@ -231,7 +231,7 @@ admin.php?page=tmc-import
 | unit | ۷۵۴ | ۰ |
 | architecture | **۲۵۱** (+۳) | ۰ |
 | contract | **۳۶۲** (+۲) | ۰ |
-| database | **۱۰۷۹** (+۱۴) | ۰ |
+| database | در کامیت بعدی اندازه‌گیری می‌شود | ۰ |
 | packaging | ۲۷ | ۰ |
 
 `php -l` روی **۶۲۸** فایل با PHP **۸٫۳٫۶** و ۰ شکست ·
