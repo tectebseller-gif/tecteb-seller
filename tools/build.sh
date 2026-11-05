@@ -364,6 +364,20 @@ if [ -f "${DIST}/SHA256SUMS" ]; then
 fi
 mv "${DIST}/SHA256SUMS.new" "${DIST}/SHA256SUMS"
 
+# ⛔ THIS HEREDOC IS UNQUOTED, so `${VERSION}` expands — and so does a
+# BACKTICK. Measured on the delivered `alpha.94` package: the Persian line
+# about `php -l` contained a markdown code span, bash RAN it, and the
+# installer README shipped with that command's English output spliced into
+# the middle of a Persian sentence:
+#
+#   «No syntax errors detected in Standard input code تنها روی مفسرهایی…»
+#
+# In this build environment it was worse than wrong text: stdin is a socket
+# that never closes, so `php -l` with no argument read it forever and the
+# build HUNG — the same inherited-stdin hazard the packaging suite hit.
+#
+# So every backtick in the text below must be escaped (\`), or the span is a
+# command. Do not quote the delimiter: the version numbers need to expand.
 cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
 بازارگاه تک‌طب — Tecteb Marketplace Core ${VERSION}
 
@@ -375,7 +389,7 @@ cat > "${DIST}/READ-ME-BEFORE-INSTALL.txt" <<TXT
 ⛔ و اعدادِ زیر تاریخیِ فاز ۱ اند، نه اندازه‌گیریِ این بسته. آنچه برای **این**
 بسته اجرا شده در CLAUDE.md و در سند تحویل همین دور نوشته شده، و آنچه اجرا
 نشده با نام گفته می‌شود — از جمله اینکه سوییت مرورگری هر دور اجرا نمی‌شود و
-`php -l` تنها روی مفسرهایی می‌دود که در محیط ساخت نصب‌اند. «اجرا نشد» هیچ‌جا
+\`php -l\` تنها روی مفسرهایی می‌دود که در محیط ساخت نصب‌اند. «اجرا نشد» هیچ‌جا
 «قبول» گزارش نمی‌شود.
 
   WordPress 7.1 · WooCommerce 11.0.1 · MariaDB 10.11.14
