@@ -1,0 +1,5 @@
+### isolation: node tests/isolation.mjs 0.2.4
+Warning: Could not delete 'tthh_hostile' option. Does it exist?
+0.2.4: 10 states, 79 elements × 47 properties — 0 differences caused by site-wide CSS
+
+exit=0

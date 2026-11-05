@@ -200,9 +200,6 @@
 
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip:hover { border-color: var(--th-teal-600); color: var(--th-teal-600); }
 
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--on,
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--on:hover { background: var(--th-petrol-800); border-color: var(--th-petrol-800); color: var(--th-white); }
-
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-chip--glass {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.06);
@@ -698,10 +695,6 @@
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-cat:hover .th-cat__go { opacity: 1; transform: translateX(-4px); }
 
 /* ---------------- ۳. محصولات: صفحهٔ استودیویی برای عکس ووکامرس */
-
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-filter { margin-block-end: 1.5rem; }
-
-.tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-filter__list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 
 .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-products {
   display: grid;
@@ -1443,4 +1436,14 @@
   max-inline-size: 100%;
   max-block-size: 100%;
   object-fit: contain;
+}
+
+/* ================================================================ ۰٫۳٫۵
+ *
+ * «محصولات منتخب»: در موبایل (ظرف زیر ۶۰۰px، همان مرز بقیهٔ طرح) عنوان کوچک «فروشگاه» تکرار پیوند «ورود به
+ * فروشگاه» است و پنهان می‌شود؛ عنوان اصلی و پیوند می‌مانند. تبلت و دسکتاپ بی‌تغییر. ردیف دکمه‌های دسته از
+ * قالب برداشته شده و قاعده‌هایش (.th-filter) در tools/port-assets.py کنار می‌روند.
+ */
+@container th-home (max-width: 599px) {
+  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }
 }

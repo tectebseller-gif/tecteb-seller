@@ -12,7 +12,7 @@ PASS keyboard: search input reachable with Tab
 PASS keyboard: visible focus ring on the search field
 PASS search: submitting the hero search finds the product
 PASS motion: a block below the fold waits for scroll (scroll-driven reveal)
-PASS motion: every one of 12 blocks is fully visible once scrolled into view
+PASS motion: every one of 11 blocks is fully visible once scrolled into view
 PASS images full 1440px: every image loaded
 PASS layout full 1440px: no horizontal overflow
 PASS layout full 1440px: every control at least 24×24

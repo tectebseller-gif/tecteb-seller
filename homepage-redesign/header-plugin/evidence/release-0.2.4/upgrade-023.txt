@@ -1,0 +1,19 @@
+PASS 0.2.3 installed and active from its ZIP
+PASS 0.2.3 prints Header B with header.css?ver=0.2.3
+PASS 0.2.3: «همکاری تأمین‌کنندگان» in the menu row
+PASS 0.2.4 installed over 0.2.3 from its ZIP (--force)
+PASS still active, version 0.2.4
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration, no write on read)
+PASS header HTML identical to 0.2.3 (only the stylesheet changed): logo, search, account, cart, categories + mega menu, menu, «همکاری تأمین‌کنندگان», drawer
+PASS header.css?ver=0.2.4 — browsers and page caches fetch the new stylesheet
+PASS the served header.css carries the one-row sticky rule
+PASS page / answers 200 with 0.2.4
+PASS page /shop/ answers 200 with 0.2.4
+PASS page /cart/ answers 200 with 0.2.4
+PASS rollback: 0.2.3 reinstalled from its ZIP
+PASS rollback: same header HTML, header.css?ver=0.2.3
+PASS rollback: settings untouched
+PASS 0.2.4: ?tth_original=1 (admin) shows the old Elementor header — instant way back kept
+
+17 passed, 0 failed

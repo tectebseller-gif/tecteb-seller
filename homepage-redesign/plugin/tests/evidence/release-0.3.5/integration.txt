@@ -1,0 +1,274 @@
+PASS defaults: root wrapper rtl/fa
+PASS defaults: one h1
+PASS defaults: no categories section without selection
+PASS defaults: no products section without a manual selection (featured flag ignored)
+PASS defaults: no services section exists any more
+PASS defaults: supplier section links to /landing-seller/
+PASS defaults: three routes shop → repair → supplier
+PASS defaults: repair route → /https-tecteb-com-repair-request/ (only a link)
+PASS defaults: supplier route → /landing-seller/
+PASS defaults: routes nav labelled, data-count=3
+PASS defaults: supplier section has one button only (no «supplier terms» without a terms URL)
+PASS shop route: href is wc_get_page_permalink(shop)
+PASS retired: «درخواست تأمین» nowhere on the page
+PASS retired: «استعلام» nowhere on the page
+PASS retired: «پیش‌فاکتور» nowhere on the page
+PASS retired: «th-product__quote» nowhere on the page
+PASS retired: «th-route--buyer» nowhere on the page
+PASS defaults: no quick chips
+PASS defaults: no category select without categories
+PASS defaults: audience line shows
+PASS defaults: no unconfirmed claim «کنار هم» on the page
+PASS defaults: no unconfirmed claim «مقایسه» on the page
+PASS defaults: no unconfirmed claim «تضمین» on the page
+PASS defaults: no unconfirmed claim «نمایندگی رسمی» on the page
+PASS defaults: no unconfirmed claim «٪» on the page
+PASS defaults: no unconfirmed claim «هزار مشتری» on the page
+PASS defaults: no unconfirmed claim «رضایت» on the page
+PASS no temporary #th-route links anywhere
+PASS no preview marker «th-sample»
+PASS no preview marker «th-imgnote»
+PASS no preview marker «th-hero__note»
+PASS no preview marker «proto-»
+PASS no preview marker «تصویر نمایشی»
+PASS no preview marker «نمونه»
+PASS no preview marker «در انتظار تأیید»
+PASS every link is absolute http(s) on this site
+PASS search form goes to home_url with post_type=product
+PASS hero image eager, high priority, excluded from lazyload
+PASS shop route: hidden (not pointed at the homepage) when no shop page is set
+PASS shop route: no route cards at all when none has a destination
+PASS saved empty repair/supplier URL hides them (no fallback to the default)
+PASS shop route: hidden when the shop page is not published
+PASS shop route: back once the shop page is valid
+PASS selection: saving a selection changes nothing on the products (featured, price, stock, category, status)
+PASS selection: shown in the admin order; hidden and draft dropped; nothing added
+PASS selection: a non-featured product is shown when selected
+PASS selection: a featured product that is not selected is not shown
+PASS selection: «پیش‌نویس» product excluded
+PASS selection: «پنهان از فروشگاه» product excluded
+PASS query contract: include = selection, publish, catalog visibility
+PASS product title is escaped, not markup
+PASS specs: two visible attributes, hidden one not shown
+PASS price: WooCommerce price html for priced product
+PASS price: WooCommerce price markup kept intact (bdi for RTL number + currency)
+PASS price: exactly the price WooCommerce shows for that product
+PASS price: product without price says «قیمت اعلام نشده»
+PASS stock: out of stock shows «فعلاً ناموجود» and ناموجود badge
+PASS stock: backorder badge «پیش‌سفارش»
+PASS image: WordPress attachment with srcset, sizes, lazy, width/height
+PASS image: the product's own featured image
+PASS image: products without image get the empty state
+PASS image alt falls back to the product name
+PASS category label from product category
+PASS card links to product permalink
+PASS no WooCommerce loop markup (no ul.products / add-to-cart)
+PASS count: only the first N shown products
+PASS live data: a price edited in WooCommerce shows without touching the plugin
+PASS selection: a product hidden after selection drops out
+PASS selection: a trashed product drops out
+PASS selection: a trashed product stays in the admin list (not silently removed)
+PASS sanitize: a trashed product cannot be newly added
+PASS admin status: says why each selected product is not shown
+PASS hide out of stock setting is honoured (backorder still shown)
+PASS admin status: out-of-stock hidden by WooCommerce is explained
+PASS sanitize: order numbers, remove, and add
+PASS sanitize: idempotent
+PASS sanitize: unknown id, a page id and a category id are refused
+PASS sanitize: duplicates collapsed
+PASS sanitize: a variation is refused
+PASS sanitize: count bounded 1..12
+PASS nothing selected: products section hidden, with a reason
+PASS only unshowable selected: section hidden, reason differs
+PASS search: by name finds the product
+PASS search: by numeric ID finds the product
+PASS search: includes draft/hidden (marked), excludes non-products
+PASS categories: shown in the admin order
+PASS categories: link to the WooCommerce term link
+PASS categories: note = first line of description only
+PASS categories: thumbnail image used when present
+PASS categories: Hero search has no category select even with categories selected (0.3.2)
+PASS categories: hero labels no longer follow the selected categories (0.3.3)
+PASS products: no category filter row (0.3.5)
+PASS products: title, «فروشگاه» eyebrow (hidden on mobile by CSS) and «ورود به فروشگاه» kept (0.3.5)
+PASS products: the selected products render without any filter choice (0.3.5)
+PASS categories: category cards still link to the WooCommerce terms (0.3.5)
+PASS categories: no «همهٔ دسته‌ها» link without destination
+PASS sanitize: order numbers, remove, and add
+PASS sanitize: idempotent
+PASS sanitize: unknown category id is refused
+PASS sanitize: at most 8 categories
+PASS sanitize: bad icon falls back to default
+PASS categories: empty and deleted categories are skipped
+PASS categories: a parent whose products are only in subcategories is not empty
+PASS categories: a category with a visible (even out-of-stock) product is shown
+PASS categories: admin note overrides the description
+PASS escaping: hostile category name/description never becomes markup
+PASS chips: blank and duplicate lines dropped
+PASS chips: link is a product search for the word
+PASS chips: the search URL finds the product on this WordPress
+PASS search: one text field + post_type=product, no product_cat (0.3.2)
+PASS search: GET to the site home (WooCommerce product search), button «جست‌وجو»
+PASS search: the submitted URL finds the product (WooCommerce search)
+PASS links: javascript:, data:, protocol-relative and ftp are refused
+PASS links: relative path kept relative, https kept
+PASS links: the retired quote key is not stored
+PASS repair: no card while its address is empty
+PASS repair: admin plan says why
+PASS repair: card appears with its address (relative resolved against this site)
+PASS repair: card title is «درخواست تعمیرات تجهیزات پزشکی»
+PASS repair: exactly one repair link on the whole page
+PASS routes: shop first, then repair; data-count=2
+PASS repair: no form, ticket or business logic — only a link
+PASS links: «همهٔ دسته‌ها» appears with its destination
+PASS supplier: hidden without a link
+PASS routes: all three, in order shop → repair → supplier, data-count=3
+PASS supplier: shown with its link
+PASS supplier: no steps by default, solo layout
+PASS supplier: no terms button without its link
+PASS supplier: hero route appears with the link
+PASS supplier: at most 3 steps, Persian numerals
+PASS links: wp-config constant overrides the option
+PASS shortcode: sections attribute order kept, unknown ignored
+PASS shortcode: icon sprite printed once per page
+PASS read-only: rendering and serving changes no WordPress/WooCommerce row
+PASS assets: homepage loads css, font and js
+PASS assets: with tecteb-header active, the font is the header's file (one download), else our own
+PASS assets: css loads in <head>, not late in the footer
+PASS assets: js is deferred
+PASS assets: font preloaded
+PASS assets: nothing loads on plain page
+PASS assets: nothing loads on shop
+PASS assets: nothing loads on product
+PASS assets: no external host referenced by our assets
+PASS font=site: no font css, no preload, no TH Vazirmatn face, root gets th-font-site
+PASS page template: site header kept (exactly one)
+PASS page template: site footer kept
+PASS page template: no page title, one h1
+PASS page template: offered in the page template list
+PASS cache: a product edit purges the homepage URL once per request
+PASS cache: saving settings purges the homepage
+PASS cache: editing a category purges the homepage
+PASS cache: WP Rocket — home page purged once per request, whole-domain purge never called
+PASS admin: settings capability is manage_woocommerce
+PASS admin: a subscriber cannot reach the page
+PASS admin: page renders with settings form and nonce
+PASS admin: category search lists matches with full path and add buttons
+PASS admin: add button is part of the save form
+PASS admin: hostile names escaped in the admin page
+PASS admin: status table explains the hidden repair route
+PASS admin: product search lists matches with an add button
+PASS admin: selected products table with order, remove and live price
+PASS admin: no services or quote settings remain
+PASS admin: shop destination shown read-only from WooCommerce
+PASS admin: wp-config constant shown read-only
+PASS front page: switch off by default (also for an option saved by 0.3.0, without the key)
+PASS front page, switch off: the selected page shows its own content, no Concept C, no homepage assets
+PASS front page, switch off: ?tecteb_home_preview=1 does nothing for a visitor
+PASS front page, switch off: admin ?tecteb_home_preview=1 shows Concept C (admin-only preview)
+PASS front page: switching on keeps the selected products and categories
+PASS front page, switch on: Concept C instead of the page content, between the site header and footer
+PASS front page, switch on: one h1, homepage CSS in <head>, real products
+PASS front page, switch on: the page title (SEO) is still the selected page
+PASS front page, switch on: ?tecteb_home_original=1 is ignored for a visitor
+PASS front page, switch on: admin ?tecteb_home_original=1 shows the selected page itself
+PASS front page, switch on: a paginated front page (?paged=2) is left to the page
+PASS front page, switch on: ?elementor-preview keeps the page itself (editor)
+PASS front page, switch on: other pages untouched (shop, product)
+PASS front page: the selected page, Reading settings and page count are unchanged; no new page
+PASS front page: switching on writes nothing but the plugin option
+PASS admin: front-page section names the Reading page and shows the switch (checked)
+PASS admin: preview and original links for the admin
+PASS front page: switching off restores the selected page immediately
+PASS front page = WooCommerce shop page: no takeover (product list stays), reason given
+PASS front page = shop page: the shop route is hidden instead of linking back to the homepage
+PASS shop route back once the shop page is not the front page
+PASS price model: simple ⇒ one amount = wc_price(display price)
+PASS price model: simple on sale ⇒ was 12,500,000 / now 9,800,000
+PASS price model: variable with two prices ⇒ range from/to
+PASS price model: variable, all variations same price on sale ⇒ sale (as WooCommerce)
+PASS price model: no price ⇒ none (no number invented)
+PASS price model: «simple» shows only amounts WooCommerce itself shows
+PASS price model: «sale» shows only amounts WooCommerce itself shows
+PASS price model: «range» shows only amounts WooCommerce itself shows
+PASS price model: «varsale» shows only amounts WooCommerce itself shows
+PASS price card: «Price range» nowhere in the products section
+PASS price card: «through» nowhere in the products section
+PASS price card: «Original price» nowhere in the products section
+PASS price card: «Current price» nowhere in the products section
+PASS price card: «screen-reader-text» nowhere in the products section
+PASS price card: five cards, five price lines, in the admin order
+PASS price card: simple = one wc_price amount with <bdi>
+PASS price card: sale = <del> old + <ins> current + Persian labels for screen readers
+PASS price card: range = «از …» / «تا …», two amounts
+PASS price card: no price = «قیمت اعلام نشده»
+PASS price admin text: plain Persian, no screen-reader English
+PASS site filter: «استعلام قیمت» from woocommerce_empty_price_html shown as written
+PASS site filter: price hidden by the site (get_price_html empty) ⇒ no number on the card
+PASS site filter: price replaced by the site text ⇒ that text, never our number
+PASS currency: USD/2 decimals/left from WooCommerce settings ⇒ $45,000,000.00, no «تومان»
+PASS price suffix: WooCommerce display suffix kept (plain text)
+PASS hero 0.3.3: the «بازار B2B تجهیزات پزشکی» label is gone from the output (no th-pill, no text)
+PASS hero 0.3.3: title, lead, search, image and routes still there
+PASS hero 0.3.3: the hero now starts with the h1 (first child of the copy column)
+PASS labels: four slots in the required order
+PASS labels: a category without products is not linked (empty)
+PASS labels: «آزمایشگاه» resolved by exact name to a real term, linked to its WooCommerce archive
+PASS labels: two «جراحی» categories, exactly one at the root ⇒ the root one
+PASS labels: only linked labels are printed, in order
+PASS labels: positions fill in order (0.3.4) — two shown ⇒ one, two; a hidden label leaves no hole
+PASS labels: with products in all four ⇒ all four, in order, each to its own archive
+PASS labels: two «جراحی» and none at the root ⇒ ambiguous, not linked, both candidates listed
+PASS labels: admin pins the term ID ⇒ that category
+PASS labels: a pinned 0.3.3 ID that is not a product category is refused (0 = by name)
+PASS labels: name matching folds Arabic ي/ك and ZWNJ, nothing else
+PASS hero 0.3.4: defaults = the four 0.3.3 titles, in order, all active, no category pinned
+PASS hero 0.3.4: a 0.3.3 option (no hero_items) ⇒ default titles, order and active kept; its pinned ID kept with the title 0.3.3 showed (the category name)
+PASS hero 0.3.4: a 0.3.3 option renders exactly as 0.3.3 did (same four titles, same archives, same order)
+PASS hero 0.3.4: editing a title changes only the text — same category archive, the WooCommerce term name untouched
+PASS hero 0.3.4: an empty title ⇒ the category's own name
+PASS hero 0.3.4: titles are sanitized (no tags, max 40 characters); missing rows fall back to their defaults
+PASS hero 0.3.4: order — reversed in the panel ⇒ reversed on the page, positions one…four in the new order
+PASS hero 0.3.4: order is stored as ranks 1…4 (ties keep row order; a non-number keeps the row's place)
+PASS hero 0.3.4: an inactive label is not printed and leaves no hole (one, two, three)
+PASS hero 0.3.4: all four inactive ⇒ no th-floats list at all (no empty ul)
+PASS hero 0.3.4: an unticked «فعال» (no field posted) saves as inactive
+PASS hero 0.3.4: choosing a category by ID ⇒ that archive, with the admin's title
+PASS hero 0.3.4: «برای برچسب ۱» from the search results sets that row's category (and only that row)
+PASS hero 0.3.4: a malformed or out-of-range pick changes nothing
+PASS hero 0.3.4: an ID that is not a product category (missing, text, a post category) is refused — back to «by name», with a message
+PASS hero 0.3.4: a chosen category without displayable products stays hidden, whatever the title
+PASS hero 0.3.4: a chosen category deleted later ⇒ «missing», no link, nothing printed — not silently re-pointed at the same-named category
+PASS hero 0.3.4: …and saving the form then refuses that ID with a message (back to «by name»)
+PASS hero 0.3.4: hero_labels (what 0.3.3 reads) always mirrors each row's category, so a downgrade sees the same categories
+PASS hero 0.3.4: the categories section is byte-for-byte unchanged by any of the above
+PASS hero 0.3.4: no product category was created, renamed, moved or deleted (beyond the test's own temporary one)
+PASS labels: nothing was written to any term (names, parents, counts as before)
+PASS price format: the site itself (product page) still shows its own format «5634400تومان»
+PASS price format: homepage shows «5,634,400 تومان» (comma thousands, space before the currency)
+PASS price format: range and sale in the same format
+PASS price format: no global WooCommerce price filter added (wc_price_args, woocommerce_price_format, formatted_woocommerce_price)
+PASS price format: product cards on the homepage use it; no unformatted 5634400 anywhere
+PASS price format: decimal comma site ⇒ its own thousands separator kept (no «1,234,56»)
+PASS brands: an option saved by 0.3.2 (no brands / hero_labels keys) reads as no brands and labels by name
+PASS brands: no brand ⇒ no section at all (no heading, no empty block)
+PASS brands: saved in the admin order (order column), removed and nameless rows dropped, new one last
+PASS brands: a non-image logo is refused (logo 0, inactive), name kept for the admin to fix
+PASS brands: markup stripped from the name, javascript: URL refused
+PASS brands: saving brands leaves every other setting as it was
+PASS brands: section right after the supplier section and last in the homepage
+PASS brands: only active brands with a real image, in order, alt = brand name
+PASS brands: optional link — with URL ⇒ <a href>, without ⇒ no link
+PASS brands: nav buttons are real buttons, hidden until the script shows them; region is focusable and labelled
+PASS brands: no third-party script or style (carousel is the plugin JS only)
+PASS brands 0.3.4: every logo carries --th-logo-w (balanced visual size)
+PASS brands 0.3.4: wide logos get more width and less height than square ones, tall ones less width — never more than 3rem tall or 8.5rem wide, ratio kept
+PASS brands: a logo deleted from the media library ⇒ that brand silently left out
+PASS brands: deleting a brand logo purges the homepage cache
+PASS brands: deleting an unrelated attachment purges nothing
+PASS admin: hero labels and brands sections, with name/logo/url/active/order/remove per brand
+PASS admin: each hero label row says what it is linked to (or why not)
+PASS brands: back to no brands ⇒ section gone again
+PASS uninstall: removes only its own option
+
+272 passed, 0 failed

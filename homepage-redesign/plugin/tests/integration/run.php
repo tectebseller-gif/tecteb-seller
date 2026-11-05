@@ -265,8 +265,11 @@ check( 'categories: thumbnail image used when present', 1 === count( nodes( $h, 
 check( 'categories: Hero search has no category select even with categories selected (0.3.2)', 0 === count( nodes( $h, '//form[' . cls( 'th-search' ) . ']//select' ) ) && ! str_contains( $h, 'همهٔ دسته‌ها' ) );
 // ۰٫۳٫۳: برچسب‌های کنار تصویر دیگر «دو دستهٔ اول» نیستند؛ چهار برچسب ثابت با دستهٔ واقعیِ دارای محصول (بخش ۱۳-د).
 check( 'categories: hero labels no longer follow the selected categories (0.3.3)', ! in_array( 'ملزومات مصرفی', texts( $h, '//a[' . cls( 'th-float' ) . ']' ), true ) );
-check( 'categories: product filter chips = shop + categories', array( 'همه', 'ملزومات مصرفی', 'پایش بیمار', 'اتاق عمل' ) === texts( $h, '//nav[' . cls( 'th-filter' ) . ']//a' ) );
-check( 'categories: no aria-current on the shop chip', 0 === count( nodes( $h, '//nav//a[@aria-current]' ) ) );
+// ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته از «محصولات منتخب» برداشته شد؛ عنوان، کارت‌ها و «ورود به فروشگاه» می‌مانند.
+check( 'products: no category filter row (0.3.5)', 0 === count( nodes( $h, '//*[' . cls( 'th-filter' ) . ']' ) ) && ! str_contains( $h, 'th-chip--on' ) && 0 === count( nodes( $h, '//section[@aria-labelledby="th-products-title"]//nav' ) ) );
+check( 'products: title, «فروشگاه» eyebrow (hidden on mobile by CSS) and «ورود به فروشگاه» kept (0.3.5)', array( 'محصولات منتخب برای مراکز درمانی' ) === texts( $h, '//h2[@id="th-products-title"]' ) && array( 'فروشگاه' ) === texts( $h, '//header[' . cls( 'th-head--shop' ) . ']//p[' . cls( 'th-eyebrow' ) . ']' ) && 1 === count( nodes( $h, '//header[' . cls( 'th-head--shop' ) . ']//a[' . cls( 'th-more' ) . ' and contains(., "ورود به فروشگاه")]' ) ) );
+check( 'products: the selected products render without any filter choice (0.3.5)', count( nodes( $h, '//ul[' . cls( 'th-products' ) . ']/li' ) ) > 0 );
+check( 'categories: category cards still link to the WooCommerce terms (0.3.5)', count( nodes( $h, '//a[' . cls( 'th-cat' ) . ']' ) ) === 3 );
 check( 'categories: no «همهٔ دسته‌ها» link without destination', 0 === count( nodes( $h, '//a[' . cls( 'th-more' ) . ' and contains(., "همهٔ دسته‌ها")]' ) ) );
 
 $s = Settings::sanitize(

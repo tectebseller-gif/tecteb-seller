@@ -30,6 +30,14 @@ def integration() -> bool:
     return out.rstrip().endswith(" 0 failed")
 
 
+def compact() -> bool:
+    """۰٫۲٫۴: نوار چسبانِ دسکتاپ یک‌ردیفه، بی همبرگری (tests/compact-desktop.mjs)."""
+    r = subprocess.run(["node", str(HERE / "tests/compact-desktop.mjs")], capture_output=True, env={**__import__("os").environ, "NODE_PATH": "/opt/node-tools/node_modules", "LABEL": "falsify-tmp"})
+    for f in (HERE / "evidence/compact-desktop").glob("falsify-tmp*"):
+        f.unlink()
+    return r.returncode == 0
+
+
 def isolation() -> bool:
     subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "seed"], capture_output=True, check=True)
     subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "configure", "on"], capture_output=True, check=True)
@@ -99,6 +107,12 @@ MUTATIONS = [
     ("comment: queue/selection detail dropped", "includes/class-replace.php", "( '' !== self::$detail ? ' (' . self::$detail . ')' : '' )", "''", [I]),
     # 0.2.3
     ("menu row: long menu no longer wraps (links run under «همکاری تأمین‌کنندگان»)", "assets/css/header.css", "  display: flex;\n  flex-wrap: wrap;\n  align-items: center;\n  gap: 0 clamp(0.25rem, 1.2vw, 1rem);", "  display: flex;\n  align-items: center;\n  gap: 0 clamp(0.25rem, 1.2vw, 1rem);", [NAV]),
+    # 0.2.4
+    ("compact desktop: one-row grid dropped (sticky bar back to two rows)", "assets/css/header.css", "    #tth-root.tecteb-header-v1[data-js].is-compact .tth-bar {\n      display: grid;", "    #tth-root.tecteb-header-v1[data-js].is-compact .tth-bar {\n      display: block;", [compact]),
+    ("compact desktop: burger shown again", "assets/css/header.css", "    #tth-root.tecteb-header-v1[data-js].is-compact .tth-mega { inset-inline: 0; }\n", "    #tth-root.tecteb-header-v1[data-js].is-compact .tth-mega { inset-inline: 0; }\n    #tth-root.tecteb-header-v1[data-js].is-compact .tth-burger { display: inline-flex; }\n", [compact]),
+    ("compact desktop: menu row not full height (mega menu opens over the bar)", "assets/css/header.css", ".tth-nav__row { align-self: stretch; min-block-size: 0; }", ".tth-nav__row { min-block-size: 0; }", [compact]),
+    ("compact desktop: menu row covers the bar and takes the clicks", "assets/css/header.css", ".is-compact .tth-nav { background: none; border: 0; pointer-events: none; }", ".is-compact .tth-nav { background: none; border: 0; }", [compact]),
+    ("compact desktop: categories button hidden with the menu links", "assets/css/header.css", ".tth-nav :is(.tth-menu, .tth-seller) { display: none; }", ".tth-nav :is(.tth-menu, .tth-seller, .tth-cats) { display: none; }", [compact]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

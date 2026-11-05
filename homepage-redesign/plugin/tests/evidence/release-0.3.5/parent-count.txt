@@ -1,0 +1,8 @@
+تجهیزات پزشکی (#14409): settings search shows 2 · direct term->count 2 · published with subcategories 2 · has_products yes
+دندانپزشکی (#14390): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+قلب و عروق (#14384): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+ملزومات بیمارستانی (#14405): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+هتلینگ (#14394): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+parent «والد آزمایشی شمارش»: settings search shows 3 · products in it incl. subcategory 3 · has_products yes
+child «فرزند آزمایشی شمارش»: settings search shows 3
+cleanup: removed

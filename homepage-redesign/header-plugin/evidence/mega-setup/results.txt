@@ -1,8 +1,8 @@
-tecteb-header 0.2.3
+tecteb-header 0.2.4
 
 PASS 1. no categories in the plugin settings: «دسته‌بندی کالاها» is a plain link to the shop, no chevron, no mega menu
 PASS 1. …while JS runs (header has data-js, «حساب من» shows its dropdown chevron) — same as the production screenshot
-PASS 2. baseline applied: 13 categories found by name and saved with this site's real term IDs, in order
+PASS 2. baseline applied: 12 categories found by name and saved with this site's real term IDs, in order
 PASS 2. …template selection and switch untouched
 PASS 3. a real subcategory ticked in «دسته‌بندی‌ها» is saved under its parent
 PASS 4. «دسته‌بندی کالاها» is now the mega-menu button (chevron), no shop link

@@ -3,7 +3,7 @@
  * Plugin Name:       Tecteb Header
  * Plugin URI:        https://tecteb.com/
  * Description:       هدر سراسری تک‌طب (طرح B): لوگو، جست‌وجو، حساب، سبد، علاقه‌مندی، منو، دسته‌بندی کالاها و نسخهٔ موبایل — با shortcode و جایگزینی اختیاری هدر Elementor. هیچ دادهٔ ووکامرس، دکان یا بازارگاه را نمی‌نویسد.
- * Version:           0.2.3
+ * Version:           0.2.4
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'TECTEB_HEADER_VERSION', '0.2.3' );
+define( 'TECTEB_HEADER_VERSION', '0.2.4' );
 define( 'TECTEB_HEADER_FILE', __FILE__ );
 define( 'TECTEB_HEADER_DIR', plugin_dir_path( __FILE__ ) );
 define( 'TECTEB_HEADER_URL', plugin_dir_url( __FILE__ ) );

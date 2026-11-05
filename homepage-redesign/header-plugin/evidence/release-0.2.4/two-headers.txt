@@ -1,0 +1,14 @@
+### two-headers: node tests/two-headers.mjs
+ok    replace tab: preview link is ?tth_preview=1 on the home page
+ok    replace tab: says Elementor prints #20 and it is not selected
+ok    replace tab: lists both Entire Site templates in Elementor order
+ok    axe replace tab with the two-header notices
+ok    preview as admin: Elementor #20 printed, Header B absent (the staging symptom)
+ok    preview as admin: page source explains it
+ok    after selecting #20: preview shows Header B, one header, Elementor #20 not printed
+ok    ?tth_original=1 as admin: Elementor #20 back immediately
+ok    visitor with ?tth_preview=1: Elementor #20, no Header B, no comment
+ok    visitor without preview (replacement off): Elementor #20 unchanged
+
+10 passed, 0 failed
+exit=0

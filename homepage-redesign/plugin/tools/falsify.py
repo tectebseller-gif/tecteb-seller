@@ -183,6 +183,15 @@ MUTATIONS = [
      "max-inline-size: calc(50% - 0.375rem); }", "max-inline-size: none; }", "adminhero"),
     ("brand logo sizes not balanced (each fills its frame)", "includes/class-catalog.php",
      "\t\t\t\t$attrs['style'] = '--th-logo-w:' . self::logo_width( (int) $src[1] / (int) $src[2] );\n", "", "integration"),
+    # ۰٫۳٫۵ — «محصولات منتخب»: ردیف دکمه‌های دسته برداشته، «فروشگاه» فقط در موبایل پنهان.
+    ("0.3.5: category filter row printed again in the products section", "templates/products.php",
+     "\t\t<ul class=\"th-products\"", "\t\t<nav class=\"th-filter\"><ul><li><a class=\"th-chip th-chip--on\" href=\"#\">همه</a></li></ul></nav>\n\t\t<ul class=\"th-products\"", "integration"),
+    ("0.3.5: «فروشگاه» eyebrow not hidden on mobile", "assets/css/tecteb-home.css",
+     ".th-head--shop .th-eyebrow { display: none; }", ".th-head--shop .th-eyebrow { }", "products"),
+    ("0.3.5: «فروشگاه» eyebrow hidden on tablet and desktop too", "assets/css/tecteb-home.css",
+     "@container th-home (max-width: 599px) {\n  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop", "@container th-home (min-width: 0px) {\n  .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop", "products"),
+    ("0.3.5: «ورود به فروشگاه» dropped from the products section", "templates/products.php",
+     "<a class=\"th-more\" href=\"<?php echo esc_url( $links['shop'] ); ?>\"><?php echo esc_html__( 'ورود به فروشگاه', 'tecteb-homepage' ); ?>", "<a class=\"th-more-x\" href=\"<?php echo esc_url( $links['shop'] ); ?>\"><?php echo esc_html__( 'ورود به فروشگاه', 'tecteb-homepage' ); ?>", "products"),
 ]
 
 
@@ -218,6 +227,12 @@ def run(kind: str) -> tuple[int, str]:
             (PLUGIN / "tests/evidence/isolation" / f"falsify-tmp.{ext}").unlink(missing_ok=True)
         n = 0 if p.returncode == 0 else 1
         return n, (p.stdout.strip().splitlines() or [""])[0][:140]
+    elif kind == "products":
+        subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
+        env = dict(os.environ, NODE_PATH="/opt/node-tools/node_modules", LABEL="falsify-tmp")
+        p = subprocess.run(["node", "tests/browser/products-head.mjs"], cwd=PLUGIN, capture_output=True, text=True, env=env)
+        for f in (PLUGIN / "tests/evidence/products-head").glob("falsify-tmp*"):
+            f.unlink()
     else:
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         env = dict(os.environ, AXE=AXE, NODE_PATH="/opt/node-tools/node_modules", OUT=str(PLUGIN / "tests/evidence/falsification-browser"))

@@ -4,6 +4,9 @@
  * انتخاب و مرتب کرده، با داده‌های زندهٔ ووکامرس (نام، تصویر، قیمت، موجودی،
  * ویژگی‌ها، پیوند). محصولی که حذف یا پنهان شده کنار می‌رود و چیزی جایش نمی‌آید.
  *
+ * ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته («همه»، …) برداشته شد — همان دسته‌ها در Mega Menu ِ هدر و کارت‌های
+ * «از دسته درست شروع کنید» هستند — و عنوان کوچک «فروشگاه» فقط در موبایل پنهان است (additions.css).
+ *
  * @var array $plan Renderer::plan()
  * @package Tecteb\Homepage
  */
@@ -14,7 +17,6 @@ defined( 'ABSPATH' ) || exit;
 
 $links  = $plan['links'];
 $arrow  = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
-$chips  = array_slice( $plan['categories'], 0, 4 );
 $badges = array(
 	'instock'     => array( 'th-badge--in', __( 'موجود', 'tecteb-homepage' ) ),
 	'onbackorder' => array( 'th-badge--in', __( 'پیش‌سفارش', 'tecteb-homepage' ) ),
@@ -23,7 +25,7 @@ $badges = array(
 ?>
 <section class="th-section th-section--white" aria-labelledby="th-products-title">
 	<div class="th-wrap">
-		<header class="th-head th-reveal">
+		<header class="th-head th-head--shop th-reveal">
 			<div class="th-head__text">
 				<p class="th-eyebrow"><?php echo esc_html__( 'فروشگاه', 'tecteb-homepage' ); ?></p>
 				<h2 class="th-head__title" id="th-products-title"><?php echo esc_html__( 'محصولات منتخب برای مراکز درمانی', 'tecteb-homepage' ); ?></h2>
@@ -32,18 +34,6 @@ $badges = array(
 				<a class="th-more" href="<?php echo esc_url( $links['shop'] ); ?>"><?php echo esc_html__( 'ورود به فروشگاه', 'tecteb-homepage' ); ?><?php echo $arrow; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Renderer::icon(). ?></a>
 			<?php endif; ?>
 		</header>
-		<?php if ( array() !== $chips ) : ?>
-			<nav class="th-filter th-reveal" aria-label="<?php echo esc_attr__( 'رفتن به دسته‌ها', 'tecteb-homepage' ); ?>">
-				<ul class="th-filter__list" role="list">
-					<?php if ( '' !== $links['shop'] ) : ?>
-						<li><a class="th-chip th-chip--on" href="<?php echo esc_url( $links['shop'] ); ?>"><?php echo esc_html__( 'همه', 'tecteb-homepage' ); ?></a></li>
-					<?php endif; ?>
-					<?php foreach ( $chips as $category ) : ?>
-						<li><a class="th-chip" href="<?php echo esc_url( $category['url'] ); ?>"><?php echo esc_html( $category['name'] ); ?></a></li>
-					<?php endforeach; ?>
-				</ul>
-			</nav>
-		<?php endif; ?>
 		<ul class="th-products" role="list" data-count="<?php echo esc_attr( (string) count( $plan['products'] ) ); ?>">
 			<?php foreach ( $plan['products'] as $product ) : ?>
 				<?php $badge = $badges[ $product['stock'] ] ?? null; ?>

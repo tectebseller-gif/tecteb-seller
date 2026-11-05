@@ -40,7 +40,8 @@ const PROBES = {
   'section h2': '#th-products-title',
   'product title': '.th-product__title',
   'product link': '.th-product__title a',
-  'chip': '.th-filter .th-chip',
+  // ۰٫۳٫۵: ردیف دکمه‌های دسته در «محصولات منتخب» برداشته شد (دستور مالک)؛ چیپ Hero همان کلاس را دارد.
+  'chip': '.th-hero .th-chip',
 };
 // انتقال‌های CSS (۰٫۲۵ ثانیه روی رنگ دکمه و چیپ) اگر در لحظهٔ اندازه‌گیری در جریان
 // باشند، مقدار میانی را می‌دهند؛ پیش از خواندن، همه تمام می‌شوند.

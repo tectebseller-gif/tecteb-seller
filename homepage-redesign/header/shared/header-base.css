@@ -649,11 +649,44 @@
   .tecteb-header-v1 .tth-top { gap: 0.625rem 0.25rem; }
 }
 
-/* در حالت جمع‌وجورِ عریض، ردیف منو جمع می‌شود و دکمهٔ منو کل ناوبری را می‌دهد. */
+/*
+ * حالت جمع‌وجورِ عریض (دسکتاپ، پس از اسکرول): یک ردیف — لوگو، «دسته‌بندی کالاها»، جست‌وجو، ابزارها — و
+ * بی منوی همبرگری (tecteb-header 0.2.4). تا 0.2.3 ردیف دوم پنهان و همبرگری نشان داده می‌شد و کشوی موبایل
+ * حساب و دسته‌ها را تکرار می‌کرد. نوار یک شبکه می‌شود و `.tth-top` و ردیف منو هر دو subgrid ِ همان ردیف‌اند،
+ * پس دکمهٔ دسته‌ها و Mega Menu ِ آن همان عنصرها می‌مانند (همان DOM، همان JS) و فقط ستون دوم را می‌گیرند؛
+ * پیوندهای منو و «همکاری تأمین‌کنندگان» در این حالت پنهان‌اند و بالای صفحه سر جایشان‌اند. ردیف منو روی ردیف
+ * بالا می‌نشیند، پس فقط دکمهٔ دسته‌ها کلیک می‌گیرد. مرورگرِ بی subgrid همان دو ردیف را نگه می‌دارد — بی همبرگری.
+ */
 @media (min-width: 1080px) {
-  .tecteb-header-v1[data-js].is-compact .tth-nav { display: none; }
-  .tecteb-header-v1[data-js].is-compact .tth-top { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "burger logo search tools"; }
-  .tecteb-header-v1[data-js].is-compact .tth-burger { display: inline-flex; }
+  @supports (grid-template-columns: subgrid) {
+    .tecteb-header-v1[data-js].is-compact .tth-bar {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr) auto;
+      column-gap: clamp(1rem, 2.4vw, 2rem);
+      padding-inline: calc(max(0px, (100% - var(--tth-max)) / 2) + var(--tth-gutter));
+    }
+    .tecteb-header-v1[data-js].is-compact :is(.tth-top, .tth-nav, .tth-nav__row) {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: subgrid;
+      grid-template-areas: none;
+      align-items: center;
+      inline-size: auto;
+      max-inline-size: none;
+      margin: 0;
+      padding-inline: 0;
+    }
+    .tecteb-header-v1[data-js].is-compact .tth-nav { background: none; border: 0; pointer-events: none; }
+    /* ردیف منو تمام‌قد می‌ماند تا Mega Menu (که از لبهٔ پایین آن باز می‌شود) زیر نوار بیاید، نه روی آن. */
+    .tecteb-header-v1[data-js].is-compact .tth-nav__row { align-self: stretch; min-block-size: 0; }
+    .tecteb-header-v1[data-js].is-compact .tth-logo { grid-column: 1; grid-row: 1; }
+    .tecteb-header-v1[data-js].is-compact .tth-nav .tth-cats { grid-column: 2; grid-row: 1; pointer-events: auto; }
+    .tecteb-header-v1[data-js].is-compact .tth-search { grid-column: 3; grid-row: 1; }
+    .tecteb-header-v1[data-js].is-compact .tth-tools { grid-column: 4; grid-row: 1; }
+    .tecteb-header-v1[data-js].is-compact .tth-nav :is(.tth-menu, .tth-seller) { display: none; }
+    .tecteb-header-v1[data-js].is-compact .tth-mega { inset-inline: 0; }
+  }
 }
 
 /* ---------------------------------------------------------------- بی جاوااسکریپت */

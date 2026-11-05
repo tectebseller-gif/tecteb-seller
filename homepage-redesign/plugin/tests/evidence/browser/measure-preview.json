@@ -115,8 +115,8 @@
   "textTransform": "none",
   "letterSpacing": "normal",
   "fontSize": "14px",
-  "backgroundColor": "rgb(10, 42, 63)",
-  "color": "rgb(255, 255, 255)",
+  "backgroundColor": "rgba(255, 255, 255, 0.06)",
+  "color": "rgb(233, 242, 246)",
   "boxShadow": "none"
  }
 }

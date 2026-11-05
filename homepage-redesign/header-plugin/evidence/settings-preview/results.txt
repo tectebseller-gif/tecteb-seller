@@ -1,4 +1,4 @@
-tecteb-header 0.2.3
+tecteb-header 0.2.4
 
 PASS 1. production state (#20, #2652 selected, switch off): preview shows Header B
 PASS 1. with a menu: links between the two buttons

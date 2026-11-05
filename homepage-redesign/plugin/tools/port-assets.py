@@ -31,7 +31,9 @@ PREVIEW_ONLY = re.compile(r"\.th-sample|\.th-imgnote|\.th-hero__note|\.th-hero--
                           # برداشته‌شده در ۰٫۲٫۰: استعلام روی کارت محصول و بخش خدمات عمومی.
                           r"|\.th-product__quote|\.th-service|\.th-deep__bg|\.th-section--deep"
                           # برداشته‌شده در ۰٫۳٫۳ (دستور مالک): برچسب «بازار B2B تجهیزات پزشکی» بالای عنوان Hero.
-                          r"|\.th-pill")
+                          r"|\.th-pill"
+                          # برداشته‌شده در ۰٫۳٫۵ (دستور مالک): ردیف دکمه‌های دسته در «محصولات منتخب».
+                          r"|\.th-filter|\.th-chip--on")
 
 
 def split_top(text: str) -> list[str]:

@@ -1,0 +1,215 @@
+### prices: node tests/browser/prices.mjs
+PASS 1440: 10 selected products shown in the admin order
+PASS 1440 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 simple: one amount «45,000,000» with the site currency
+PASS 1440 simple: price stays inside its card (no overflow onto neighbours)
+PASS 1440 simple: no amount is broken across lines
+PASS 1440 sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+PASS 1440 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 1440 sale: price stays inside its card (no overflow onto neighbours)
+PASS 1440 sale: no amount is broken across lines
+PASS 1440 range: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 range: range «3,200,000» to «128,500,000», both with currency
+PASS 1440 range: range reads in Persian («از … تا …»)
+PASS 1440 range: price stays inside its card (no overflow onto neighbours)
+PASS 1440 range: no amount is broken across lines
+PASS 1440 var_sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+PASS 1440 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 1440 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_sale: no amount is broken across lines
+PASS 1440 var_partial: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+PASS 1440 var_partial: range reads in Persian («از … تا …»)
+PASS 1440 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_partial: no amount is broken across lines
+PASS 1440 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_noprice: «قیمت اعلام نشده», no number
+PASS 1440 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_noprice: no amount is broken across lines
+PASS 1440 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 noprice: «قیمت اعلام نشده», no number
+PASS 1440 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 1440 noprice: no amount is broken across lines
+PASS 1440 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 zero: one amount «0» with the site currency
+PASS 1440 zero: price stays inside its card (no overflow onto neighbours)
+PASS 1440 zero: no amount is broken across lines
+PASS 1440 grouped: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 grouped: range «9,800,000» to «45,000,000», both with currency
+PASS 1440 grouped: range reads in Persian («از … تا …»)
+PASS 1440 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 1440 grouped: no amount is broken across lines
+PASS 1440 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 1440 var_out: «فعلاً ناموجود», no price invented
+PASS 1440 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 1440 var_out: no amount is broken across lines
+PASS 1440: product cards do not overlap
+PASS 1440: Hero search = one field + «جست‌وجو» button, no category dropdown
+PASS 1440: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 1440: search field and button fit the bar; no page overflow
+PASS 1440: axe on the whole page — 0 violations
+PASS 768: 10 selected products shown in the admin order
+PASS 768 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 simple: one amount «45,000,000» with the site currency
+PASS 768 simple: price stays inside its card (no overflow onto neighbours)
+PASS 768 simple: no amount is broken across lines
+PASS 768 sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+PASS 768 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 768 sale: price stays inside its card (no overflow onto neighbours)
+PASS 768 sale: no amount is broken across lines
+PASS 768 range: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 range: range «3,200,000» to «128,500,000», both with currency
+PASS 768 range: range reads in Persian («از … تا …»)
+PASS 768 range: price stays inside its card (no overflow onto neighbours)
+PASS 768 range: no amount is broken across lines
+PASS 768 var_sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+PASS 768 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 768 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_sale: no amount is broken across lines
+PASS 768 var_partial: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+PASS 768 var_partial: range reads in Persian («از … تا …»)
+PASS 768 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_partial: no amount is broken across lines
+PASS 768 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_noprice: «قیمت اعلام نشده», no number
+PASS 768 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_noprice: no amount is broken across lines
+PASS 768 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 noprice: «قیمت اعلام نشده», no number
+PASS 768 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 768 noprice: no amount is broken across lines
+PASS 768 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 zero: one amount «0» with the site currency
+PASS 768 zero: price stays inside its card (no overflow onto neighbours)
+PASS 768 zero: no amount is broken across lines
+PASS 768 grouped: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 grouped: range «9,800,000» to «45,000,000», both with currency
+PASS 768 grouped: range reads in Persian («از … تا …»)
+PASS 768 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 768 grouped: no amount is broken across lines
+PASS 768 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 768 var_out: «فعلاً ناموجود», no price invented
+PASS 768 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 768 var_out: no amount is broken across lines
+PASS 768: product cards do not overlap
+PASS 768: Hero search = one field + «جست‌وجو» button, no category dropdown
+PASS 768: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 768: search field and button fit the bar; no page overflow
+PASS 768: axe on the whole page — 0 violations
+PASS 390: 10 selected products shown in the admin order
+PASS 390 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 simple: one amount «45,000,000» with the site currency
+PASS 390 simple: price stays inside its card (no overflow onto neighbours)
+PASS 390 simple: no amount is broken across lines
+PASS 390 sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+PASS 390 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 390 sale: price stays inside its card (no overflow onto neighbours)
+PASS 390 sale: no amount is broken across lines
+PASS 390 range: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 range: range «3,200,000» to «128,500,000», both with currency
+PASS 390 range: range reads in Persian («از … تا …»)
+PASS 390 range: price stays inside its card (no overflow onto neighbours)
+PASS 390 range: no amount is broken across lines
+PASS 390 var_sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+PASS 390 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 390 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_sale: no amount is broken across lines
+PASS 390 var_partial: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+PASS 390 var_partial: range reads in Persian («از … تا …»)
+PASS 390 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_partial: no amount is broken across lines
+PASS 390 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_noprice: «قیمت اعلام نشده», no number
+PASS 390 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_noprice: no amount is broken across lines
+PASS 390 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 noprice: «قیمت اعلام نشده», no number
+PASS 390 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 390 noprice: no amount is broken across lines
+PASS 390 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 zero: one amount «0» with the site currency
+PASS 390 zero: price stays inside its card (no overflow onto neighbours)
+PASS 390 zero: no amount is broken across lines
+PASS 390 grouped: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 grouped: range «9,800,000» to «45,000,000», both with currency
+PASS 390 grouped: range reads in Persian («از … تا …»)
+PASS 390 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 390 grouped: no amount is broken across lines
+PASS 390 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 390 var_out: «فعلاً ناموجود», no price invented
+PASS 390 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 390 var_out: no amount is broken across lines
+PASS 390: product cards do not overlap
+PASS 390: Hero search = one field + «جست‌وجو» button, no category dropdown
+PASS 390: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 390: search field and button fit the bar; no page overflow
+PASS 390: axe on the whole page — 0 violations
+PASS 320: 10 selected products shown in the admin order
+PASS 320 simple: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 simple: one amount «45,000,000» with the site currency
+PASS 320 simple: price stays inside its card (no overflow onto neighbours)
+PASS 320 simple: no amount is broken across lines
+PASS 320 sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 sale: old price «12,500,000» struck through, current «9,800,000» emphasised
+PASS 320 sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 320 sale: price stays inside its card (no overflow onto neighbours)
+PASS 320 sale: no amount is broken across lines
+PASS 320 range: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 range: range «3,200,000» to «128,500,000», both with currency
+PASS 320 range: range reads in Persian («از … تا …»)
+PASS 320 range: price stays inside its card (no overflow onto neighbours)
+PASS 320 range: no amount is broken across lines
+PASS 320 var_sale: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_sale: old price «7,000,000» struck through, current «6,300,000» emphasised
+PASS 320 var_sale: screen readers hear «قیمت قبلی» and «قیمت فعلی» in Persian
+PASS 320 var_sale: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_sale: no amount is broken across lines
+PASS 320 var_partial: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_partial: range «915,000,000» to «1,250,000,000», both with currency
+PASS 320 var_partial: range reads in Persian («از … تا …»)
+PASS 320 var_partial: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_partial: no amount is broken across lines
+PASS 320 var_noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_noprice: «قیمت اعلام نشده», no number
+PASS 320 var_noprice: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_noprice: no amount is broken across lines
+PASS 320 noprice: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 noprice: «قیمت اعلام نشده», no number
+PASS 320 noprice: price stays inside its card (no overflow onto neighbours)
+PASS 320 noprice: no amount is broken across lines
+PASS 320 zero: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 zero: one amount «0» with the site currency
+PASS 320 zero: price stays inside its card (no overflow onto neighbours)
+PASS 320 zero: no amount is broken across lines
+PASS 320 grouped: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 grouped: range «9,800,000» to «45,000,000», both with currency
+PASS 320 grouped: range reads in Persian («از … تا …»)
+PASS 320 grouped: price stays inside its card (no overflow onto neighbours)
+PASS 320 grouped: no amount is broken across lines
+PASS 320 var_out: no English screen-reader text visible (Price range / through / Original price)
+PASS 320 var_out: «فعلاً ناموجود», no price invented
+PASS 320 var_out: price stays inside its card (no overflow onto neighbours)
+PASS 320 var_out: no amount is broken across lines
+PASS 320: product cards do not overlap
+PASS 320: Hero search = one field + «جست‌وجو» button, no category dropdown
+PASS 320: Hero search still WooCommerce product search (s + post_type=product, home URL)
+PASS 320: search field and button fit the bar; no page overflow
+PASS 320: axe on the whole page — 0 violations
+PASS hostile theme CSS 1440: prices stay inside cards, no amount broken, no English text
+PASS hostile theme CSS 1440: old price still struck through, current price not underlined/highlighted
+PASS hostile theme CSS 320: prices stay inside cards, no amount broken, no English text
+PASS hostile theme CSS 320: old price still struck through, current price not underlined/highlighted
+PASS search «سرنگ‌پمپ» lands on WooCommerce results/product (200)
+PASS site «استعلام قیمت» (woocommerce_empty_price_html) is shown as the site wrote it, for simple and variable
+PASS priced products unaffected by the inquiry filter
+
+211 passed, 0 failed
+exit=0
