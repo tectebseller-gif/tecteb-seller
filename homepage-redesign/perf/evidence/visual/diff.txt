@@ -1,0 +1,17 @@
+compact-1080.png: 1080×900 — 41 differing pixels, box (1012, 13, 1048, 49)
+compact-1440.png: 1440×900 — 41 differing pixels, box (1272, 13, 1308, 49)
+compact-1920.png: 1920×900 — 41 differing pixels, box (1512, 13, 1548, 49)
+drawer-320.png: 320×844 — 28 differing pixels, box (270, 25, 304, 55)
+drawer-390.png: 390×844 — 35 differing pixels, box (336, 19, 374, 57)
+drawer-768.png: 768×844 — 35 differing pixels, box (714, 19, 752, 57)
+full-1024.png: 1024×3893 — 42 differing pixels, box (902, 13, 941, 3227)
+full-1080.png: 1080×3992 — 60 differing pixels, box (974, 15, 1048, 3310)
+full-1280.png: 1280×4203 — 60 differing pixels, box (1152, 15, 1228, 3489)
+full-1440.png: 1440×4212 — 61 differing pixels, box (1232, 15, 1308, 3497)
+full-1920.png: 1920×4212 — 60 differing pixels, box (1472, 15, 1548, 3497)
+full-320.png: 320×5743 — 10482 differing pixels, box (16, 15, 304, 4709)
+full-390.png: 390×5302 — 5729 differing pixels, box (37, 13, 353, 4304)
+full-600.png: 600×5520 — 3811 differing pixels, box (225, 13, 555, 4624)
+full-768.png: 768×5909 — 43 differing pixels, box (647, 13, 699, 5036)
+
+15 of 15 screenshots differ

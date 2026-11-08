@@ -1,0 +1,97 @@
+compact-1080.png: 4 band(s)
+  y 13–29 x 1012–1048: 23 px, max channel diff 1
+  y 32–33 x 1012–1013: 1 px, max channel diff 1
+  y 37–39 x 1013–1015: 2 px, max channel diff 1
+  y 42–49 x 1016–1044: 9 px, max channel diff 1
+compact-1440.png: 4 band(s)
+  y 13–29 x 1272–1308: 23 px, max channel diff 1
+  y 32–33 x 1272–1273: 1 px, max channel diff 1
+  y 37–39 x 1273–1275: 2 px, max channel diff 1
+  y 42–49 x 1276–1304: 9 px, max channel diff 1
+compact-1920.png: 4 band(s)
+  y 13–29 x 1512–1548: 23 px, max channel diff 1
+  y 32–33 x 1512–1513: 1 px, max channel diff 1
+  y 37–39 x 1513–1515: 2 px, max channel diff 1
+  y 42–49 x 1516–1544: 9 px, max channel diff 1
+drawer-320.png: 4 band(s)
+  y 25–27 x 275–298: 2 px, max channel diff 1
+  y 31–36 x 270–304: 5 px, max channel diff 1
+  y 41–45 x 271–304: 4 px, max channel diff 1
+  y 48–55 x 274–300: 10 px, max channel diff 1
+drawer-390.png: 4 band(s)
+  y 19–25 x 343–369: 8 px, max channel diff 1
+  y 32–33 x 337–338: 1 px, max channel diff 1
+  y 39–44 x 336–373: 3 px, max channel diff 1
+  y 47–57 x 340–372: 14 px, max channel diff 1
+drawer-768.png: 4 band(s)
+  y 19–25 x 721–747: 8 px, max channel diff 1
+  y 32–33 x 715–716: 1 px, max channel diff 1
+  y 39–44 x 714–751: 3 px, max channel diff 1
+  y 47–57 x 718–750: 14 px, max channel diff 1
+full-1024.png: 6 band(s)
+  y 13–19 x 909–935: 8 px, max channel diff 1
+  y 25–27 x 903–939: 3 px, max channel diff 1
+  y 33–38 x 902–940: 4 px, max channel diff 1
+  y 43–51 x 906–933: 11 px, max channel diff 1
+  y 3213–3214 x 939–940: 1 px, max channel diff 1
+  y 3219–3227 x 922–941: 5 px, max channel diff 1
+full-1080.png: 5 band(s)
+  y 15–34 x 1004–1048: 20 px, max channel diff 1
+  y 42–47 x 1006–1047: 4 px, max channel diff 1
+  y 50–59 x 1009–1041: 18 px, max channel diff 1
+  y 3296–3297 x 992–993: 1 px, max channel diff 1
+  y 3302–3310 x 975–994: 6 px, max channel diff 1
+full-1280.png: 5 band(s)
+  y 15–34 x 1184–1228: 20 px, max channel diff 1
+  y 42–47 x 1186–1227: 4 px, max channel diff 1
+  y 50–59 x 1189–1221: 18 px, max channel diff 1
+  y 3475–3476 x 1170–1171: 1 px, max channel diff 1
+  y 3482–3489 x 1153–1165: 5 px, max channel diff 1
+full-1440.png: 5 band(s)
+  y 15–34 x 1264–1308: 21 px, max channel diff 1
+  y 42–47 x 1266–1307: 4 px, max channel diff 1
+  y 50–59 x 1269–1301: 18 px, max channel diff 1
+  y 3483–3484 x 1250–1251: 1 px, max channel diff 1
+  y 3490–3497 x 1233–1245: 5 px, max channel diff 1
+full-1920.png: 5 band(s)
+  y 15–34 x 1504–1548: 20 px, max channel diff 1
+  y 42–47 x 1506–1547: 4 px, max channel diff 1
+  y 50–59 x 1509–1541: 18 px, max channel diff 1
+  y 3483–3484 x 1490–1491: 1 px, max channel diff 1
+  y 3490–3497 x 1473–1485: 5 px, max channel diff 1
+full-320.png: 10 band(s)
+  y 17–21 x 227–250: 4 px, max channel diff 1
+  y 25–30 x 222–256: 5 px, max channel diff 1
+  y 35–49 x 223–255: 13 px, max channel diff 1
+  y 1013–1126 x 16–303: 5374 px, max channel diff 1
+  y 1133–1150 x 16–304: 648 px, max channel diff 106
+  y 1239–1287 x 235–283: 1934 px, max channel diff 1
+  y 1424–1473 x 37–283: 1850 px, max channel diff 232
+  y 1505–1522 x 16–304: 639 px, max channel diff 47
+  y 4695–4696 x 274–275: 1 px, max channel diff 1
+  y 4701–4709 x 257–276: 5 px, max channel diff 1
+full-390.png: 9 band(s)
+  y 13–19 x 291–317: 8 px, max channel diff 1
+  y 25–27 x 285–321: 3 px, max channel diff 1
+  y 33–38 x 284–322: 4 px, max channel diff 1
+  y 43–51 x 288–315: 11 px, max channel diff 1
+  y 1064–1113 x 37–353: 1851 px, max channel diff 229
+  y 1207–1255 x 305–353: 1918 px, max channel diff 1
+  y 1337–1385 x 305–353: 1918 px, max channel diff 1
+  y 4290–4291 x 344–345: 1 px, max channel diff 1
+  y 4297–4304 x 327–339: 5 px, max channel diff 1
+full-600.png: 7 band(s)
+  y 13–19 x 493–519: 8 px, max channel diff 1
+  y 25–27 x 487–523: 3 px, max channel diff 1
+  y 33–38 x 486–524: 4 px, max channel diff 1
+  y 43–51 x 490–517: 13 px, max channel diff 1
+  y 1023–1071 x 225–555: 3765 px, max channel diff 1
+  y 4610–4611 x 544–545: 1 px, max channel diff 1
+  y 4616–4624 x 527–546: 7 px, max channel diff 1
+full-768.png: 6 band(s)
+  y 13–19 x 654–680: 8 px, max channel diff 1
+  y 25–27 x 648–684: 3 px, max channel diff 1
+  y 33–38 x 647–685: 4 px, max channel diff 1
+  y 43–51 x 651–678: 11 px, max channel diff 1
+  y 5022–5023 x 697–698: 1 px, max channel diff 1
+  y 5029–5036 x 680–689: 4 px, max channel diff 1

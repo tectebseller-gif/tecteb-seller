@@ -1,0 +1,22 @@
+Visual regression — Header 0.2.4 + Homepage 0.3.5 (before) vs Header 0.2.5 + Homepage 0.3.6 (after)
+Local disposable WordPress, Chromium (Playwright), reduced motion, all animations finished, DPR 1,
+page scrolled to the bottom and back first (as a visitor does) so lazy images load.
+Tools: perf/tools/switch-plugins.sh (switch + restart PHP), visual-shots.mjs, visual-diff.py, visual-bands.py.
+
+Noise floor: before vs before (second run) 0 of 15 differ; after vs after 0 of 15 differ.
+Before vs after: 15 shots; page heights identical in all 15. Bands in bands.txt:
+
+1. Header logo (bar and drawer, every width) and the supplier eyebrow logo: max channel difference 1
+   of 255 — lossless WebP decoded vs PNG decoded and scaled. Not visible.
+2. Mobile route cards (320px and 390px only, edges of the round arrow and the icon square on the
+   backdrop-filtered card): up to 229 on edge pixels. Cause isolated by mixing versions and by editing
+   the delivered HTML in the browser: only the 0.2.5 inline script changes it (header in JS mode before
+   the first paint). Element boxes are identical to 3 decimals in both versions (style-equivalence.txt).
+   The circle .th-route__go is at y 1068.69–1108.69 at 390px; in 0.2.5 it is drawn exactly there; in
+   0.2.4 it was drawn ~2.7 px higher — a stale raster from the 254 px layout shift (header 321→67 px)
+   under backdrop-filter. Forcing a repaint of the old page changes its own pixels (max 78), confirming
+   the old drawing depended on paint history. Before/after enlargement: route-card-edge-390-before-after.png.
+   Verdict: no change of design; the old misdrawing is gone.
+
+Computed style + box comparison, 12 states (320–1920, compact sticky header, mobile drawer),
+720 elements × 60 properties: 0 differences (../after/style-equivalence.txt).
