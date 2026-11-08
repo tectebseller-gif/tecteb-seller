@@ -6,7 +6,7 @@ Production یا Staging انجام نشد.** ظاهر، محتوا، رنگ، ف
 
 | | |
 |---|---|
-| بسته | `dist/tecteb-homepage-0.3.6.zip` |
+| بسته | `dist/tecteb-homepage-0.3.6.zip` (۲۹۶٬۰۵۴ بایت) |
 | SHA-256 | `3e9e4ecc6837dea00a7b4fea4b5984f013ac65b3a22682c9ec9eb3134f9749b9` (`dist/SHA256SUMS`) |
 | نسخهٔ قبلی | `0.3.5` — `74499987102d7c6e427b79d20fc77a25ed9cc5fec3a27cd2e9eaa33f9deb2dda` (دست‌نخورده، برای بازگشت) |
 | تکرارپذیری | دو ساخت جدا، همان هش؛ CSS ِ بازتولیدشده با `tools/port-assets.py` بایت‌به‌بایت همان CSS ِ داخل ZIP |
@@ -23,7 +23,31 @@ Production یا Staging انجام نشد.** ظاهر، محتوا، رنگ، ف
 (`../perf/evidence/visual/VERDICT.txt`).
 
 ## آزمون‌ها
-TESTS_TABLE
+همه روی همین کد، وردپرس یکبارمصرف محلی، ووکامرس ۱۱٫۰٫۱، کنار Header 0.2.5:
+
+| آزمون | نتیجه |
+|---|---|
+| ایستا (`tests/static/check.py`) — با ۳ بررسی تازهٔ 0.3.6 | **۱۲۱ قبول، ۰ شکست** |
+| CSS ِ بازتولیدشده با `tools/port-assets.py` | بایت‌به‌بایت همان CSS ِ ساخته‌شده |
+| یکپارچه (`tests/integration/run.php`) | **۲۷۲ قبول، ۰ شکست** |
+| بخش محصولات (`products-head.mjs`) | **۶۴ قبول، ۰ شکست** |
+| پنل برچسب‌های Hero (`admin-hero-labels.mjs`) | **۴۰ قبول، ۰ شکست** |
+| Hero و برندها (`hero-brands.mjs`) | **۹۳ قبول، ۰ شکست** |
+| مدیریت برندها (`admin-brands.mjs`) | **۱۷ قبول، ۰ شکست** |
+| قیمت‌ها (`prices.mjs`) | **۲۱۱ قبول، ۰ شکست** |
+| صفحهٔ نخست و گزینه (`front-page.mjs`) | **۲۶ قبول، ۰ شکست** |
+| کل صفحه و همخوانی با پیش‌نمایش، axe (`run.mjs`) | **۷۶ قبول، ۰ شکست** |
+| کنار هدر مستقل (`with-header.mjs`) | **۵۴ قبول، ۰ شکست** |
+| ایزولگی CSS در برابر CSS سراسری (`isolation.mjs`) | **۰ تفاوت** (۶ حالت، ۱۴۵ عنصر × ۴۳ ویژگی + جعبه) |
+| فاصلهٔ بالای Hero در موبایل (`mobile-gap.mjs`) | **۲۷ قبول، ۰ شکست** |
+| ارتقا 0.3.5 → 0.3.6 و بازگشت از دو ZIP (`tests/upgrade-035.sh`، تازه) | **۲۴ قبول، ۰ شکست** |
+| چرخهٔ عمر از ZIP ِ 0.3.6 (`tests/lifecycle.sh`) | **۱۷ قبول، ۰ شکست** |
+| PHPCS (WordPress.Security/DB/I18n + PHPCompatibilityWP 8.1-) | **۱۸ فایل، ۰ خطا، ۰ هشدار** |
+| Falsification (`tools/falsify.py`) — ۷۴ جهش قبلی + ۲ جهش تازهٔ 0.3.6 (لوگوی پایین صفحه دوباره PNG ِ بی lazy، توضیح در CSS) | HOME_FALSIFY |
+| برابری سبک‌های محاسبه‌شده و مقایسهٔ تصویری | ۰ تفاوت؛ کف نویز ۰ (`../perf/evidence/`) |
+
+وضعیت جداگانهٔ «شمار محصولات دستهٔ والد» در پنل تنظیمات بی‌تغییر است — هیچ کد دسته‌ای در این بسته عوض نشد
+(`tests/evidence/release-0.3.6/parent-count.txt`).
 
 شواهد: `tests/evidence/release-0.3.6/`.
 
