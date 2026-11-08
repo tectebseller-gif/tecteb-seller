@@ -1,1 +1,28 @@
 ### upgrade-035: bash tests/upgrade-035.sh dist/tecteb-homepage-0.3.5.zip dist/tecteb-homepage-0.3.6.zip
+PASS 0.3.5 installed and active from its ZIP
+PASS 0.3.5 on the front page: selected products, category cards, brands and the supplier section
+PASS 0.3.5: supplier eyebrow logo is the PNG
+PASS 0.3.5: tecteb-home.css?ver=0.3.5
+PASS 0.3.6 installed over 0.3.5 from its ZIP (--force)
+PASS still active, version 0.3.6
+PASS installed files are byte-identical to the source
+PASS after the update and a page view: saved settings unchanged byte for byte (no migration, no write on read)
+PASS products section: same title, link, products, order
+PASS Hero labels: same titles, archives and positions
+PASS category cards: same links in the same order
+PASS brands: same names, logos and links
+PASS prices: the same text, letter for letter
+PASS supplier section identical except the eyebrow logo file (webp) and loading=lazy/decoding=async
+PASS 0.3.6: the eyebrow logo is the WebP, lazy, with width/height kept
+PASS the WebP is served (200 image/webp)
+PASS tecteb-home.css?ver=0.3.6 — browsers and page caches fetch the new stylesheet
+PASS the served stylesheet has only its provenance comment and is smaller (64414 → 51965 bytes)
+PASS 0.3.6: the settings page opens (200)
+PASS rollback: 0.3.5 reinstalled from its ZIP
+PASS rollback: products and supplier section exactly as 0.3.5 (PNG logo back)
+PASS rollback: Hero labels, category cards, brands and prices as before
+PASS rollback: tecteb-home.css?ver=0.3.5
+PASS rollback: settings untouched
+
+24 passed, 0 failed
+exit=0

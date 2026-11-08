@@ -1,0 +1,1 @@
+### lifecycle: bash tests/lifecycle.sh dist/tecteb-homepage-0.3.6.zip
