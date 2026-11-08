@@ -1,0 +1,4 @@
+### isolation: node tests/isolation.mjs after-0.3.6
+after-0.3.6: 6 states, 145 elements × 43 properties + box — 0 differences caused by site-wide CSS
+
+exit=0
