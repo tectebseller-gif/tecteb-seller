@@ -1,0 +1,155 @@
+ 1 CAUGHT  [integration] 2 failing — selected IDs ignored (query not restricted to the selection)
+     first: FAIL query contract: include = selection, publish, catalog visibility
+ 2 CAUGHT  [integration] 6 failing — catalog visibility dropped (hidden products leak)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — سرنگ‌پمپ تک‌کاناله | مانیتور علائم حیاتی پنج‌پارامتری |
+ 3 CAUGHT  [integration] 6 failing — publish status dropped (drafts leak)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — سرنگ‌پمپ تک‌کاناله | مانیتور علائم حیاتی پنج‌پارامتری |
+ 4 CAUGHT  [integration] 2 failing — hide-out-of-stock ignored
+     first: FAIL hide out of stock setting is honoured (backorder still shown)
+ 5 CAUGHT  [integration] 7 failing — admin order ignored (WooCommerce order used)
+     first: FAIL selection: shown in the admin order; hidden and draft dropped; nothing added  — سانتریفیوژ رومیزی <b>آزمایش</b> | دستکش جراحی غیرویژه |
+ 6 CAUGHT  [integration] 1 failing — display count ignored
+     first: FAIL count: only the first N shown products
+ 7 CAUGHT  [integration] 2 failing — featured auto-fill reintroduced
+     first: FAIL defaults: no products section without a manual selection (featured flag ignored)
+ 8 CAUGHT  [integration] 3 failing — any post ID accepted as a product
+     first: FAIL sanitize: a trashed product cannot be newly added
+ 9 CAUGHT  [integration] 2 failing — product price printed through wp_kses_post (bdi lost)
+     first: FAIL price: WooCommerce price markup kept intact (bdi for RTL number + currency)
+10 CAUGHT  [integration] 4 failing — repair card shown without a destination
+     first: FAIL shop route: no route cards at all when none has a destination
+11 CAUGHT  [integration] 3 failing — supplier card without a destination
+     first: FAIL shop route: no route cards at all when none has a destination
+12 CAUGHT  [integration] 3 failing — shop URL without the page guard
+     first: FAIL shop route: hidden (not pointed at the homepage) when no shop page is set
+13 CAUGHT  [integration] 3 failing — any URL accepted (javascript:)
+     first: FAIL links: javascript:, data:, protocol-relative and ftp are refused  — {"repair":"javascript:alert(1)","supplier":"data:text\/html,x","sup
+14 CAUGHT  [integration] 1 failing — category name printed unescaped
+     first: FAIL escaping: hostile category name/description never becomes markup
+15 CAUGHT  [integration] 4 failing — assets loaded on every page
+     first: FAIL assets: nothing loads on plain page
+16 CAUGHT  [integration] 1 failing — parent category counted by direct products only
+     first: FAIL categories: a parent whose products are only in subcategories is not empty
+17 CAUGHT  [static] 1 failing — a write slipped into the reader
+     first: FAIL no write: update_post_meta  — includes/class-catalog.php
+18 CAUGHT  [static] 1 failing — Dokan dependency
+     first: FAIL no dependency on دکان  — includes/class-renderer.php
+19 CAUGHT  [browser] 1 failing — heading hardening and isolation layer both removed (theme/kit leak)
+     first: FAIL theme: an Elementor kit with form/heading styles changes nothing either  — h1.fontStyle: normal → italic; h1.textTransform: none → uppe
+20 CAUGHT  [browser] 1 failing — route grid layout dropped (three cards not side by side)
+     first: FAIL routes 1440px: three cards side by side in one row  — [634,634,736]
+21 CAUGHT  [isolation] 1 failing — isolation layer dropped (site-wide CSS reaches the homepage)
+     first: falsify-tmp: 6 states, 127 elements × 43 properties + box — 219 differences caused by site-wide CSS (not on page: desktop .th-section--brand
+22 CAUGHT  [static] 1 failing — one rule loses its ID-weight boost
+     first: FAIL css: every root selector carries the ID-weight boost
+23 CAUGHT  [integration] 1 failing — repair default dropped (confirmed URL lost)
+     first: FAIL defaults: three routes shop → repair → supplier
+24 CAUGHT  [integration] 2 failing — supplier default points elsewhere
+     first: FAIL defaults: supplier section links to /landing-seller/
+25 CAUGHT  [integration] 7 failing — saved empty URL silently falls back to the default
+     first: FAIL shop route: no route cards at all when none has a destination
+26 CAUGHT  [integration] 1 failing — header font not shared (double download)
+     first: FAIL assets: with tecteb-header active, the font is the header's file (one download), else our own
+27 CAUGHT  [integration] 1 failing — WP Rocket home purge dropped (stale homepage after a selection change)
+     first: FAIL cache: WP Rocket — home page purged once per request, whole-domain purge never called  — 0 298
+28 CAUGHT  [integration] 1 failing — WP Rocket purge widened to the whole site
+     first: FAIL cache: WP Rocket — home page purged once per request, whole-domain purge never called  — 1 304
+29 CAUGHT  [integration] 1 failing — hero text claims an unconfirmed side-by-side comparison
+     first: FAIL defaults: no unconfirmed claim «کنار هم» on the page
+30 CAUGHT  [integration] 3 failing — front-page takeover ignores the switch
+     first: FAIL front page, switch off: the selected page shows its own content, no Concept C, no homepage assets
+31 CAUGHT  [integration] 3 failing — an option saved by 0.3.0 (no front_page key) reads as on — sites change on update
+     first: FAIL front page: switch off by default (also for an option saved by 0.3.0, without the key)
+32 CAUGHT  [integration] 1 failing — preview parameter honoured for visitors
+     first: FAIL front page, switch off: ?tecteb_home_preview=1 does nothing for a visitor
+33 CAUGHT  [integration] 1 failing — admin 'original' parameter ignored
+     first: FAIL front page, switch on: admin ?tecteb_home_original=1 shows the selected page itself
+34 CAUGHT  [integration] 1 failing — shop-page guard removed (shop archive replaced)
+     first: FAIL front page = WooCommerce shop page: no takeover (product list stays), reason given
+35 CAUGHT  [integration] 1 failing — Elementor editor preview replaced too
+     first: FAIL front page, switch on: ?elementor-preview keeps the page itself (editor)
+36 CAUGHT  [integration] 1 failing — takeover also on paginated front page
+     first: FAIL front page, switch on: a paginated front page (?paged=2) is left to the page
+37 CAUGHT  [integration] 1 failing — assets not loaded on the taken-over front page
+     first: FAIL front page, switch on: one h1, homepage CSS in <head>, real products
+38 CAUGHT  [integration] 3 failing — price guard dropped: a price hidden by the site is shown anyway
+     first: FAIL price model: no price ⇒ none (no number invented)
+39 CAUGHT  [integration] 1 failing — price guard dropped: our number shown although the site replaced the price text
+     first: FAIL site filter: price replaced by the site text ⇒ that text, never our number
+40 CAUGHT  [integration] 4 failing — sale ignored (old price lost, discount invisible)
+     first: FAIL price model: simple on sale ⇒ was 12,500,000 / now 9,800,000
+41 CAUGHT  [integration] 5 failing — variable range collapsed to one price
+     first: FAIL price model: variable with two prices ⇒ range from/to
+42 CAUGHT  [integration] 13 failing — card back to raw get_price_html() (English screen-reader text)
+     first: FAIL price: WooCommerce price html for priced product
+43 CAUGHT  [prices] 10 failing — old price no longer struck through
+     first: FAIL 1440 sale: old price «12,500,000» struck through, current «9,800,000» emphasised  — {"text":"12,500,000 تومان 9,800,000 تومان","a11y":"
+44 CAUGHT  [prices] 8 failing — Hero category dropdown back in the search form
+     first: FAIL 1440: Hero search = one field + «جست‌وجو» button, no category dropdown  — {"select":1,"field":true,"button":true,"postType":"product","
+45 CAUGHT  [integration] 2 failing — Hero «بازار B2B» label printed again
+     first: FAIL hero 0.3.3: the «بازار B2B تجهیزات پزشکی» label is gone from the output (no th-pill, no text)
+46 CAUGHT  [integration] 5 failing — Hero label linked to a category with no products
+     first: FAIL labels: a category without products is not linked (empty)
+47 CAUGHT  [integration] 1 failing — ambiguous Hero label guessed (first match taken)
+     first: FAIL labels: two «جراحی» and none at the root ⇒ ambiguous, not linked, both candidates listed
+48 CAUGHT  [integration] 12 failing — Hero labels out of the required order
+     first: FAIL labels: four slots in the required order
+49 CAUGHT  [integration] 4 failing — price shown in the site format (no thousands separator, no space)
+     first: FAIL price format: homepage shows «5,634,400 تومان» (comma thousands, space before the currency)  — {"kind":"amount","now":"<span class=\"wo
+50 CAUGHT  [integration] 4 failing — price guard compared in the homepage format (every price falls back to raw text)
+     first: FAIL price format: homepage shows «5,634,400 تومان» (comma thousands, space before the currency)  — {"kind":"text","text":"5634400\u062a\u06
+51 CAUGHT  [integration] 3 failing — inactive brand shown
+     first: FAIL brands: only active brands with a real image, in order, alt = brand name  — برند آزمایشی ب | برند آزمایشی الف | برند غیرفعال | برند ج |
+52 CAUGHT  [integration] 1 failing — non-image logo accepted
+     first: FAIL brands: a non-image logo is refused (logo 0, inactive), name kept for the admin to fix
+53 CAUGHT  [integration] 2 failing — brand URL not sanitised (javascript: kept)
+     first: FAIL brands: markup stripped from the name, javascript: URL refused
+54 CAUGHT  [integration] 2 failing — empty brands section printed
+     first: FAIL brands: no brand ⇒ no section at all (no heading, no empty block)
+55 CAUGHT  [integration] 1 failing — carousel buttons printed live without the script (dead buttons without JS)
+     first: FAIL brands: nav buttons are real buttons, hidden until the script shows them; region is focusable and labelled
+56 CAUGHT  [herobrands] 15 failing — carousel ignores RTL (next scrolls the wrong way)
+     first: FAIL 1440 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)  — [{"x":0,"prev":true,"next":false},{"x":
+57 CAUGHT  [herobrands] 4 failing — Hero labels keep the corner layout on a narrow image (cover the monitor)
+     first: FAIL 1024 labels: off the monitor and the oximeter (estimated zones of the render)  — {"pill":false,"firstInCopy":true,"titleGap":0,"names":
+58 CAUGHT  [herobrands] 5 failing — brand logo stretched to its frame
+     first: FAIL 1440 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)  — [{"ratio":0.6407596982758621,"inside":true,"loaded":
+59 CAUGHT  [integration] 2 failing — inactive Hero label printed
+     first: FAIL hero 0.3.4: an inactive label is not printed and leaves no hole (one, two, three)
+60 CAUGHT  [integration] 2 failing — Hero title tied to the category name (admin title ignored)
+     first: FAIL hero 0.3.4: editing a title changes only the text — same category archive, the WooCommerce term name untouched
+61 CAUGHT  [integration] 1 failing — Hero order from the panel ignored
+     first: FAIL hero 0.3.4: order — reversed in the panel ⇒ reversed on the page, positions one…four in the new order
+62 CAUGHT  [integration] 2 failing — a hidden Hero label leaves a hole (positions not filled in order)
+     first: FAIL labels: positions fill in order (0.3.4) — two shown ⇒ one, two; a hidden label leaves no hole
+63 CAUGHT  [integration] 1 failing — upgrade from 0.3.3 drops its pinned category
+     first: FAIL hero 0.3.4: a 0.3.3 option (no hero_items) ⇒ default titles, order and active kept; its pinned ID kept with the title 0.3.3 showed (the
+64 CAUGHT  [integration] 1 failing — hero_labels no longer mirrors the rows (a downgrade to 0.3.3 loses the categories)
+     first: FAIL hero 0.3.4: hero_labels (what 0.3.3 reads) always mirrors each row's category, so a downgrade sees the same categories
+65 CAUGHT  [integration] 1 failing — a deleted pinned category silently re-pointed at the same-named one
+     first: FAIL hero 0.3.4: a chosen category deleted later ⇒ «missing», no link, nothing printed — not silently re-pointed at the same-named category
+66 CAUGHT  [integration] 1 failing — «برای برچسب …» from the search results ignored
+     first: FAIL hero 0.3.4: «برای برچسب ۱» from the search results sets that row's category (and only that row)
+67 CAUGHT  [integration] 2 failing — Hero category ID accepted without checking it is a product category
+     first: FAIL hero 0.3.4: an ID that is not a product category (missing, text, a post category) is refused — back to «by name», with a message
+68 CAUGHT  [integration] 1 failing — Hero title not sanitised (markup kept)
+     first: FAIL hero 0.3.4: titles are sanitized (no tags, max 40 characters); missing rows fall back to their defaults
+69 CAUGHT  [adminhero] 3 failing — long Hero titles not capped (labels run into each other and the device)
+     first: FAIL 1440 long titles: none over the text/search/device, none over each other, all inside the image  — [{"text":"ابزار و تجهیزات اتاق عمل و 
+70 CAUGHT  [integration] 1 failing — brand logo sizes not balanced (each fills its frame)
+     first: FAIL brands 0.3.4: every logo carries --th-logo-w (balanced visual size)  — [-1,-1,-1,-1]
+71 CAUGHT  [integration] 1 failing — 0.3.5: category filter row printed again in the products section
+     first: FAIL products: no category filter row (0.3.5)
+72 CAUGHT  [products] 4 failing — 0.3.5: «فروشگاه» eyebrow not hidden on mobile
+     first: FAIL 320: eyebrow «فروشگاه» hidden (mobile)  — true
+73 CAUGHT  [products] 12 failing — 0.3.5: «فروشگاه» eyebrow hidden on tablet and desktop too
+     first: FAIL 768: eyebrow «فروشگاه» still shown (tablet/desktop)  — false
+74 CAUGHT  [products] 10 failing — 0.3.5: «ورود به فروشگاه» dropped from the products section
+     first: FAIL 320: «ورود به فروشگاه» kept, same destination as 0.3.4  — [null,{"text":"ورود به فروشگاه","href":"http://127.0.0.1:8090/shop/"}]
+75 CAUGHT  [static] 1 failing — 0.3.6: supplier eyebrow logo eager again (PNG in the initial load)
+     first: FAIL 0.3.6: supplier eyebrow logo is the lossless WebP, lazy and async (below the fold)
+76 CAUGHT  [static] 1 failing — 0.3.6: comments back in the shipped stylesheet
+     first: FAIL 0.3.6: shipped tecteb-home.css carries no comments except the provenance header
+
+76 of 76 mutations caught and restored
+exit=0
