@@ -20,6 +20,12 @@ $img        = TECTEB_HOME_URL . 'assets/img/';
 $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 ?>
 <section class="th-hero th-hero--dark" aria-labelledby="th-hero-title" data-th-light>
+	<div class="th-hero__bg" aria-hidden="true">
+		<span class="th-hero__glow th-hero__glow--a"></span>
+		<span class="th-hero__glow th-hero__glow--b"></span>
+		<span class="th-hero__grid"></span>
+		<span class="th-hero__pointer"></span>
+	</div>
 	<div class="th-wrap th-hero__layout">
 		<div class="th-hero__copy">
 			<h1 class="th-hero__title th-in" id="th-hero-title" style="--th-i:1">
@@ -102,18 +108,4 @@ $arrow      = Renderer::icon( 'arrow', 'th-icon th-icon--dir' );
 			</p>
 		</div>
 	<?php endif; ?>
-	<?php
-	/*
-	 * 0.3.6 — لایهٔ پس‌زمینه پس از محتوا می‌آید، نه پیش از آن. .th-hero یک stacking context است (isolation: isolate)
-	 * و این لایه z-index: -1 دارد، پس جایش در DOM در رسم اثری ندارد. ولی اگر مرورگر پیش از رسیدن کل Hero نخستین رسم را
-	 * انجام دهد (دسکتاپ، وقتی CSS ِ مسدودکننده کمتر است)، توری پس‌زمینه با ارتفاع ناقص رسم می‌شد و بعد به ارتفاع کامل
-	 * می‌رسید — یک layout shift ِ ۰٫۰۱۱ در ۳ از ۱۹ اجرای Lighthouse. حالا این لایه هم‌زمان با پایان Hero ظاهر می‌شود.
-	 */
-	?>
-	<div class="th-hero__bg" aria-hidden="true">
-		<span class="th-hero__glow th-hero__glow--a"></span>
-		<span class="th-hero__glow th-hero__glow--b"></span>
-		<span class="th-hero__grid"></span>
-		<span class="th-hero__pointer"></span>
-	</div>
 </section>

@@ -195,8 +195,6 @@ MUTATIONS = [
     # ۰٫۳٫۶ — سرعت
     ("0.3.6: supplier eyebrow logo eager again (PNG in the initial load)", "templates/supplier.php",
      "assets/img/tecteb-logo-mark-96.webp' ); ?>\" width=\"20\" height=\"20\" alt=\"\" loading=\"lazy\" decoding=\"async\">", "assets/img/tecteb-logo-mark-96.png' ); ?>\" width=\"20\" height=\"20\" alt=\"\">", "static"),
-    ("0.3.6: Hero background layer back before the content", "templates/hero.php",
-     '<section class="th-hero th-hero--dark" aria-labelledby="th-hero-title" data-th-light>', '<section class="th-hero th-hero--dark" aria-labelledby="th-hero-title" data-th-light>\n\t<div class="th-hero__bg" aria-hidden="true"></div>', "static"),
     ("0.3.6: comments back in the shipped stylesheet", "assets/css/tecteb-home.css",
      ".tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }", "/* x */ .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }", "static"),
 ]
