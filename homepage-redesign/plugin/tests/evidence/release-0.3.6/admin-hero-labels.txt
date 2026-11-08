@@ -1,1 +1,44 @@
 ### admin-hero-labels: node tests/browser/admin-hero-labels.mjs
+PASS admin: four rows with title, category ID, order and «فعال» fields
+PASS admin: defaults are the four 0.3.3 titles, in order, all active
+PASS front: the four default labels, in order, each to its category archive
+PASS admin → front: a new title shows on the homepage, still linked to the same archive
+PASS admin: the WooCommerce category keeps its own name (the title is independent)
+PASS admin → front: reversed order in the panel ⇒ reversed on the homepage, positions one…four
+PASS admin: after saving, the order fields read 4, 3, 2, 1
+PASS admin → front: unticking «فعال» hides that label and leaves no hole
+PASS admin: the inactive row says so
+PASS admin → front: ticking it again brings it back
+PASS admin: category search lists matches with «برای برچسب ۱…۴» buttons
+PASS admin: «برای برچسب ۴» saves that category in row 4 (and keeps the title typed beside it)
+PASS admin → front: row 4 (first in order) now links to «آزمایشگاه» with its own title
+PASS admin: an ID that is not a product category is refused with a message; the row goes back to «by name»
+PASS front: …so «آزمایشگاه» (row 3) is again its own category, nothing guessed
+PASS admin → front: a chosen category with no displayable products stays hidden (and the panel says why)
+PASS admin: every other homepage setting (brands, links, products, categories…) untouched
+PASS admin: hero_labels (read by 0.3.3) mirrors each row's category
+PASS admin: 40-character titles are saved whole
+PASS 1440 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 1440 long titles: the link text stays whole (what screen readers read)
+PASS 1440 long titles: shortened on screen with «…» (they would not fit half the image)
+PASS 1024 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 1024 long titles: the link text stays whole (what screen readers read)
+PASS 768 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 768 long titles: the link text stays whole (what screen readers read)
+PASS 600 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 600 long titles: the link text stays whole (what screen readers read)
+PASS 390 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 390 long titles: the link text stays whole (what screen readers read)
+PASS 320 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 320 long titles: the link text stays whole (what screen readers read)
+PASS 390: 4 labels, none over the title, the lead, the search or the device
+PASS 320: 4 labels, none over the title, the lead, the search or the device
+PASS 768: 4 labels, none over the title, the lead, the search or the device
+PASS 1024: 4 labels, none over the title, the lead, the search or the device
+PASS 1440: 4 labels, none over the title, the lead, the search or the device
+PASS admin page (with search results): axe wcag2a/aa — 0 violations
+PASS security: a POST with a bad nonce is refused and changes nothing
+PASS security: a user without manage_woocommerce can neither open the page nor save
+
+40 passed, 0 failed
+exit=0
