@@ -82,6 +82,7 @@ final class MigrationPlanChecklist
      *   shops?:?int,
      *   observed?:?int,
      *   marketplace?:?int,
+     *   ownership_state?:string,
      *   scan_finished?:bool,
      *   ready?:?int,
      *   drift_fixable?:?int,
@@ -302,33 +303,36 @@ final class MigrationPlanChecklist
     /** @param array<string,mixed> $state @return array{0:string, 1:string, 2:string} */
     private static function consent(array $state): array
     {
-        $observed = $state['observed'] ?? null;
-        $marketplace = $state['marketplace'] ?? null;
-        if ($observed === null || $marketplace === null) {
-            return [self::UNKNOWN, 'ownership_unreadable', ''];
-        }
         // ⛔ This step is NEVER `DONE` by itself and that is deliberate: the
         // consent is a press on the transfer screen, carried by a nonce and a
         // digest of the very list that was shown. Nothing stored anywhere can
         // stand in for it, so the checklist reports whether there is still
         // something to consent to and the button stays where it is.
-        return (int) $observed === 0 && (int) $marketplace > 0
-            ? [self::DONE, '', (string) (int) $marketplace]
-            : [self::TODO, 'consent_is_a_press', (string) (int) $observed];
+        //
+        // The answer comes from `OwnershipState`, which the `ownership_taken`
+        // gate reads too — one rule, two readers. Re-deriving it from the two
+        // counts here is what made this step permanently TODO on a shop that
+        // holds no products, with a detail that read «۰».
+        return match ((string) ($state['ownership_state'] ?? OwnershipState::UNREADABLE)) {
+            OwnershipState::TAKEN => [self::DONE, '', (string) (int) ($state['marketplace'] ?? 0)],
+            // Nothing to consent to, because nothing is waiting. Named, so
+            // the page says «چیزی برای انتقال نبود» rather than printing a
+            // count of nought as though it were a queue.
+            OwnershipState::NOTHING_TO_TRANSFER => [self::DONE, '', 'nothing_to_transfer'],
+            OwnershipState::ROWS_OBSERVED => [self::TODO, 'consent_is_a_press', (string) (int) ($state['observed'] ?? 0)],
+            default => [self::UNKNOWN, 'ownership_unreadable', ''],
+        };
     }
 
     /** @param array<string,mixed> $state @return array{0:string, 1:string, 2:string} */
     private static function transfer(array $state): array
     {
-        $observed = $state['observed'] ?? null;
-        $marketplace = $state['marketplace'] ?? null;
-        if ($observed === null || $marketplace === null || (int) $observed < 0 || (int) $marketplace < 0) {
-            return [self::UNKNOWN, 'ownership_unreadable', ''];
-        }
-        if ((int) $observed === 0 && (int) $marketplace > 0) {
-            return [self::DONE, '', (string) (int) $marketplace];
-        }
-        return [self::TODO, 'rows_still_observed', (string) (int) $observed];
+        return match ((string) ($state['ownership_state'] ?? OwnershipState::UNREADABLE)) {
+            OwnershipState::TAKEN => [self::DONE, '', (string) (int) ($state['marketplace'] ?? 0)],
+            OwnershipState::NOTHING_TO_TRANSFER => [self::DONE, '', 'nothing_to_transfer'],
+            OwnershipState::ROWS_OBSERVED => [self::TODO, 'rows_still_observed', (string) (int) ($state['observed'] ?? 0)],
+            default => [self::UNKNOWN, 'ownership_unreadable', ''],
+        };
     }
 
     /** @param array<string,mixed> $state @return array{0:string, 1:string, 2:string} */

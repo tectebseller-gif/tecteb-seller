@@ -62,14 +62,28 @@ final class DisposableOnlyToolsTest extends TestCase
      *
      * A disposable-database refusal would make such a tool useless for the
      * one job it exists for, so the guard is a different kind — and it is a
-     * TEST, not a sentence here: `ReadOnlyInventoryTest` reads the file and
-     * fails if it gains any writer, WordPress function, wpdb method or
-     * writing SQL. An entry added here without that cover would be an
-     * exemption with no guard behind it, so the assertion below checks the
-     * test exists and names the file.
+     * TEST, not a sentence here: a read-only test reads the file and fails if
+     * it gains any writer, WordPress function, wpdb method or writing SQL.
+     *
+     * ⛔ **The value is the test that covers it, and that is the point.** Until
+     * there were two such tools the assertion below looked inside one
+     * hard-coded file, so a second entry would have been waved through by a
+     * test about the FIRST tool — an exemption whose cover was somebody
+     * else's. Each entry now names its own guard, the file has to exist, and
+     * it has to name the tool.
      */
     private const READ_ONLY = [
-        'plugin-exit-inventory.php' => 'read-only by construction; ReadOnlyInventoryTest fails if it gains any writer',
+        'plugin-exit-inventory.php' => 'ReadOnlyInventoryTest.php',
+        // The second entry, and the reason is the same shape as the first: the
+        // owner's instruction says «آیا فروشگاه واقعاً بدون محصول است؟ این
+        // موضوع را از سورس به‌تنهایی قابل اثبات ندان», and a census of what a
+        // shop id owns is a statement about rows that no amount of reading PHP
+        // produces. A disposable-database refusal would make it useless for
+        // the one question it exists to answer — whether account 2 and shop 40
+        // can be archived — and the guard is
+        // `ShopDependencyCensusIsReadOnlyTest`, which the assertion below
+        // insists exists and names this file.
+        'shop-dependency-census.php' => 'ShopDependencyCensusIsReadOnlyTest.php',
     ];
 
     /** The refusal, verbatim enough that a rewrite has to be deliberate. */
@@ -167,11 +181,15 @@ final class DisposableOnlyToolsTest extends TestCase
             // A read-only tool needs no refusal — but only while something
             // else proves it is read-only.
             if (isset(self::READ_ONLY[$name])) {
-                $readOnlyTest = (string) file_get_contents(__DIR__ . '/../ReadOnlyInventoryTest.php');
+                $guard = __DIR__ . '/../' . self::READ_ONLY[$name];
+                self::assertFileExists(
+                    $guard,
+                    $name . ' is on the read-only list and names a guard that does not exist'
+                );
                 self::assertStringContainsString(
                     $name,
-                    $readOnlyTest,
-                    $name . ' is on the read-only list but ReadOnlyInventoryTest does not name it'
+                    (string) file_get_contents($guard),
+                    $name . ' is on the read-only list but ' . self::READ_ONLY[$name] . ' does not name it'
                 );
                 continue;
             }

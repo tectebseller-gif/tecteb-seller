@@ -99,6 +99,15 @@ final class MigrationPlanSnapshot
             'shops' => count($this->shops()),
             'observed' => (int) ($detail['products_observed'] ?? 0),
             'marketplace' => (int) ($detail['products_marketplace'] ?? 0),
+            // ⛔ The ANSWER, not the two numbers it was derived from. Steps 9
+            // and 10 used to re-derive «منتقل شد؟» from `observed` and
+            // `marketplace` here, which is the same rule written a second
+            // time — and it got two cases wrong that the gate also got wrong:
+            // a shop with no products at all (permanently TODO, with the
+            // self-contradicting detail «۰ ردیف هنوز مشاهده‌ای است») and a
+            // tally nobody could read (reported as nought). `OwnershipState`
+            // is now the only place that rule exists.
+            'ownership_state' => (string) ($detail['ownership_state'] ?? OwnershipState::UNREADABLE),
             'scan_finished' => $finished,
             'ready' => $finished ? (int) ($counts[OwnershipTransferPlan::READY] ?? 0) : null,
             'drift_fixable' => $finished ? (int) ($counts[OwnershipTransferPlan::DRIFT_FIXABLE] ?? 0) : null,

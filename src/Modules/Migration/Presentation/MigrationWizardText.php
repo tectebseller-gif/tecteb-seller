@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Migration\Presentation;
 
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\HealthPage;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist as Plan;
+use Tecteb\Marketplace\Modules\Migration\Application\OwnershipState;
 use Tecteb\Marketplace\Modules\Migration\Presentation\Admin\MigrationPage;
 
 /**
@@ -66,6 +67,14 @@ final class MigrationWizardText
     public static function explain(string $status, string $blocker, string $detail, callable $fa): string
     {
         if ($status === Plan::DONE) {
+            // ⛔ A finished step whose detail is a NAME, not a number. Steps 9
+            // and 10 report `nothing_to_transfer` for a shop that holds no
+            // products, and `$fa()` only rewrites digits — so without this
+            // branch an internal identifier would be printed on an admin
+            // screen, which `alpha.85` forbids by name and a test enforces.
+            if ($detail === OwnershipState::NOTHING_TO_TRANSFER) {
+                return __('این فروشگاه محصولی ندارد، پس چیزی برای انتقال نبود.', 'tecteb-marketplace-core');
+            }
             return $detail === '' ? '' : $fa($detail);
         }
         $sentence = match ($blocker) {
@@ -109,6 +118,7 @@ final class MigrationWizardText
                 __('%s ردیف هنوز منتقل نشده. تأیید یک فشار روی صفحهٔ انتقال است و هیچ ردیفی جایش را نمی‌گیرد.', 'tecteb-marketplace-core'),
                 $fa($detail)
             ),
+            'ownership_state_unreadable' => __('شمارش مالکیت این فروشگاه خوانده نشد، پس دربارهٔ انتقالش چیزی گفته نمی‌شود.', 'tecteb-marketplace-core'),
             'rows_still_observed' => sprintf(
                 /* translators: %s: rows still observed */
                 __('%s ردیف هنوز «مشاهده‌شده» است.', 'tecteb-marketplace-core'),

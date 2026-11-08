@@ -1,0 +1,120 @@
+alpha.97 falsification — 12 mutations
+database filter inside the loop: EmptyShopAndUnreadableGateTest|StatusReconciliationFlowTest|DokanMigrationTest|StagedOwnershipTransferTest|ShopRecordConfirmationTest|ImportedShopSellingTest|HandoverPageRecordsTest|AdminPagesRenderTest
+the closing baseline runs the database suite UNFILTERED
+tree: f11c6c8 (plus the uncommitted round)
+
+=== 1/12 the ownership count stops saying it failed
+    file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+    expect: database
+applied: the ownership count stops saying it failed
+sha256 after: 40e96fd1fcf086be85d49a22f393d63fcac6eec3ef5669b96fc10c80b409e2c9
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/12 the breakdown no longer has to add up to the total
+    file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+    expect: database
+applied: the breakdown no longer has to add up to the total
+sha256 after: 2408b8ab326fa3cf535a864910f8a1bb1d320637f1fc83bb16f79dced133ad2b
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/12 OwnershipState trusts an unreadable tally
+    file:   src/Modules/Migration/Application/OwnershipState.php
+    expect: database
+applied: OwnershipState trusts an unreadable tally
+sha256 after: 390540e76a6e669ac7f5326a18bdf20c4cba45763b97b73398c9339581714575
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/12 a nought needs no import stamp to mean «nothing to transfer»
+    file:   src/Modules/Migration/Application/OwnershipState.php
+    expect: database
+applied: a nought needs no import stamp to mean «nothing to transfer»
+sha256 after: 8782578665a1fa266c09afb69e31846088b4729e67e100295b896fd2a8b9b5e5
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/12 both finished answers collapse into one
+    file:   src/Modules/Migration/Application/OwnershipState.php
+    expect: database
+applied: both finished answers collapse into one
+sha256 after: 6b2f0c59b3cbe7778933cae50b91965ccb918f9d9ad265594c34259a3a576760
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/12 staff_decided stops asking whether the list was read
+    file:   src/Modules/Migration/Application/MigrationCompleteness.php
+    expect: database
+applied: staff_decided stops asking whether the list was read
+sha256 after: 44defd34be0be4d339dddab4ea12f3069e6622bc9aff271eee825a44a6caa220
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/12 the staff count is cast, so a failed read becomes nought
+    file:   src/Modules/Migration/Application/MigrationCompleteness.php
+    expect: database
+applied: the staff count is cast, so a failed read becomes nought
+sha256 after: db8ea48cdbf95eb72c73b9b786e123507cf9691711fb03661e5d2cc76c2b29ec
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/12 the ownership gate derives its own answer again
+    file:   src/Modules/Migration/Application/MigrationCompleteness.php
+    expect: database
+applied: the ownership gate derives its own answer again
+sha256 after: ef19e5f69ea1a81090e09e646e92cff9ee738ac96b64788f942e9fabfe57ae9c
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/12 step 10 derives «transferred» from the two counts again
+    file:   src/Modules/Migration/Application/MigrationPlanChecklist.php
+    expect: database
+applied: step 10 derives «transferred» from the two counts again
+sha256 after: f7b6ac7d30618e1088f4ba3aca893e69f910ff9d86ec9012bb6d6f344c66de8d
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/12 step 9 stops distinguishing «nothing to consent to»
+    file:   src/Modules/Migration/Application/MigrationPlanChecklist.php
+    expect: database
+applied: step 9 stops distinguishing «nothing to consent to»
+sha256 after: a240cf59fff2b2f06aa7a8c1d3debd860d27f5819b8fe82065cb65faef824c44
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/12 the finished detail prints its identifier on the screen
+    file:   src/Modules/Migration/Presentation/MigrationWizardText.php
+    expect: database
+applied: the finished detail prints its identifier on the screen
+sha256 after: 387d12e837e71dfcd5c36127003e5d60aa842ac7c16471d8ab0e74384185a8f8
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/12 the census drops a table that carries a vendor id
+    file:   tools/shop-dependency-census.php
+    expect: unit
+applied: the census drops a table that carries a vendor id
+sha256 after: 7a640e33b6d770c88dc9e06737c2659503da478527081c9cac3e125339b57c82
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 0
+
+problems: 0

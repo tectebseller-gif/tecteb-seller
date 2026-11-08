@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist as Plan;
+use Tecteb\Marketplace\Modules\Migration\Application\OwnershipState;
 
 /**
  * The twelve steps, every branch, from an array.
@@ -27,6 +28,10 @@ final class MigrationPlanChecklistTest extends TestCase
         'shops' => 2,
         'observed' => 0,
         'marketplace' => 184,
+        // ⛔ The ANSWER, not the two counts. Steps 9 and 10 used to derive it
+        // here from `observed` and `marketplace`, which is the same rule
+        // written twice — and both copies got a shop with no products wrong.
+        'ownership_state' => OwnershipState::TAKEN,
         'scan_finished' => true,
         'ready' => 0,
         'drift_fixable' => 0,
@@ -277,33 +282,91 @@ final class MigrationPlanChecklistTest extends TestCase
     /** ⛔ Consent is a press, so nothing stored can finish this step early. */
     public function testConsentIsOpenWhileAnyRowIsStillObserved(): void
     {
-        $step = $this->steps(['observed' => 184, 'marketplace' => 0])[Plan::STEP_CONSENT];
+        $step = $this->steps([
+            'observed' => 184,
+            'marketplace' => 0,
+            'ownership_state' => OwnershipState::ROWS_OBSERVED,
+        ])[Plan::STEP_CONSENT];
         self::assertSame(Plan::TODO, $step['status']);
         self::assertSame('consent_is_a_press', $step['blocker']);
     }
 
     public function testTransferAndConsentBothNeedEveryRowMoved(): void
     {
-        $halfway = $this->steps(['observed' => 84, 'marketplace' => 100]);
+        $halfway = $this->steps([
+            'observed' => 84,
+            'marketplace' => 100,
+            'ownership_state' => OwnershipState::ROWS_OBSERVED,
+        ]);
         self::assertSame(Plan::TODO, $halfway[Plan::STEP_TRANSFER]['status']);
         self::assertSame('rows_still_observed', $halfway[Plan::STEP_TRANSFER]['blocker']);
         self::assertSame('84', $halfway[Plan::STEP_TRANSFER]['detail']);
         self::assertSame(Plan::TODO, $halfway[Plan::STEP_CONSENT]['status']);
     }
 
-    /** A shop with no rows at all has not transferred anything. */
-    public function testAShopWithNoRowsHasNotTransferred(): void
+    /**
+     * ⛔ **This test asserted the defect, and was rewritten rather than
+     * loosened.**
+     *
+     * «A shop with no rows at all has not transferred anything» is a true
+     * sentence about an id nobody imported, and a dead end about shop 40 —
+     * which carries a profile import stamp and no products, and whose steps 9
+     * and 10 therefore read `TODO / rows_still_observed / ۰` for ever:
+     * instructions that contradict themselves, with no exit but inventing a
+     * product or deleting the shop. The owner's §1 refuses both.
+     *
+     * So the two cases are now told apart by a POSITIVE fact — the import
+     * stamp — and both halves are pinned here, because a release that only
+     * pinned the new one would let the stamp check be deleted silently.
+     */
+    public function testAShopWithNoRowsIsFinishedOnlyIfSomethingSaysItWasImported(): void
     {
-        $steps = $this->steps(['observed' => 0, 'marketplace' => 0]);
-        self::assertSame(Plan::TODO, $steps[Plan::STEP_TRANSFER]['status']);
-        self::assertSame(Plan::TODO, $steps[Plan::STEP_CONSENT]['status']);
+        $imported = $this->steps([
+            'observed' => 0,
+            'marketplace' => 0,
+            'ownership_state' => OwnershipState::NOTHING_TO_TRANSFER,
+        ]);
+        foreach ([Plan::STEP_TRANSFER, Plan::STEP_CONSENT] as $key) {
+            self::assertSame(Plan::DONE, $imported[$key]['status'], $key);
+            self::assertSame(OwnershipState::NOTHING_TO_TRANSFER, $imported[$key]['detail'], $key);
+        }
+
+        // And the control: nothing says this id was ever imported, so a
+        // nought is not «finished» — it is «who is this shop».
+        $stranger = $this->steps([
+            'observed' => 0,
+            'marketplace' => 0,
+            'ownership_state' => OwnershipState::ROWS_OBSERVED,
+        ]);
+        foreach ([Plan::STEP_TRANSFER, Plan::STEP_CONSENT] as $key) {
+            self::assertSame(Plan::TODO, $stranger[$key]['status'], $key);
+        }
+    }
+
+    /** And neither finished answer counts as ready on its own. */
+    public function testNothingToTransferStillNeedsEveryOtherStep(): void
+    {
+        $steps = Plan::steps(array_merge(self::COMPLETE, [
+            'observed' => 0,
+            'marketplace' => 0,
+            'ownership_state' => OwnershipState::NOTHING_TO_TRANSFER,
+            'gates_missing' => ['vendor_can_sell'],
+        ]));
+        self::assertFalse(Plan::tally($steps)['ready'], 'an open gate still withholds readiness');
     }
 
     public function testUnreadableOwnershipIsUnknownForBothSteps(): void
     {
-        $steps = $this->steps(['observed' => null]);
+        // The unreadable tally arrives as the ANSWER now: `OwnershipState`
+        // refuses to read two numbers it was told not to trust.
+        $steps = $this->steps(['observed' => null, 'ownership_state' => OwnershipState::UNREADABLE]);
         self::assertSame(Plan::UNKNOWN, $steps[Plan::STEP_TRANSFER]['status']);
         self::assertSame(Plan::UNKNOWN, $steps[Plan::STEP_CONSENT]['status']);
+        // ⛔ And a state key that is MISSING altogether is unreadable too,
+        // never a verdict: a caller holding an older snapshot shape must not
+        // land on «done» (`alpha.68`).
+        $older = $this->steps(['ownership_state' => null]);
+        self::assertSame(Plan::UNKNOWN, $older[Plan::STEP_TRANSFER]['status']);
     }
 
     public function testAnOpenGateKeepsBothLastStepsOpenAndNamesIt(): void

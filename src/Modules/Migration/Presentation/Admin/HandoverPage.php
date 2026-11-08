@@ -33,6 +33,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
 use Tecteb\Marketplace\Modules\Migration\Application\GrantImportedStaff;
 use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
+use Tecteb\Marketplace\Modules\Migration\Application\OwnershipState;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordScope;
@@ -653,6 +654,33 @@ final class HandoverPage
                         ),
                     ]);
                 }
+            }
+            // ⛔ WHY the ownership gate answered what it did, in the two
+            // cases where the gate's NAME alone misleads. «انتقال مالکیت
+            // محصول‌ها» beside a shop whose count could not be read reads as
+            // a measurement, and there was none.
+            if (in_array('ownership_taken', (array) $row['missing'], true)) {
+                $state = (string) ($row['detail']['ownership_state'] ?? '');
+                if ($state === OwnershipState::UNREADABLE) {
+                    $left .= '<span class="tmc-field__desc">'
+                        . esc_html__('شمارش مالکیت این فروشگاه خوانده نشد، پس این دروازه باز می‌مانَد.', 'tecteb-marketplace-core')
+                        . '</span>';
+                } elseif ((int) ($row['detail']['products_observed'] ?? 0) > 0) {
+                    $left .= '<span class="tmc-field__desc">' . esc_html(sprintf(
+                        /* translators: %s: number of products */
+                        __('%s ردیف هنوز «مشاهده‌شده» است.', 'tecteb-marketplace-core'),
+                        $fa((string) (int) ($row['detail']['products_observed'] ?? 0))
+                    )) . '</span>';
+                }
+            }
+            // ⛔ And an unreadable staff list, which used to close its gate
+            // silently. `staff_decided` read DONE whenever the list came back
+            // empty — and an empty list is also what a failed statement
+            // returns.
+            if (($row['detail']['staff_readable'] ?? true) !== true) {
+                $left .= '<span class="tmc-field__desc">'
+                    . esc_html__('فهرست پرسنل واردشدهٔ این فروشگاه کامل خوانده نشد، پس «تصمیم پرسنل» باز می‌مانَد.', 'tecteb-marketplace-core')
+                    . '</span>';
             }
             // ⛔ The DOOR, next to the gate it opens. This gate's prescribed
             // action was «approve the application from the review screen», and

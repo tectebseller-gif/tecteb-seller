@@ -293,7 +293,11 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         $one = $this->apply()->apply(self::VENDOR, 0, $first['ready'], $first['digest']);
         self::assertTrue($one['ok'], (string) $one['code']);
         self::assertSame(
-            ['marketplace' => OwnershipTransferPlan::BATCH_LIMIT, 'observed' => self::WC_BULK_COUNT - OwnershipTransferPlan::BATCH_LIMIT],
+            [
+                'marketplace' => OwnershipTransferPlan::BATCH_LIMIT,
+                'observed' => self::WC_BULK_COUNT - OwnershipTransferPlan::BATCH_LIMIT,
+                'readable' => true,
+            ],
             $this->products->ownershipTallyForVendor(self::VENDOR)
         );
 
@@ -304,7 +308,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         $two = $this->apply()->apply(self::VENDOR, 0, $second['ready'], $second['digest']);
         self::assertTrue($two['ok'], (string) $two['code']);
         self::assertSame(
-            ['marketplace' => self::WC_BULK_COUNT, 'observed' => 0],
+            ['marketplace' => self::WC_BULK_COUNT, 'observed' => 0, 'readable' => true],
             $this->products->ownershipTallyForVendor(self::VENDOR)
         );
         self::assertSame([], $this->projector->writes, 'and still nothing was ever projected');
@@ -343,7 +347,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
             array_values($this->projector->links),
             'the stamps are on the existing products, in order'
         );
-        self::assertSame(['marketplace' => 5, 'observed' => 0], $this->products->ownershipTallyForVendor(self::VENDOR));
+        self::assertSame(['marketplace' => 5, 'observed' => 0, 'readable' => true], $this->products->ownershipTallyForVendor(self::VENDOR));
     }
 
     /**
@@ -424,7 +428,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
         self::assertFalse($result['ok']);
         self::assertSame('plan_moved', $result['code']);
         self::assertSame([], $result['moved'], 'not even the rows that are still ready');
-        self::assertSame(['marketplace' => 0, 'observed' => 5], $this->products->ownershipTallyForVendor(self::VENDOR));
+        self::assertSame(['marketplace' => 0, 'observed' => 5, 'readable' => true], $this->products->ownershipTallyForVendor(self::VENDOR));
     }
 
     /**
@@ -442,7 +446,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
 
         self::assertFalse($result['ok']);
         self::assertSame('selection_not_offered', $result['code']);
-        self::assertSame(['marketplace' => 0, 'observed' => 5], $this->products->ownershipTallyForVendor(self::VENDOR));
+        self::assertSame(['marketplace' => 0, 'observed' => 5, 'readable' => true], $this->products->ownershipTallyForVendor(self::VENDOR));
     }
 
     /** An id the page never offered is not a stale form, it is another request. */
@@ -470,7 +474,7 @@ final class StagedOwnershipTransferTest extends DatabaseTestCase
 
         self::assertFalse($result['ok']);
         self::assertSame('forbidden', $result['code']);
-        self::assertSame(['marketplace' => 0, 'observed' => 5], $this->products->ownershipTallyForVendor(self::VENDOR));
+        self::assertSame(['marketplace' => 0, 'observed' => 5, 'readable' => true], $this->products->ownershipTallyForVendor(self::VENDOR));
         self::assertSame(0, $this->auditRows(AuditEventCatalog::DOKAN_OWNERSHIP_BATCH));
     }
 

@@ -24,7 +24,9 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
  *   records_imported   the archive has nothing left to bring over, and
  *                      a verified zero counts as nothing left
  *   categories_mapped  no product is sitting as a draft for want of a category
- *   ownership_taken    the rows are the marketplace's to run, not notes
+ *   ownership_taken    the rows are the marketplace's to run, not notes —
+ *                      or there are no rows at all on a shop that was
+ *                      imported, which is finished too (`OwnershipState`)
  *   vendor_can_sell    admission happened, through review, not through import
  *   staff_decided      every imported Dokan role has an answer, yes or no
  *   finance_decided    somebody said who owes the imported balance
@@ -320,6 +322,28 @@ final class MigrationCompleteness
 
         $records = $this->recordsState($vendorUserId);
 
+        // Whether the staff LIST is the whole list. `importedCountsFor()` is
+        // already read by `withoutDokan()`, so this costs one indexed COUNT
+        // per shop through `tmc_staff_vendor` (migration 17) and nothing else.
+        $heldStaff = $this->records->importedCountsFor($vendorUserId)['staff'] ?? null;
+        $staffReadable = $heldStaff !== null && (int) $heldStaff === count($staffRows);
+
+        // The import stamp on the PROFILE, which is what makes a measured
+        // nought mean «nothing to transfer» rather than «who is this shop».
+        // Read through `importRunIdFor()` because it asks with `getRow()`
+        // rather than `getVar()`: an empty stamp and an absent profile must
+        // not arrive as one answer (`alpha.82`).
+        //
+        // The PROFILE stamp is the only one that can be asked here, and that
+        // is not an omission: a product stamp lives ON a product row, so a
+        // shop whose counts are both nought cannot be carrying one. Asking
+        // for it would be a method on `ProductRepositoryInterface` that every
+        // double would have to grow in order to answer «no» (`alpha.55`).
+        $ownershipState = OwnershipState::of(
+            $tally,
+            $this->vendors->importRunIdFor($vendorUserId) !== ''
+        );
+
         $gates = [
             // ⛔ **No count opens this gate, in any state.** Two things close
             // it and both are successful READS of the source: every kind read
@@ -365,12 +389,28 @@ final class MigrationCompleteness
             // path left, and it is still counted by the half above.
             'categories_mapped' => $withoutCategory === 0,
             // Observed rows are catalogue notes. A shop whose products are all
-            // still notes has been read, not moved.
-            'ownership_taken' => $tally['marketplace'] > 0 && $tally['observed'] === 0,
-            // Written only by ReviewApplication. Import writes false, and that
-            // is the separation this whole file is about.
+            // still notes has been read, not moved — and one that holds no
+            // products at all has nothing to move, which is a THIRD answer
+            // and not a failure. `OwnershipState` is the one place that rule
+            // is written; steps 9 and 10 of the wizard read the same answer,
+            // so the gate and the checklist cannot drift apart (`alpha.78`).
+            'ownership_taken' => OwnershipState::settled($ownershipState),
+            // ⛔ Written by ReviewApplication **and** by
+            // `DecideImportedShopSelling` since `alpha.86` — an imported shop
+            // has no application to approve, so that route is the only door
+            // it has. Both write `can_sell` and nothing else, under the same
+            // capability. (This comment said «only ReviewApplication» for ten
+            // rounds after that stopped being true.)
             'vendor_can_sell' => $profile?->canSell === true,
-            'staff_decided' => $undecidedRoles === [],
+            // ⛔ And an UNREADABLE staff list is not «every role answered».
+            // `staffForVendor()` answers `[]` for a shop with no staff and
+            // `[]` for a statement that failed, and `undecided([])` is `[]`,
+            // so a broken read used to make this gate say DONE — the one
+            // direction a readiness gate must never be wrong in. The count
+            // comes from `importedCountsFor()`, which carries its `null`
+            // uncast for exactly this purpose, and a list shorter than the
+            // count is a read that came up short (`alpha.81`).
+            'staff_decided' => $staffReadable && $undecidedRoles === [],
             'finance_decided' => $this->finance->decisionFor($vendorUserId)['decision'] !== ReconcileDokanFinance::OPEN,
         ];
 
@@ -393,6 +433,13 @@ final class MigrationCompleteness
                 'undecided_roles' => $undecidedRoles,
                 'products_marketplace' => $tally['marketplace'],
                 'products_observed' => $tally['observed'],
+                // WHICH of the four answers, so the page can print «چیزی
+                // برای انتقال نبود» rather than «۰ ردیف هنوز مشاهده‌ای است»,
+                // and «شمارش خوانده نشد» rather than a nought.
+                'ownership_state' => $ownershipState,
+                // Whether the staff list above is the whole list. Printed so
+                // that «۰ نقش بی‌تصمیم» can never be read off a failed read.
+                'staff_readable' => $staffReadable,
                 'unmapped_categories' => $unmappedCategories,
                 // The mappable ones, separately: the page explains which half
                 // of the gate is open and «۳ دستهٔ مبدأ نگاشت نشده» must not

@@ -2072,6 +2072,26 @@ final class DbProductRepository implements ProductRepositoryInterface
 
     public function ownershipTallyForVendor(int $vendorUserId): array
     {
+        // ⛔ The TOTAL first, separately, and before the breakdown.
+        //
+        // `getResults()` answers `[]` for «this shop has no rows» and `[]` for
+        // «the statement failed» (`alpha.8`), so until this round a broken
+        // read arrived as `marketplace => 0, observed => 0` — indistinguishable
+        // from an empty shop, and read as fact by the `ownership_taken` gate
+        // and by steps 9, 10 and 12 of the wizard. `MigrationPlanSnapshot`'s
+        // own docblock promises «every absent fact arrives as `null`, never as
+        // nought»; this read was the one that broke the promise.
+        //
+        // The count goes through the `tmc_product_owner (vendor_user_id,
+        // status)` index of migration 5, so the second statement is an indexed
+        // read and not a scan.
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE vendor_user_id = %d',
+            [$vendorUserId]
+        );
+        if ($counted === null) {
+            return ['marketplace' => 0, 'observed' => 0, 'readable' => false];
+        }
         $rows = $this->db->getResults(
             'SELECT ' . M0010LinkOwnership::COLUMN . ' AS ownership, COUNT(*) AS rows_seen
                FROM `' . $this->products() . '` WHERE vendor_user_id = %d
@@ -2079,6 +2099,7 @@ final class DbProductRepository implements ProductRepositoryInterface
             [$vendorUserId]
         );
         $tally = ['marketplace' => 0, 'observed' => 0];
+        $seen = 0;
         foreach ($rows as $row) {
             // An unrecognised value counts as marketplace, matching
             // `linkOwnership()`: the column was added by migration 10 and a
@@ -2086,7 +2107,11 @@ final class DbProductRepository implements ProductRepositoryInterface
             // meant «ours».
             $key = (LinkOwnership::tryFrom((string) $row['ownership']) ?? LinkOwnership::Marketplace)->value;
             $tally[$key] += (int) $row['rows_seen'];
+            $seen += (int) $row['rows_seen'];
         }
+        // A breakdown that does not add up to the total is a read that came up
+        // short, and a tally with a hole in it is not a tally (`alpha.81`).
+        $tally['readable'] = $seen === (int) $counted;
         return $tally;
     }
 

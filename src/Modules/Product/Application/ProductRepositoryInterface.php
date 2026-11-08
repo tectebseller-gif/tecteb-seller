@@ -902,7 +902,16 @@ interface ProductRepositoryInterface
      * hydrating each catalogue to look at one column would make the answer
      * cost the catalogue.
      *
-     * @return array{marketplace:int, observed:int}
+     * ⛔ **`readable` is a fact of its own, and false is not nought.** A
+     * `GROUP BY` that failed answers with an empty list, exactly as a shop
+     * with no products does, so the two numbers alone cannot say which
+     * happened — and a readiness gate standing on them read a broken read as
+     * «this shop holds nothing». The total is therefore counted separately
+     * first and the breakdown has to add up to it; anything else sets
+     * `readable` false, and `OwnershipState` then answers `UNREADABLE` rather
+     * than a verdict.
+     *
+     * @return array{marketplace:int, observed:int, readable:bool}
      */
     public function ownershipTallyForVendor(int $vendorUserId): array;
 
