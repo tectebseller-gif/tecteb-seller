@@ -1,0 +1,1 @@
+### admin-brands: node tests/browser/admin-brands.mjs
