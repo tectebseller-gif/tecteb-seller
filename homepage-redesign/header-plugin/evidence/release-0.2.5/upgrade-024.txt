@@ -1,1 +1,26 @@
 ### upgrade-024: bash tests/upgrade-024.sh dist/tecteb-header-0.2.4.zip dist/tecteb-header-0.2.5.zip
+PASS 0.2.4 installed and active from its ZIP
+PASS 0.2.4 prints Header B with header.css?ver=0.2.4
+PASS 0.2.4: tecteb-header.css as a file, no inline JS-mode script
+PASS 0.2.5 installed over 0.2.4 from its ZIP (--force)
+PASS still active, version 0.2.5
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration, no write on read)
+FAIL header HTML identical to 0.2.4 apart from the inline script, the WebP logo and fetchpriority: logo, search, account, cart, categories + mega menu, menu, «همکاری تأمین‌کنندگان», drawer  — 1a2 > 		 
+FAIL 0.2.5: the inline script is the first child of #tth-root
+PASS 0.2.5: fetchpriority=high on exactly one image (the bar logo; the drawer copy has none)
+PASS the WebP logo is served (200 image/webp)
+PASS header.css?ver=0.2.5 — browsers and page caches fetch the new stylesheet
+PASS tecteb-header.css printed inline (one request fewer), not linked
+PASS the served header.css is smaller (33864 → 27727 bytes) and still carries the one-row sticky rule
+PASS page / answers 200 with 0.2.5
+PASS page /shop/ answers 200 with 0.2.5
+PASS page /cart/ answers 200 with 0.2.5
+PASS rollback: 0.2.4 reinstalled from its ZIP
+FAIL rollback: same header HTML as 0.2.4 (no inline script, PNG logo), header.css?ver=0.2.4
+FAIL rollback: tecteb-header.css linked again
+PASS rollback: settings untouched
+PASS 0.2.5: ?tth_original=1 (admin) shows the old Elementor header — instant way back kept
+
+18 passed, 4 failed
+exit=1

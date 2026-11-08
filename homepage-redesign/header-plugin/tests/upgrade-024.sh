@@ -20,6 +20,7 @@ q() { $W "$@" 2>/dev/null; }
 # بلوک هدر از صفحه (از <div id="tth-root" تا </dialog></div>)، با ?ver= برداشته؛ و نسخهٔ CSS ِ پایه.
 block() { python3 -c 'import re,sys; h=sys.stdin.read(); m=re.search(r"<div id=\"tth-root\".*?</dialog>\s*</div>",h,re.S); s=re.sub(r"([?&]ver=)[0-9.]+",r"\1X",m.group(0)) if m else "none"
 if sys.argv[1]=="1": s=re.sub(r"\n?<script data-no-optimize=\"1\"[^>]*nowprocket>.*?</script>","",s,count=1,flags=re.S).replace("tecteb-logo-mark-96.webp","tecteb-logo-mark-96.png").replace(" fetchpriority=\"high\"","")
+s="\n".join(l for l in s.split("\n") if l.strip())  # PHP-comment blocks leave whitespace-only lines; they render nothing
 print(s)' "${1:-0}"; }
 cssver() { python3 -c 'import re,sys; m=re.search(r"assets/css/header\.css\?ver=([0-9.]+)",sys.stdin.read()); print(m.group(1) if m else "none")'; }
 cd "$HERE"
@@ -43,7 +44,7 @@ diff -rq --exclude=.gitkeep "$HERE/tecteb-header" "$PLUG" >/dev/null; check "ins
 h="$(curl -s "$SITE/tthh-about/")"; B_AFTER="$(block 0 <<<"$h")"
 [[ "$(q eval 'echo md5(serialize(get_option("tecteb_header_settings")));')" == "$OPT_BEFORE" ]]; check "saved settings unchanged byte for byte (no migration, no write on read)" $?
 [[ "$(block 1 <<<"$h")" == "$B_BEFORE" ]]; check "header HTML identical to 0.2.4 apart from the inline script, the WebP logo and fetchpriority: logo, search, account, cart, categories + mega menu, menu, «همکاری تأمین‌کنندگان», drawer" $? "$(diff <(echo "$B_BEFORE") <(block 1 <<<"$h") | head -4 | tr '\n' ' ')"
-grep -q '^<div id="tth-root"[^\n]*>$' <<<"$B_AFTER" && python3 -c 'import sys,re; b=sys.stdin.read().split("\n"); sys.exit(0 if b[1].lstrip().startswith("<script data-no-optimize=\"1\"") else 1)' <<<"$B_AFTER"; check "0.2.5: the inline script is the first child of #tth-root" $?
+python3 -c 'import sys,re; sys.exit(0 if re.search(r"<div id=\"tth-root\"[^>]*>\s*<script data-no-optimize=\"1\"", sys.stdin.read()) else 1)' <<<"$B_AFTER"; check "0.2.5: the inline script is the first child of #tth-root" $?
 [[ "$(grep -o 'fetchpriority="high"' <<<"$B_AFTER" | wc -l)" == "1" ]]; check "0.2.5: fetchpriority=high on exactly one image (the bar logo; the drawer copy has none)" $?
 c="$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$SITE/wp-content/plugins/tecteb-header/assets/img/tecteb-logo-mark-96.webp")"; [[ "$c" == "200 image/webp" ]]; check "the WebP logo is served (200 image/webp)" $? "$c"
 [[ "$(cssver <<<"$h")" == "0.2.5" ]]; check "header.css?ver=0.2.5 — browsers and page caches fetch the new stylesheet" $? "$(cssver <<<"$h")"
