@@ -1,0 +1,14 @@
+320px top: 720 elements × 60 properties + box — 0 differences
+390px top: 720 elements × 60 properties + box — 0 differences
+600px top: 720 elements × 60 properties + box — 0 differences
+768px top: 720 elements × 60 properties + box — 0 differences
+1024px top: 720 elements × 60 properties + box — 0 differences
+1080px top: 720 elements × 60 properties + box — 0 differences
+1280px top: 720 elements × 60 properties + box — 0 differences
+1440px top: 720 elements × 60 properties + box — 0 differences
+1920px top: 720 elements × 60 properties + box — 0 differences
+1440px compact: 720 elements × 60 properties + box — 0 differences
+390px compact: 720 elements × 60 properties + box — 0 differences
+390px drawer: 720 elements × 60 properties + box — 0 differences
+
+TOTAL: 0 differences

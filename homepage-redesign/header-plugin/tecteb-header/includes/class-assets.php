@@ -50,7 +50,11 @@ final class Assets {
 		$v          = TECTEB_HEADER_VERSION;
 		$css        = TECTEB_HEADER_URL . 'assets/css/';
 		wp_enqueue_style( 'tecteb-header-base', $css . 'header.css', array(), $v );
-		wp_enqueue_style( 'tecteb-header', $css . 'tecteb-header.css', array( 'tecteb-header-base' ), $v );
+		// 0.2.5: افزوده‌های افزونه (assets/css/tecteb-header.css، چند صد بایت) درون‌خطی، نه یک درخواست رندر-بلاک
+		// جدا؛ همان دستگیره، همان ترتیب پس از header.css، همان قاعده‌ها.
+		wp_register_style( 'tecteb-header', false, array( 'tecteb-header-base' ), $v );
+		wp_enqueue_style( 'tecteb-header' );
+		wp_add_inline_style( 'tecteb-header', self::extra_css() );
 		if ( 'plugin' === $s['font'] ) {
 			// درون‌خطی و با نشانی مطلق: اگر WP Rocket (یا هر بهینه‌ساز) فایل‌های CSS را کوچک و به
 			// پوشهٔ کش منتقل کند، نشانی نسبی ِ فونت نمی‌شکند.
@@ -69,6 +73,16 @@ final class Assets {
 		if ( $s['cart_fragments'] && wp_script_is( 'wc-cart-fragments', 'registered' ) ) {
 			wp_enqueue_script( 'wc-cart-fragments' );
 		}
+	}
+
+	/** محتوای assets/css/tecteb-header.css، بی توضیح‌ها — فایل ثابت خودِ افزونه، بی هیچ ورودی. */
+	public static function extra_css(): string {
+		static $css = null;
+		if ( null === $css ) {
+			$raw = (string) file_get_contents( TECTEB_HEADER_DIR . 'assets/css/tecteb-header.css' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- فایل محلی خودِ افزونه.
+			$css = trim( (string) preg_replace( '#/\*.*?\*/#s', '', $raw ) );
+		}
+		return $css;
 	}
 
 	/** فونت Vazirmatn ِ طرح (OFL-1.1، assets/fonts/OFL.txt). */

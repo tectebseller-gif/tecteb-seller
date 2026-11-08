@@ -1,0 +1,175 @@
+{
+ "url": "http://127.0.0.1:8099/",
+ "mode": "mobile",
+ "reduce": false,
+ "runs": [
+  {
+   "lcp": [
+    {
+     "t": 2984,
+     "render": 2984,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    }
+   ],
+   "cls": [],
+   "fcp": 2984,
+   "dataJs": 2910,
+   "ttfb": 6,
+   "dcl": 4128,
+   "load": 4283,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/client/blocks/wc-blocks.css?ver=wc-11.0.1",
+     "kb": 2.8,
+     "end": 1251
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1306
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1274
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1401
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1298
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1838
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1870
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.4",
+     "kb": 7.9,
+     "end": 1965
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/tecteb-header.css?ver=0.2.4",
+     "kb": 0.7,
+     "end": 1894
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-homepage/assets/css/tecteb-home.css?ver=0.3.5",
+     "kb": 13.2,
+     "end": 2085
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 2505
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2760
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 33,
+   "kb": 322.1
+  },
+  {
+   "lcp": [
+    {
+     "t": 2992,
+     "render": 2992,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    }
+   ],
+   "cls": [],
+   "fcp": 2992,
+   "dataJs": 2904,
+   "ttfb": 4,
+   "dcl": 4161,
+   "load": 4289,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/client/blocks/wc-blocks.css?ver=wc-11.0.1",
+     "kb": 2.8,
+     "end": 1265
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1313
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1281
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1400
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1305
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1853
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1876
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/tecteb-header.css?ver=0.2.4",
+     "kb": 0.7,
+     "end": 1901
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.4",
+     "kb": 7.9,
+     "end": 1972
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-homepage/assets/css/tecteb-home.css?ver=0.3.5",
+     "kb": 13.2,
+     "end": 2092
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2783
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 2513
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 33,
+   "kb": 322.1
+  }
+ ]
+}

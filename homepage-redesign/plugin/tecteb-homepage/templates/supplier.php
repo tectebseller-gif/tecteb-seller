@@ -22,7 +22,7 @@ $steps = $settings['supplier_steps'];
 		<div class="th-join th-reveal<?php echo array() === $steps ? ' th-join--solo' : ''; ?>">
 			<div class="th-join__light" aria-hidden="true"></div>
 			<div class="th-join__copy">
-				<p class="th-eyebrow th-eyebrow--light"><img class="th-eyebrow__logo" src="<?php echo esc_url( TECTEB_HOME_URL . 'assets/img/tecteb-logo-mark-96.png' ); ?>" width="20" height="20" alt=""><?php echo esc_html__( 'برای تأمین‌کنندگان', 'tecteb-homepage' ); ?></p>
+				<p class="th-eyebrow th-eyebrow--light"><img class="th-eyebrow__logo" src="<?php echo esc_url( TECTEB_HOME_URL . 'assets/img/tecteb-logo-mark-96.webp' ); ?>" width="20" height="20" alt="" loading="lazy" decoding="async"><?php echo esc_html__( 'برای تأمین‌کنندگان', 'tecteb-homepage' ); ?></p>
 				<h2 class="th-join__title" id="th-supplier-title"><?php echo esc_html( $settings['supplier_title'] ); ?></h2>
 				<?php if ( '' !== $settings['supplier_lead'] ) : ?>
 					<p class="th-join__lead"><?php echo esc_html( $settings['supplier_lead'] ); ?></p>

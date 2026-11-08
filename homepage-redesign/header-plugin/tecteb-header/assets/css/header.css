@@ -4,27 +4,12 @@
  *   header/shared/header-base.css  sha256 e264044eb127389804a6203aae51a2b74dbb63f949a06be0135feda658c900fc
  *   header/b/header-b.css  sha256 0ad931f7ac7d8ab9207c322358635f2463140d3254530f74cf4df1a9e4d7d6b8
  */
-/* ---- لایهٔ ایزوله (tools/harden-css.py) */
 #tth-root.tecteb-header-v1 :where(:not(svg, svg *, img)),
 #tth-root.tecteb-header-v1 :where(:not(svg, svg *, img))::before,
 #tth-root.tecteb-header-v1 :where(:not(svg, svg *, img))::after { all: revert; }
 #tth-root.tecteb-header-v1 :where(svg) { opacity: 1; filter: none; transform: none; margin: 0; padding: 0; border: 0; box-shadow: none; float: none; visibility: visible; max-width: none; }
 #tth-root.tecteb-header-v1 :where(img) { border: 0; padding: 0; margin: 0; box-shadow: none; opacity: 1; border-radius: 0; float: none; vertical-align: middle; max-width: none; }
 #tth-root.tecteb-header-v1 { letter-spacing: normal; word-spacing: normal; text-transform: none; font-style: normal; font-weight: 400; text-indent: 0; text-shadow: none; white-space: normal; }
-
-/*
- * هدر سراسری تک‌طب — ساختار و رفتار مشترک دو طرح (نمونهٔ طراحی، نه کد سایت).
- *
- * دامنه: هر انتخابگر با `.tecteb-header-v1` شروع می‌شود؛ هیچ قاعده‌ای روی html، body،
- * header، footer، .elementor، .woocommerce، .dokan یا .tecteb-home-v1 نیست. نام‌ها
- * پیشوند `tth-` دارند (صفحهٔ اصلی `th-` دارد) و متغیرها `--tth-`.
- *
- * رنگ‌ها فقط از متغیرهای پوسته می‌آیند (a/header-a.css، b/header-b.css).
- *
- * حالت جمع‌وجور: ریشه همیشه ارتفاع کاملِ هدر را در جریان صفحه نگه می‌دارد
- * (`--tth-reserve`، اندازه‌گرفته با JS)، و فقط `.tth-bar` پس از عبور از آن ارتفاع
- * `fixed` و جمع‌وجور می‌شود — پس محتوای زیر هدر هیچ‌وقت جابه‌جا نمی‌شود (CLS صفر).
- */
 
 #tth-root.tecteb-header-v1 {
   --tth-max: 1240px;
@@ -79,7 +64,6 @@
   overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 
-/* فوکوس: حلقهٔ دیدنی روی هر دو زمینه (۲px روشن + ۲px تیره). */
 #tth-root.tecteb-header-v1 :focus-visible {
   outline: 2px solid var(--tth-focus);
   outline-offset: 2px;
@@ -113,8 +97,6 @@
   margin-inline: auto;
   padding-inline: var(--tth-gutter);
 }
-
-/* ---------------------------------------------------------------- نوار */
 
 #tth-root.tecteb-header-v1 .tth-bar {
   position: relative;
@@ -153,8 +135,6 @@
 }
 #tth-root.tecteb-header-v1.is-compact .tth-top { padding-block: 0.375rem; }
 
-/* ---------------------------------------------------------------- لوگو */
-
 #tth-root.tecteb-header-v1 .tth-logo {
   grid-area: logo;
   display: inline-flex;
@@ -176,8 +156,6 @@
   letter-spacing: -0.01em;
   color: var(--tth-brand);
 }
-
-/* ---------------------------------------------------------------- جست‌وجو */
 
 #tth-root.tecteb-header-v1 .tth-search {
   grid-area: search;
@@ -227,8 +205,6 @@
 }
 #tth-root.tecteb-header-v1 .tth-search__go:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
-/* ---------------------------------------------------------------- ابزارها */
-
 #tth-root.tecteb-header-v1 .tth-tools {
   grid-area: tools;
   display: flex;
@@ -269,8 +245,7 @@
   font-weight: 700;
   line-height: 1;
 }
-/* شمارنده کنار آیکون، نه روی گوشه‌اش: هیچ‌وقت با آیکون هم‌پوشانی ندارد و با دو یا سه رقم هم
-   خوانا می‌ماند (ارقام هم‌عرض). */
+
 #tth-root.tecteb-header-v1 .tth-tool--count {
   gap: 0.375rem;
   padding-inline: 0.75rem 0.625rem;
@@ -282,7 +257,7 @@
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
-/* دکمهٔ جست‌وجو فقط در موبایلِ صفحهٔ اصلی (پایین‌تر). */
+
 #tth-root.tecteb-header-v1 .tth-tool--search { display: none; }
 
 #tth-root.tecteb-header-v1 .tth-acct { position: relative; }
@@ -314,8 +289,6 @@
 #tth-root.tecteb-header-v1 .tth-pop__sep { margin-block-start: 0.375rem; padding-block-start: 0.375rem; border-block-start: 1px solid var(--tth-panel-line); }
 @keyframes tth-fade { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-/* ---------------------------------------------------------------- منو */
-
 #tth-root.tecteb-header-v1 .tth-nav { background: var(--tth-nav-bg); border-block-start: 1px solid var(--tth-nav-line); }
 #tth-root.tecteb-header-v1 .tth-nav__row {
   position: relative;
@@ -342,8 +315,6 @@
 }
 #tth-root.tecteb-header-v1 .tth-cats__btn:hover { filter: brightness(1.08); }
 
-/* فهرست وقتی در ردیف جا نشود به سطر دوم می‌رود — در همان جای خودش، بی آنکه روی «همکاری تأمین‌کنندگان»
-   بیفتد (tecteb-header 0.2.3). بی wrap، فهرستِ کوچک‌شده متنِ nowrap ِ پیوندها را بیرون می‌ریخت. */
 #tth-root.tecteb-header-v1 .tth-menu {
   display: flex;
   flex-wrap: wrap;
@@ -398,8 +369,6 @@
 }
 #tth-root.tecteb-header-v1 .tth-seller:hover { background: var(--tth-seller-hover); transform: translateY(-1px); }
 
-/* ---------------------------------------------------------------- Mega Menu */
-
 #tth-root.tecteb-header-v1 .tth-mega {
   position: absolute;
   inset-block-start: calc(100% + 1px);
@@ -417,11 +386,7 @@
   box-shadow: var(--tth-panel-shadow);
   animation: tth-fade 0.2s var(--tth-ease);
 }
-/*
- * دو ستون: راست، دسته‌های اصلی با آیکون؛ چپ، زیردسته‌های منتخبِ دستهٔ فعال. با ۱۳ دستهٔ
- * اصلی، شبکهٔ چندستونهٔ دور ۷ (هر دسته یک ستون با همهٔ زیردسته‌ها) پنلی چند برابر صفحه
- * می‌ساخت. ترتیب DOM همان ترتیب Tab است: دستهٔ ۱ ← زیردسته‌های ۱ ← دستهٔ ۲ …
- */
+
 #tth-root.tecteb-header-v1 .tth-mega__body {
   --tth-mains: 17.5rem;
   position: relative;
@@ -514,8 +479,6 @@
   font-weight: 700;
 }
 
-/* ---------------------------------------------------------------- کشوی موبایل */
-
 #tth-root.tecteb-header-v1 .tth-burger { display: none; grid-area: burger; }
 
 #tth-root.tecteb-header-v1 .tth-drawer {
@@ -603,8 +566,6 @@
 #tth-root.tecteb-header-v1 .tth-drawer__all { color: var(--tth-panel-accent); font-weight: 700; }
 #tth-root.tecteb-header-v1 .tth-seller--block { justify-content: center; min-block-size: 48px; margin-inline-start: 0; margin-block-start: auto; }
 
-/* ---------------------------------------------------------------- عرض کم (≤ ۱۰۷۹px) */
-
 @media (max-width: 1079.98px) {
   #tth-root.tecteb-header-v1 .tth-top {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -615,8 +576,7 @@
   #tth-root.tecteb-header-v1.is-compact .tth-top { padding-block: 0.375rem 0.5rem; }
   #tth-root.tecteb-header-v1[data-js] .tth-burger { display: inline-flex; }
   #tth-root.tecteb-header-v1 .tth-search { max-inline-size: none; min-block-size: 2.875rem; }
-  /* برچسب فقط از دید پنهان می‌شود، نه از صفحه‌خوان: پیوند تک‌آیکونی بی آن نام ندارد
-     (axe: link-name — نقص دور ۷ که آزمون آن دور نگرفت، چون axe در ۳۹۰ فقط با کشوی باز اجرا می‌شد). */
+
   #tth-root.tecteb-header-v1 .tth-tool__label {
     position: absolute;
     inline-size: 1px;
@@ -633,13 +593,7 @@
   #tth-root.tecteb-header-v1 .tth-tool--count { padding-inline: 0.625rem 0.5rem; }
 
 }
-/*
- * صفحهٔ اصلی در موبایل (زیر ۷۶۸px؛ در تبلت و دسکتاپ هر دو کادر می‌مانند): جست‌وجوی Hero
- * کادر اصلی است، پس کادر بزرگ هدر جمع می‌شود و یک دکمهٔ جست‌وجو جایش می‌نشیند که همان فرم
- * را روی محتوا (بی جابه‌جا کردن صفحه) باز می‌کند. فقط با JS: بی آن، کادر هدر مثل همهٔ
- * صفحه‌ها دیده می‌شود. ساختار هدر یکی است؛ تنها تفاوت کلاس `--home` است که سرور روی صفحهٔ
- * اصلی می‌گذارد.
- */
+
 @media (max-width: 767.98px) {
   #tth-root.tecteb-header-v1--home[data-js] .tth-top { grid-template-areas: "burger logo tools"; }
   #tth-root.tecteb-header-v1--home[data-js] .tth-tool--search { display: inline-flex; }
@@ -663,14 +617,6 @@
   #tth-root.tecteb-header-v1 .tth-top { gap: 0.625rem 0.25rem; }
 }
 
-/*
- * حالت جمع‌وجورِ عریض (دسکتاپ، پس از اسکرول): یک ردیف — لوگو، «دسته‌بندی کالاها»، جست‌وجو، ابزارها — و
- * بی منوی همبرگری (tecteb-header 0.2.4). تا 0.2.3 ردیف دوم پنهان و همبرگری نشان داده می‌شد و کشوی موبایل
- * حساب و دسته‌ها را تکرار می‌کرد. نوار یک شبکه می‌شود و `.tth-top` و ردیف منو هر دو subgrid ِ همان ردیف‌اند،
- * پس دکمهٔ دسته‌ها و Mega Menu ِ آن همان عنصرها می‌مانند (همان DOM، همان JS) و فقط ستون دوم را می‌گیرند؛
- * پیوندهای منو و «همکاری تأمین‌کنندگان» در این حالت پنهان‌اند و بالای صفحه سر جایشان‌اند. ردیف منو روی ردیف
- * بالا می‌نشیند، پس فقط دکمهٔ دسته‌ها کلیک می‌گیرد. مرورگرِ بی subgrid همان دو ردیف را نگه می‌دارد — بی همبرگری.
- */
 @media (min-width: 1080px) {
   @supports (grid-template-columns: subgrid) {
     #tth-root.tecteb-header-v1[data-js].is-compact .tth-bar {
@@ -692,7 +638,7 @@
       padding-inline: 0;
     }
     #tth-root.tecteb-header-v1[data-js].is-compact .tth-nav { background: none; border: 0; pointer-events: none; }
-    /* ردیف منو تمام‌قد می‌ماند تا Mega Menu (که از لبهٔ پایین آن باز می‌شود) زیر نوار بیاید، نه روی آن. */
+
     #tth-root.tecteb-header-v1[data-js].is-compact .tth-nav__row { align-self: stretch; min-block-size: 0; }
     #tth-root.tecteb-header-v1[data-js].is-compact .tth-logo { grid-column: 1; grid-row: 1; }
     #tth-root.tecteb-header-v1[data-js].is-compact .tth-nav .tth-cats { grid-column: 2; grid-row: 1; pointer-events: auto; }
@@ -703,8 +649,6 @@
   }
 }
 
-/* ---------------------------------------------------------------- بی جاوااسکریپت */
-
 #tth-root.tecteb-header-v1:not([data-js]) .tth-js { display: none; }
 #tth-root.tecteb-header-v1[data-js] .tth-nojs { display: none; }
 @media (max-width: 1079.98px) {
@@ -712,8 +656,6 @@
   #tth-root.tecteb-header-v1:not([data-js]) .tth-menu { flex-wrap: wrap; }
   #tth-root.tecteb-header-v1:not([data-js]) .tth-seller { margin-inline-start: 0; }
 }
-
-/* ---------------------------------------------------------------- کاهش حرکت */
 
 @media (prefers-reduced-motion: reduce) {
   #tth-root.tecteb-header-v1 *,
@@ -725,14 +667,6 @@
   #tth-root.tecteb-header-v1 .tth-drawer[open],
   #tth-root.tecteb-header-v1.is-compact .tth-bar { animation: none; }
 }
-
-/*
- * طرح B — Premium Light Glass. زمینهٔ روشن، جزئیات سرمه‌ای و فیروزه‌ای، و شیشهٔ مات
- * در حالت چسبان. فقط متغیرها و چند جزئیات؛ ساختار در shared/header-base.css است.
- * کنتراست‌ها (WCAG، روی سفید): متن #0e2435 ≈ ۱۶:۱ · منو #2b4252 ≈ ۱۰:۱ ·
- * فیروزه‌ای تیره #0b676c ≈ ۶٫۴:۱ · راهنمای کادر جست‌وجو #56697a روی #f2f7f9 ≈ ۵٫۲:۱ ·
- * شمارنده: سفید روی #0f7a80 ≈ ۵٫۲:۱.
- */
 
 #tth-root.tecteb-header-v1--b {
   --tth-bg: #ffffff;
@@ -784,7 +718,6 @@
   --tth-panel-shadow: 0 26px 56px -24px rgb(10 42 63 / 0.38);
 }
 
-/* نوار باریک برند در لبهٔ بالا؛ کادر جست‌وجوی برجسته؛ ابزارهای دایره‌ای. */
 #tth-root.tecteb-header-v1--b .tth-bar::before {
   content: "";
   position: absolute;

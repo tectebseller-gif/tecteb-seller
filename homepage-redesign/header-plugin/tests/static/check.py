@@ -177,6 +177,20 @@ check("capability gate on admin page", "current_user_can( Settings::capability()
 check("option_page_capability filter registered", "option_page_capability_tecteb_header" in code["includes/class-settings.php"])
 check("preview/original params gated by capability", re.search(r"\$admin\s*&&\s*isset\(\s*\$_GET\['tth_original'\]", code["includes/class-replace.php"]) and re.search(r"\$admin\s*&&\s*isset\(\s*\$_GET\['tth_preview'\]", code["includes/class-replace.php"]))
 
+# --- ۰٫۲٫۵: سرعت موبایل
+_tpl = (ROOT / "templates/header.php").read_text(encoding="utf-8")
+_js = (ROOT / "assets/js/header.js").read_text(encoding="utf-8")
+_inline = re.search(r"<script data-no-optimize=\"1\" data-cfasync=\"false\" nowprocket>(.*?)</script>", _tpl, re.S)
+check("0.2.5 CLS: inline script right after the header root sets data-js before the first paint", bool(_inline) and _tpl.index("<script data-no-optimize") - _tpl.index('<div id="tth-root"') < 800 and "setAttribute('data-js','')" in (_inline.group(1) if _inline else ""))
+check("0.2.5 CLS: …only when header.js is on the page as WordPress queued it, and stands aside for a rewritten/delayed script", bool(_inline) and 'script[src*="tecteb-header/assets/js/header.js"]' in _inline.group(1) and "s.type" in _inline.group(1))
+check("0.2.5 CLS: …and falls back to the complete no-JS header if header.js never ran (data-tth-ready checked at load)", bool(_inline) and "addEventListener('load'" in _inline.group(1) and "removeAttribute('data-js')" in _inline.group(1) and "root.setAttribute('data-tth-ready', '')" in _js)
+check("0.2.5 CLS: the inline script is excluded from optimizers' delay/combine (nowprocket, data-no-optimize, data-cfasync)", bool(_inline))
+_logos = re.findall(r'<img class="tth-logo__mark".*?alt=""[^>\n]*>', _tpl)
+check("0.2.5 LCP: bar logo has fetchpriority=high, the hidden drawer copy does not", len(_logos) == 2 and 'fetchpriority="high"' in _logos[0] and "fetchpriority" not in _logos[1])
+check("0.2.5: default logo is the lossless WebP (PNG kept in the package for old cached pages)", "tecteb-logo-mark-96.webp" in code["includes/class-renderer.php"] and (ROOT / "assets/img/tecteb-logo-mark-96.webp").is_file() and (ROOT / "assets/img/tecteb-logo-mark-96.png").is_file())
+check("0.2.5: tecteb-header.css printed inline (no separate render-blocking request), same handle after header.css", "wp_register_style( 'tecteb-header', false, array( 'tecteb-header-base' )" in code["includes/class-assets.php"] and "$css . 'tecteb-header.css'" not in code["includes/class-assets.php"])
+check("0.2.5: shipped header.css carries no comments except the provenance header", (ROOT / "assets/css/header.css").read_text(encoding="utf-8").count("/*") == 1)
+
 fails = [r for r in results if not r[0]]
 for ok, name, detail in results:
     print(("ok    " if ok else "FAIL  ") + name + (f"  — {detail}" if detail and not ok else ""))

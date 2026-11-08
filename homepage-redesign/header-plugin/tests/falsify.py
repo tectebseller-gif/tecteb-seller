@@ -38,6 +38,12 @@ def compact() -> bool:
     return r.returncode == 0
 
 
+def early() -> bool:
+    """۰٫۲٫۵: حالت JS پیش از اولین رسم و دو مسیر شکستش (tests/early-js.mjs)."""
+    r = subprocess.run(["node", str(HERE / "tests/early-js.mjs")], capture_output=True, env={**__import__("os").environ, "NODE_PATH": "/opt/node-tools/node_modules"})
+    return r.returncode == 0
+
+
 def isolation() -> bool:
     subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "seed"], capture_output=True, check=True)
     subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "configure", "on"], capture_output=True, check=True)
@@ -113,6 +119,13 @@ MUTATIONS = [
     ("compact desktop: menu row not full height (mega menu opens over the bar)", "assets/css/header.css", ".tth-nav__row { align-self: stretch; min-block-size: 0; }", ".tth-nav__row { min-block-size: 0; }", [compact]),
     ("compact desktop: menu row covers the bar and takes the clicks", "assets/css/header.css", ".is-compact .tth-nav { background: none; border: 0; pointer-events: none; }", ".is-compact .tth-nav { background: none; border: 0; }", [compact]),
     ("compact desktop: categories button hidden with the menu links", "assets/css/header.css", ".tth-nav :is(.tth-menu, .tth-seller) { display: none; }", ".tth-nav :is(.tth-menu, .tth-seller, .tth-cats) { display: none; }", [compact]),
+    # 0.2.5
+    ("early JS mode: inline script removed (header paints in its tall no-JS form first; CLS)", "templates/header.php", "r.setAttribute('data-js','');addEventListener", "addEventListener", [S, early]),
+    ("early JS mode: no fallback when header.js never runs (dead buttons)", "templates/header.php", "if(!r.hasAttribute('data-tth-ready'))r.removeAttribute('data-js');", "", [S, early]),
+    ("early JS mode: ignores a delayed/rewritten header.js", "templates/header.php", "if(!r||!s||(s.type&&!/^(text\\/javascript|module)$/i.test(s.type)))return;", "if(!r)return;", [S, early]),
+    ("ready marker dropped from header.js", "assets/js/header.js", "    root.setAttribute('data-tth-ready', '');", "", [S, early]),
+    ("bar logo loses fetchpriority=high", "templates/header.php", 'width="96" height="96" alt="" fetchpriority="high">', 'width="96" height="96" alt="">', [S]),
+    ("tecteb-header.css back to a render-blocking file", "includes/class-assets.php", "wp_register_style( 'tecteb-header', false, array( 'tecteb-header-base' ), $v );", "wp_register_style( 'tecteb-header', TECTEB_HEADER_URL . 'assets/css/tecteb-header.css', array( 'tecteb-header-base' ), $v );", [S]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

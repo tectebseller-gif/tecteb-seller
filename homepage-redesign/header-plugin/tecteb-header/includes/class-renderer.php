@@ -69,7 +69,7 @@ final class Renderer {
 			'skip'      => (string) apply_filters( 'tecteb_header_skip_target', '' ),
 			'home'      => home_url( '/' ),
 			'logo'      => array(
-				'src'   => '' !== $logo_url ? $logo_url : TECTEB_HEADER_URL . 'assets/img/tecteb-logo-mark-96.png',
+				'src'   => '' !== $logo_url ? $logo_url : TECTEB_HEADER_URL . 'assets/img/tecteb-logo-mark-96.webp',
 				'text'  => $logo_text,
 				'label' => ( '' !== $logo_text ? $logo_text : (string) get_bloginfo( 'name' ) ) . ' — ' . __( 'صفحهٔ اصلی', 'tecteb-header' ),
 			),

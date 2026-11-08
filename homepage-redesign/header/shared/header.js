@@ -23,6 +23,7 @@
 
   document.querySelectorAll('[data-tth-header]').forEach((root) => {
     root.setAttribute('data-js', '');
+    root.setAttribute('data-tth-ready', ''); // 0.2.5: نشانهٔ اجرای این فایل برای اسکریپت درون‌خطی templates/header.php
     const bar = root.querySelector('[data-tth-bar]');
 
     // --- ۱. بازشوها

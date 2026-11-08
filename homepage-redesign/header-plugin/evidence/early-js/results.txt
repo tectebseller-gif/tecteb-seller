@@ -1,0 +1,40 @@
+tecteb-header 0.2.4
+
+normal 320: {"fcp":2796,"dataJs":2679.4000000001397,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 390: {"fcp":2700,"dataJs":2580.600000000093,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 768: {"fcp":2804,"dataJs":2673.899999999907,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 1024: {"fcp":2888,"dataJs":2729.3000000000466,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 1440: {"fcp":2844,"dataJs":2703.399999999907,"shifts":[0.0003],"firstPaintHeight":122,"dataJsAtFcp":true,"js":true,"ready":true,"height":122,"burger":false,"nav":true,"catsLink":false,"catsButton":true,"accountLink":true,"search":true}
+header.js blocked 390: {"fcp":2780,"dataJs":2636.3000000000466,"shifts":[0.046],"firstPaintHeight":127,"dataJsAtFcp":true,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+header.js blocked 1440: {"fcp":2820,"dataJs":2694.600000000093,"shifts":[0.0007],"firstPaintHeight":122,"dataJsAtFcp":true,"js":false,"ready":false,"height":122,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+delayed by an optimizer 390: {"fcp":2952,"dataJs":null,"shifts":[0.0237],"firstPaintHeight":320,"dataJsAtFcp":false,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+
+PASS 320: header in JS mode before the first paint (data-js at FCP)
+PASS 320: no layout shift from the header switching to JS (CLS 0)
+PASS 320: header height at first paint = final height (127px)
+PASS 320: header.js ran (data-tth-ready) and data-js stayed
+PASS 390: header in JS mode before the first paint (data-js at FCP)
+PASS 390: no layout shift from the header switching to JS (CLS 0)
+PASS 390: header height at first paint = final height (127px)
+PASS 390: header.js ran (data-tth-ready) and data-js stayed
+PASS 768: header in JS mode before the first paint (data-js at FCP)
+PASS 768: no layout shift from the header switching to JS (CLS 0)
+PASS 768: header height at first paint = final height (127px)
+PASS 768: header.js ran (data-tth-ready) and data-js stayed
+PASS 1024: header in JS mode before the first paint (data-js at FCP)
+PASS 1024: no layout shift from the header switching to JS (CLS 0)
+PASS 1024: header height at first paint = final height (127px)
+PASS 1024: header.js ran (data-tth-ready) and data-js stayed
+PASS 1440: header in JS mode before the first paint (data-js at FCP)
+PASS 1440: no layout shift from the header switching to JS (CLS < 0.001, font swap only)
+PASS 1440: header height at first paint = final height (122px)
+PASS 1440: header.js ran (data-tth-ready) and data-js stayed
+PASS 390, header.js fails to load: after load the header is back in its complete no-JS form (no data-js)
+PASS 390, header.js fails: categories and account are plain links, no dead buttons
+PASS 390, header.js fails: menu row (categories, links, supplier) visible for navigation
+PASS 1440, header.js fails to load: after load the header is back in its complete no-JS form (no data-js)
+PASS 1440, header.js fails: categories and account are plain links, no dead buttons
+PASS 390, header.js delayed by an optimizer: the inline script stands aside (no data-js, as in 0.2.4)
+PASS 390, delayed: the no-JS header is complete (plain links, menu row)
+
+27 passed, 0 failed

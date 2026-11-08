@@ -1,0 +1,10 @@
+320px top: 729 elements × 60 properties + box — 0 differences
+390px top: 729 elements × 60 properties + box — 0 differences
+768px top: 729 elements × 60 properties + box — 0 differences
+1080px top: 729 elements × 60 properties + box — 0 differences
+1440px top: 729 elements × 60 properties + box — 0 differences
+1440px compact: 729 elements × 60 properties + box — 0 differences
+390px compact: 729 elements × 60 properties + box — 0 differences
+1920px top: 729 elements × 60 properties + box — 0 differences
+
+TOTAL: 0 differences

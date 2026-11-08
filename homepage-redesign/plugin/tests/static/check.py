@@ -189,7 +189,9 @@ check("css: !important only where the approved design has it (reduced motion, au
 hardening = re.sub(r"/\*.*?\*/", "", (ROOT.parent / "src/hardening.css").read_text(encoding="utf-8"), flags=re.S)
 check("css: hardening adds no !important", "!important" not in hardening)
 BOOST = ".tecteb-home-v1:is(.tecteb-home-v1, #th-boost)"
-check("css: shipped stylesheet ends with the hardening rules (boosted)", hardening.replace(".tecteb-home-v1", BOOST).strip()[-200:] in body)
+# 0.3.6: CSS ِ ساخته‌شده بی توضیح است، پس فاصله‌های خالیِ جای توضیح‌ها کوتاه شده‌اند — مقایسه بی حساسیت به فاصلهٔ سفید.
+_ws = lambda t: re.sub(r"\s+", " ", t).strip()
+check("css: shipped stylesheet ends with the hardening rules (boosted)", _ws(hardening.replace(".tecteb-home-v1", BOOST))[-200:] in _ws(body))
 # ۰٫۳٫۰ — ایزولگی در برابر CSS ِ سراسری سایت (tools/port-assets.py: boost + لایهٔ all: revert)
 check("css: isolation layer (all: revert) precedes the design rules", 0 < body.find("all: revert") < body.find("--th-"))
 check("css: every root selector carries the ID-weight boost", body.count(".tecteb-home-v1") == 2 * body.count(BOOST) and BOOST in body)
@@ -232,6 +234,11 @@ for ref in re.findall(r"'(assets/[^']+|templates/[^']+|css/[^']+|js/[^']+|fonts/
             check(f"referenced file exists: {ref}", False)
 for name in ["tecteb-home-v1", "Requires Plugins:  woocommerce", "Requires PHP:      8.1", "Text Domain:       tecteb-homepage"]:
     check(f"plugin header/markup has «{name}»", name in raw["tecteb-homepage.php"] or name in "".join(raw.values()))
+
+# --- ۰٫۳٫۶: سرعت
+check("0.3.6: supplier eyebrow logo is the lossless WebP, lazy and async (below the fold)", 'tecteb-logo-mark-96.webp\' ); ?>" width="20" height="20" alt="" loading="lazy" decoding="async">' in raw["templates/supplier.php"] and (ROOT / "assets/img/tecteb-logo-mark-96.webp").is_file())
+check("0.3.6: shipped tecteb-home.css carries no comments except the provenance header", raw["assets/css/tecteb-home.css"].count("/*") == 1)
+check("0.3.6: no lazy-loading on the Hero image (above the fold, fetchpriority=high kept)", 'fetchpriority="high"' in raw["templates/hero.php"] or "fetchpriority" in code.get("includes/class-renderer.php", ""))
 
 fails = [r for r in results if not r[0]]
 for ok, name, detail in results:

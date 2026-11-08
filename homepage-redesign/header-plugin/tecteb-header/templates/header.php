@@ -36,6 +36,16 @@ $tth_cats    = $vm['cats'];
 $tth_has_cat = array() !== $tth_cats;
 ?>
 <div id="tth-root" class="<?php echo esc_attr( implode( ' ', $vm['classes'] ) ); ?>" data-tth-header data-user="<?php echo $tth_acct['logged_in'] ? 'member' : 'guest'; ?>" dir="rtl" lang="fa"<?php echo $vm['banner'] ? ' role="banner"' : ''; ?>>
+	<?php
+	/*
+	 * 0.2.5 — حالت JS پیش از اولین رسم. تا 0.2.4 ویژگی data-js را header.js (defer) می‌گذاشت، یعنی پس از اولین
+	 * رسم: هدر موبایل یک لحظه با ردیف منو و جست‌وجوی باز (حالت بی JS، ~۳۲۰px) رسم می‌شد و بعد به ۶۷px جمع می‌شد
+	 * و کل <main> بالا می‌پرید (CLS). این خط همان ویژگی را همین‌جا می‌گذارد، فقط وقتی header.js همان‌طور که
+	 * وردپرس صف کرده در صفحه هست (بهینه‌سازی که آن را تأخیری کرده یا تغییر داده ⇒ رفتار قبلی، دست‌نخورده)؛
+	 * و اگر تا رویداد load اجرا نشد (data-tth-ready)، data-js برداشته می‌شود تا هدر بی JS کامل بماند.
+	 */
+	?>
+	<script data-no-optimize="1" data-cfasync="false" nowprocket>(function(r,s){if(!r||!s||(s.type&&!/^(text\/javascript|module)$/i.test(s.type)))return;r.setAttribute('data-js','');addEventListener('load',function(){if(!r.hasAttribute('data-tth-ready'))r.removeAttribute('data-js');});})(document.currentScript&&document.currentScript.parentNode,document.querySelector('script[src*="tecteb-header/assets/js/header.js"]'));</script>
 	<?php if ( '' !== $vm['skip'] ) : ?>
 	<a class="tth-skip" href="<?php echo esc_attr( $vm['skip'] ); ?>"><?php esc_html_e( 'رفتن به محتوای اصلی', 'tecteb-header' ); ?></a>
 	<?php endif; ?>
@@ -48,7 +58,7 @@ $tth_has_cat = array() !== $tth_cats;
 			</button>
 
 			<a class="tth-logo" href="<?php echo esc_url( $vm['home'] ); ?>" aria-label="<?php echo esc_attr( $vm['logo']['label'] ); ?>">
-				<img class="tth-logo__mark" src="<?php echo esc_url( $vm['logo']['src'] ); ?>" width="96" height="96" alt="">
+				<img class="tth-logo__mark" src="<?php echo esc_url( $vm['logo']['src'] ); ?>" width="96" height="96" alt="" fetchpriority="high">
 				<?php if ( '' !== $vm['logo']['text'] ) : ?>
 				<span class="tth-logo__word"><?php echo esc_html( $vm['logo']['text'] ); ?></span>
 				<?php endif; ?>
