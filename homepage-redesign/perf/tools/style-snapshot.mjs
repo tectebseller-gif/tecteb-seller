@@ -18,11 +18,14 @@ const PROPS = ['display', 'position', 'top', 'left', 'width', 'height', 'margin-
 const STATES = [[320, 'top'], [390, 'top'], [600, 'top'], [768, 'top'], [1024, 'top'], [1080, 'top'], [1280, 'top'], [1440, 'top'], [1920, 'top'], [1440, 'compact'], [390, 'compact'], [390, 'drawer']];
 
 if (process.argv[2] === '--compare') {
-  const [, , , bf, af, out] = process.argv;
+  const [, , , bf, af, out] = process.argv.filter((a) => a !== '--unordered');
   // عنصرهای رسم‌نشدنی (script/style) کنار گذاشته می‌شوند و شمارهٔ ترتیب دوباره ساخته می‌شود — اسکریپت درون‌خطی 0.2.5
   // یک عنصر به هدر می‌افزاید که هیچ‌چیز رسم نمی‌کند، و بدون این، همهٔ عنصرهای بعدی یکی جابه‌جا خوانده می‌شوند.
   const norm = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.filter((l) => !/^\d+:(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)\./.test(l)).map((l, i) => l.replace(/^\d+:/, `${i}:`))]));
-  const B = norm(JSON.parse(fs.readFileSync(bf))), A = norm(JSON.parse(fs.readFileSync(af)));
+  // --unordered: مقایسه بی‌ترتیب (مجموعه‌ای از سطرها بی شماره) — برای جابه‌جایی عنصری در DOM که رسمش عوض نمی‌شود.
+  const unordered = process.argv.includes('--unordered');
+  const strip = (o) => unordered ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.map((l) => l.replace(/^\d+:/, '')).sort()])) : o;
+  const B = strip(norm(JSON.parse(fs.readFileSync(bf)))), A = strip(norm(JSON.parse(fs.readFileSync(af))));
   const lines = []; let total = 0;
   for (const k of Object.keys(B)) {
     const b = B[k], a = A[k] || []; let d = 0;

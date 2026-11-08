@@ -238,6 +238,9 @@ for name in ["tecteb-home-v1", "Requires Plugins:  woocommerce", "Requires PHP: 
 # --- ۰٫۳٫۶: سرعت
 check("0.3.6: supplier eyebrow logo is the lossless WebP, lazy and async (below the fold)", 'tecteb-logo-mark-96.webp\' ); ?>" width="20" height="20" alt="" loading="lazy" decoding="async">' in raw["templates/supplier.php"] and (ROOT / "assets/img/tecteb-logo-mark-96.webp").is_file())
 check("0.3.6: shipped tecteb-home.css carries no comments except the provenance header", raw["assets/css/tecteb-home.css"].count("/*") == 1)
+_hero = raw["templates/hero.php"]
+check("0.3.6: Hero background layer comes after the Hero content (no partial-height grid at an early first paint)",
+      _hero.count('class="th-hero__bg"') == 1 and _hero.find('class="th-wrap th-hero__layout"') < _hero.find('class="th-hero__bg"') < _hero.rfind("</section>"))
 check("0.3.6: no lazy-loading on the Hero image (above the fold, fetchpriority=high kept)", 'fetchpriority="high"' in raw["templates/hero.php"] or "fetchpriority" in code.get("includes/class-renderer.php", ""))
 
 fails = [r for r in results if not r[0]]
