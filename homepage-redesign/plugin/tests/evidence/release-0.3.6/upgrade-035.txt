@@ -1,0 +1,1 @@
+### upgrade-035: bash tests/upgrade-035.sh dist/tecteb-homepage-0.3.5.zip dist/tecteb-homepage-0.3.6.zip
