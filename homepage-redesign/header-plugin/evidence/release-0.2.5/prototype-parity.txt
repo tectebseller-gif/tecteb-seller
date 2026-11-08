@@ -1,0 +1,2 @@
+### prototype-parity: node tests/prototype-parity.mjs
+proto desk {"mark_maxw":"none","input_radius":"0px","input_font":"15px","form_radius":"999px","title_lh":"20.8px","title_tag":"H2","menu_ow":"3px"}

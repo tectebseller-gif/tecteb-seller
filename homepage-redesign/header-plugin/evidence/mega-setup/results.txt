@@ -1,4 +1,4 @@
-tecteb-header 0.2.4
+tecteb-header 0.2.5
 
 PASS 1. no categories in the plugin settings: «دسته‌بندی کالاها» is a plain link to the shop, no chevron, no mega menu
 PASS 1. …while JS runs (header has data-js, «حساب من» shows its dropdown chevron) — same as the production screenshot
