@@ -33,15 +33,33 @@ final class PackagingTest extends TestCase
         return self::SLUG . '-' . self::version() . '.zip';
     }
 
+    /**
+     * Where the package is, and `TMC_DIST` is honoured here for one reason.
+     *
+     * `build.sh` has read `TMC_DIST` since `alpha.22` so a throwaway build can
+     * write somewhere other than `dist/` — which matters because building over
+     * `dist/` once overwrote a DELIVERED source archive. This test did not
+     * honour it, so a throwaway build could not be measured by the suite that
+     * exists to measure builds; the falsification loop of this round needed
+     * exactly that, to break `build.sh` without touching the real package.
+     *
+     * Unset, it is `dist/` as it always was.
+     */
+    private static function dist(): string
+    {
+        $override = getenv('TMC_DIST');
+        return is_string($override) && $override !== '' ? rtrim($override, '/') : self::root() . '/dist';
+    }
+
     private static function zip(): string
     {
-        return self::root() . '/dist/' . self::zipName();
+        return self::dist() . '/' . self::zipName();
     }
 
     public static function setUpBeforeClass(): void
     {
         if (!is_file(self::zip())) {
-            throw new \RuntimeException('dist/' . self::zipName() . ' is missing — run tools/build.sh first.');
+            throw new \RuntimeException(self::dist() . '/' . self::zipName() . ' is missing — run tools/build.sh first.');
         }
     }
 
@@ -51,6 +69,76 @@ final class PackagingTest extends TestCase
         exec('unzip -Z1 ' . escapeshellarg(self::zip()), $out, $code);
         self::assertSame(0, $code, 'unzip -Z1 failed');
         return array_values(array_filter(array_map('trim', $out), static fn ($l) => $l !== ''));
+    }
+
+    /**
+     * ⛔ THE TWO READ-ONLY TOOLS SHIP, AND NOTHING ELSE FROM `tools/` DOES.
+     *
+     * `FINAL-AUDIT-FA.md` asks two questions this plugin cannot answer from
+     * its own source — «does shop 40 really hold no products» and «what does
+     * account 2 own» — and the answers are rows on the owner's site. Until
+     * this round those tools lived only in the source archive, so using them
+     * meant uploading a PHP file to a server by hand: a worse operation than
+     * the one it enables.
+     *
+     * Both halves are asserted, because each half is a different mistake. If
+     * the tools are missing, the documented command fails on the owner's
+     * server and the audit has no answer. If the rest of `tools/` ships, the
+     * payload grows a directory of development scripts — including the ones
+     * that WRITE, which is exactly what `tools/` is removed by name for.
+     */
+    public function testOnlyTheTwoReadOnlyToolsTravelInsideThePayload(): void
+    {
+        $entries = $this->entries();
+        $prefix = self::SLUG . '/admin-tools/';
+        $shipped = ['shop-dependency-census.php', 'plugin-exit-inventory.php'];
+
+        foreach ($shipped as $tool) {
+            self::assertContains($prefix . $tool, $entries, $tool . ' has to reach the server');
+            // And with the SAME BYTES as the working tree — the `alpha.43`
+            // rule: an archive built from a hand-picked list ships a stale
+            // copy one day and nothing says so.
+            $out = [];
+            exec('unzip -p ' . escapeshellarg(self::zip()) . ' ' . escapeshellarg($prefix . $tool), $out, $code);
+            self::assertSame(0, $code, 'unzip -p failed for ' . $tool);
+            self::assertSame(
+                trim((string) file_get_contents(__DIR__ . '/../../tools/' . $tool)),
+                trim(implode("\n", $out)),
+                $tool . ' in the ZIP must be the file in the tree'
+            );
+        }
+
+        // The other half: no other tool, and no directory called `tools`.
+        foreach ($entries as $entry) {
+            self::assertStringStartsNotWith(self::SLUG . '/tools/', $entry, 'tools/ must not ship');
+            if (str_starts_with($entry, $prefix) && !str_ends_with($entry, '/')) {
+                self::assertContains(
+                    basename($entry),
+                    array_merge($shipped, ['README.txt']),
+                    'only the two read-only tools and their note belong here: ' . $entry
+                );
+            }
+        }
+    }
+
+    /**
+     * And every file that ships there refuses to run outside WordPress.
+     *
+     * A PHP file inside a plugin directory is reachable at a URL on most
+     * hosts. The guard is the one WordPress itself uses on every plugin file,
+     * and it is asserted here rather than trusted because these two are the
+     * only shipped files nothing ever loads — so nothing else would notice if
+     * the guard went away.
+     */
+    public function testEveryShippedToolRefusesToRunOutsideWordPress(): void
+    {
+        foreach (['shop-dependency-census.php', 'plugin-exit-inventory.php'] as $tool) {
+            self::assertMatchesRegularExpression(
+                '/if\s*\(\s*!\s*defined\s*\(\s*.ABSPATH.\s*\)\s*\)\s*\{/',
+                (string) file_get_contents(__DIR__ . '/../../tools/' . $tool),
+                $tool . ' must return unless it is inside WordPress'
+            );
+        }
     }
 
     public function testZipHasExactlyOneTopLevelDirectoryWithTheMainFile(): void
@@ -815,11 +903,28 @@ final class PackagingTest extends TestCase
         $missing = [];
         $different = [];
         foreach ($inZip as $path => $hash) {
-            if (!isset($inBundle[$path])) {
+            // The note beside the tools is written for the owner's server and
+            // has no copy in the tree, so it is the one shipped file this
+            // comparison cannot make. Its presence is asserted by
+            // `testOnlyTheTwoReadOnlyToolsTravelInsideThePayload()` instead.
+            if ($path === 'admin-tools/README.txt') {
+                continue;
+            }
+            // ⛔ ONE NAME MAPPING, and it is a mapping rather than an
+            // exemption. The two read-only audit tools ship at
+            // `admin-tools/` and live at `tools/` in the tree, because
+            // `tools/` is removed from the payload BY NAME and would take
+            // them with it. The file still has to be in the archive and still
+            // has to match byte for byte; only its name differs, so the
+            // comparison follows the name instead of looking away.
+            $inTree = str_starts_with($path, 'admin-tools/')
+                ? 'tools/' . substr($path, strlen('admin-tools/'))
+                : $path;
+            if (!isset($inBundle[$inTree])) {
                 $missing[] = $path;
                 continue;
             }
-            if ($inBundle[$path] !== $hash) {
+            if ($inBundle[$inTree] !== $hash) {
                 $different[] = $path;
             }
         }

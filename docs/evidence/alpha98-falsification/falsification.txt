@@ -1,0 +1,129 @@
+alpha.98 falsification — 13 mutations
+database filter inside the loop: OrderFlowTest|ShipmentAndReturnFlowTest|AdminPagesRenderTest|SettlementFlowTest
+the closing baseline runs the database suite UNFILTERED
+tree: 830e5e0 (plus the uncommitted round)
+
+=== 1/13 the order gate stops asking whether Dokan is running
+    file:   src/Modules/Order/Application/OrderOperationsGate.php
+    expect: unit
+applied: the order gate stops asking whether Dokan is running
+sha256 after: e73e43eb682396e8b88624a84a22b7f26e2a398b53ec2ab4030d7aff425be6f4
+    unit: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/13 a trial can waive Dokan, because the trial is asked first
+    file:   src/Modules/Order/Application/OrderOperationsGate.php
+    expect: architecture
+applied: a trial can waive Dokan, because the trial is asked first
+sha256 after: 7e9de864f05258877c906b001768d7603b1c7443f3797e44154df1ba6aef338e
+    architecture: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/13 blockers() stops naming Dokan
+    file:   src/Modules/Order/Application/OrderOperationsGate.php
+    expect: unit
+applied: blockers() stops naming Dokan
+sha256 after: e5bc571be33b64224e460379f46bf19a546e408918c8d8dbf28b21b1747d3a29
+    unit: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/13 the Dokan branch records the reason and falls through
+    file:   src/Modules/Order/Application/OrderOperationsGate.php
+    expect: architecture
+applied: the Dokan branch records the reason and falls through
+sha256 after: 27f761c5eba61c12f736dceebdab03c17fa82ff6ddef0e6b71c89cafaff5e9d0
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/13 the container stops passing the probe into the gate
+    file:   src/Infrastructure/WordPress/Bootstrap.php
+    expect: architecture
+applied: the container stops passing the probe into the gate
+sha256 after: 8c0f390cd2c6d47f2341561d6981e292dc080e25a15d5cc8802f2736b4fe7c31
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/13 the probe forgets the active-plugin list, so a broken Dokan passes
+    file:   src/Modules/Order/Infrastructure/WordPress/WpDokanPresence.php
+    expect: architecture
+applied: the probe forgets the active-plugin list, so a broken Dokan passes
+sha256 after: f57495064ff330e788c1384bf1fcb9d707e95ce144ffd1cc7c7c3b7bdf1f5470
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/13 the probe asks about Dokan's tables, which the exit keeps
+    file:   src/Modules/Order/Infrastructure/WordPress/WpDokanPresence.php
+    expect: architecture
+applied: the probe asks about Dokan's tables, which the exit keeps
+sha256 after: 0799723d32b30415a24d433ea2fdaeb7bc200e98a19be8ea19200d9ff22ebee4
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/13 a trial grant is honoured on any site again
+    file:   src/Modules/Order/Application/TrialUnlock.php
+    expect: unit
+applied: a trial grant is honoured on any site again
+sha256 after: 5a8ae41cdc09f86a5b0c3a82d377e7f8bdcc8371815cbed2e9b66bd8a6648dcc
+    unit: 4
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/13 the grant is stored without the site it was granted on
+    file:   src/Modules/Order/Application/TrialUnlock.php
+    expect: unit
+applied: the grant is stored without the site it was granted on
+sha256 after: 6f3af54b42ae20de8171389d721a7523b25b1768eb7c16a861dff0b09d2cc2f7
+    unit: 4
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/13 a grant with no host recorded is trusted everywhere
+    file:   src/Modules/Order/Application/TrialUnlock.php
+    expect: unit
+applied: a grant with no host recorded is trusted everywhere
+sha256 after: 57ff63cd94eff5193e02f666974653a46a718d39d34bc98e3c126f8046851b76
+    unit: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/13 the screen is not told why a grant was refused
+    file:   src/Modules/Order/Application/TrialUnlock.php
+    expect: unit
+applied: the screen is not told why a grant was refused
+sha256 after: cc5125c1a84602023c6a91d05757b60511e36c679f416eb8c260b42ced722714
+    unit: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/13 the resolver cannot say which site this is
+    file:   src/Core/Environment/EnvironmentResolver.php
+    expect: unit
+applied: the resolver cannot say which site this is
+sha256 after: 976907b399b7c45dbaa5a2861859ad8ed571f6ef7c205350a6326cd7917fe1a8
+    unit: 6
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/13 the two read-only tools stop shipping inside the package
+    file:   tools/build.sh
+    expect: packaging
+applied: the two read-only tools stop shipping inside the package
+sha256 after: f0eb9a1a2b8ba63d64af052b1e6c74b2b78a5f9f67760d8e8388f57156b4278b
+    packaging: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 
+
+problems: 0

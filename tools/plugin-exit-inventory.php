@@ -27,6 +27,7 @@
  *   wp eval-file tools/plugin-exit-inventory.php minmax     # Min Max mode and rule counts
  *   wp eval-file tools/plugin-exit-inventory.php files      # path, header and hash of the active files
  *   wp eval-file tools/plugin-exit-inventory.php intake     # the import path: hooks on it, image sizes, php limits
+ *   wp eval-file tools/plugin-exit-inventory.php finance 102  # where one shop's Dokan balances came from, row by row
  *
  * **The honest limit of the static «read only» test.** What
  * `tests/Unit/ReadOnlyInventoryTest.php` proves is that THIS FILE contains no
@@ -1004,6 +1005,211 @@ if ($section === 'all' || $section === 'minmax' || $section === 'exit') {
     echo "# make it convertible. Either the rule changes at the source because\n";
     echo "# somebody decided it should, or the loss is accepted. Nothing in\n";
     echo "# this repository loosens a rule to finish a migration.\n";
+}
+
+// ---------------------------------------------------------------- finance
+//
+// WHERE THE DOKAN BALANCES CAME FROM — row by row, for the ids you name.
+//
+// The owner's instruction: «برخی مانده‌های قدیمی دکان غیرصفرند و باید منشأشان
+// بررسی شود… مانده‌ها از چه تراکنش‌هایی ایجاد شده‌اند؟ آیا صرفاً آزمایشی
+// بوده‌اند؟ آیا بدهی یا برداشت واقعی باقی مانده است؟»
+//
+// The handover screen already prints the TOTALS and the per-type grouping
+// (`DokanFinanceSnapshot`), which is what a decision has to be taken against.
+// What it cannot print is one line per transaction, and «which transactions»
+// is a question about rows. So this section lists them.
+//
+// ⛔ It reads the ARCHIVE first — this plugin's own copy, which is the thing
+// that survives Dokan's exit — and then Dokan's live tables beside it, so a
+// difference between the two is visible rather than averaged. Reading only
+// the archive would hide rows that arrived after the import; reading only
+// Dokan would answer a question that stops being answerable the moment it is
+// switched off.
+//
+//   wp eval-file .../plugin-exit-inventory.php finance            # every id with rows
+//   wp eval-file .../plugin-exit-inventory.php finance 102 2 40   # named ids
+if ($section === 'finance') {
+    $head('finance: where the balances came from');
+
+    $ids = [];
+    foreach (array_slice($args, 1) as $raw) {
+        $id = (int) $raw;
+        if ($id > 0) {
+            $ids[$id] = true;
+        }
+    }
+    $ids = array_keys($ids);
+
+    $archiveBalance = $wpdb->prefix . 'tmc_dokan_balance_history';
+    $archiveWithdraw = $wpdb->prefix . 'tmc_dokan_withdraw_history';
+    $liveBalance = $wpdb->prefix . 'dokan_vendor_balance';
+    $liveWithdraw = $wpdb->prefix . 'dokan_withdraw';
+
+    $exists = static function (string $table) use ($wpdb): bool {
+        return (string) $wpdb->get_var(
+            $wpdb->prepare('SHOW TABLES LIKE %s', $table)
+        ) === $table;
+    };
+
+    foreach (['archive_balance' => $archiveBalance, 'archive_withdraw' => $archiveWithdraw,
+              'dokan_balance' => $liveBalance, 'dokan_withdraw' => $liveWithdraw] as $label => $table) {
+        $line('table_' . $label, $exists($table) ? 'present' : '__absent__');
+    }
+
+    if ($ids === [] && $exists($archiveBalance)) {
+        // Nobody named an id, so ask which ids have rows at all. Capped, and
+        // the cap is STATED: an unbounded listing on a shop with thousands of
+        // vendors is a tool that times out instead of answering.
+        $found = $wpdb->get_col(
+            'SELECT DISTINCT vendor_user_id FROM `' . $archiveBalance . '` ORDER BY vendor_user_id ASC LIMIT 50'
+        );
+        $ids = array_values(array_map('intval', is_array($found) ? $found : []));
+        $line('ids_from_archive', $ids === [] ? '__none__' : implode(',', $ids));
+        $line('ids_cap', 50);
+    }
+    if ($ids === []) {
+        $line('nothing_to_report', 'name an id: finance 102');
+    }
+
+    foreach ($ids as $id) {
+        $head('finance: shop ' . $id);
+
+        // ---- the archive's own rows, one line each ----------------------
+        if ($exists($archiveBalance)) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    'SELECT trn_id, trn_type, status, trn_date,
+                            CAST(debit AS CHAR) AS debit, CAST(credit AS CHAR) AS credit,
+                            particulars
+                       FROM `' . $archiveBalance . '`
+                      WHERE vendor_user_id = %d
+                      ORDER BY trn_date ASC, trn_id ASC
+                      LIMIT 200',
+                    $id
+                ),
+                ARRAY_A
+            );
+            $rows = is_array($rows) ? $rows : [];
+            $line('archive_balance_rows', count($rows));
+            foreach ($rows as $i => $row) {
+                // `particulars` is Dokan's own free text and it is where an
+                // order number appears, so it travels — trimmed, because a
+                // long note would make one line unreadable, and the full text
+                // is in the row for anybody who needs it.
+                $line('archive_balance_' . $i, implode(' | ', [
+                    'trn=' . (string) $row['trn_id'],
+                    'type=' . (string) $row['trn_type'],
+                    'status=' . ((string) $row['status'] !== '' ? (string) $row['status'] : '__empty__'),
+                    'date=' . ((string) $row['trn_date'] !== '' ? (string) $row['trn_date'] : '__null__'),
+                    'debit=' . (string) $row['debit'],
+                    'credit=' . (string) $row['credit'],
+                    'note=' . mb_substr(trim((string) ($row['particulars'] ?? '')), 0, 60),
+                ]));
+            }
+            $closing = $wpdb->get_var($wpdb->prepare(
+                'SELECT CAST(COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) AS CHAR)
+                   FROM `' . $archiveBalance . '` WHERE vendor_user_id = %d',
+                $id
+            ));
+            $line('archive_closing', $closing === null ? '__unreadable__' : (string) $closing);
+        }
+
+        // ---- the withdrawals, which are the «real debt?» question --------
+        if ($exists($archiveWithdraw)) {
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    'SELECT dokan_withdraw_id, status, method, requested_at,
+                            CAST(amount AS CHAR) AS amount, note
+                       FROM `' . $archiveWithdraw . '`
+                      WHERE vendor_user_id = %d ORDER BY requested_at ASC LIMIT 200',
+                    $id
+                ),
+                ARRAY_A
+            );
+            $rows = is_array($rows) ? $rows : [];
+            $line('archive_withdraw_rows', count($rows));
+            foreach ($rows as $i => $row) {
+                $line('archive_withdraw_' . $i, implode(' | ', [
+                    'id=' . (string) $row['dokan_withdraw_id'],
+                    'status=' . ((string) $row['status'] !== '' ? (string) $row['status'] : '__empty__'),
+                    'method=' . ((string) $row['method'] !== '' ? (string) $row['method'] : '__empty__'),
+                    'at=' . ((string) $row['requested_at'] !== '' ? (string) $row['requested_at'] : '__null__'),
+                    'amount=' . (string) $row['amount'],
+                    'note=' . mb_substr(trim((string) ($row['note'] ?? '')), 0, 60),
+                ]));
+            }
+        }
+
+        // ---- and Dokan's live tables, beside them ------------------------
+        //
+        // Counted rather than listed: the question here is «does the archive
+        // still match the source», and two numbers answer it. If they differ,
+        // the archive is behind and the records import has something left to
+        // bring over — which is the one gate `records_imported` is about.
+        if ($exists($liveBalance)) {
+            $live = $wpdb->get_row($wpdb->prepare(
+                'SELECT COUNT(*) AS rows_seen,
+                        CAST(COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) AS CHAR) AS closing
+                   FROM `' . $liveBalance . '` WHERE vendor_id = %d',
+                $id
+            ), ARRAY_A);
+            $line('dokan_balance_rows', is_array($live) ? (string) $live['rows_seen'] : '__unreadable__');
+            $line('dokan_closing', is_array($live) ? (string) $live['closing'] : '__unreadable__');
+        }
+        if ($exists($liveWithdraw)) {
+            $live = $wpdb->get_results($wpdb->prepare(
+                'SELECT status, COUNT(*) AS rows_seen, CAST(COALESCE(SUM(amount), 0) AS CHAR) AS total
+                   FROM `' . $liveWithdraw . '` WHERE user_id = %d GROUP BY status ORDER BY status ASC',
+                $id
+            ), ARRAY_A);
+            $live = is_array($live) ? $live : [];
+            $line('dokan_withdraw_groups', count($live));
+            foreach ($live as $row) {
+                $line(
+                    'dokan_withdraw_status_' . (string) $row['status'],
+                    (string) $row['rows_seen'] . ' rows, total ' . (string) $row['total']
+                );
+            }
+        }
+
+        // ---- and what THIS plugin's own ledger holds for the same shop ---
+        //
+        // Printed in the same breath on purpose. «صفر بودن دفترکل افزونه جدید
+        // به معنای تسویه بدهی‌های دکان نیست» — the two are different books,
+        // and seeing them side by side is what stops one being read as the
+        // other.
+        $ledger = $wpdb->prefix . 'tmc_ledger_entries';
+        if ($exists($ledger)) {
+            $rows = $wpdb->get_results($wpdb->prepare(
+                'SELECT account, COUNT(*) AS rows_seen, CAST(COALESCE(SUM(amount_minor), 0) AS CHAR) AS total
+                   FROM `' . $ledger . '` WHERE vendor_user_id = %d GROUP BY account ORDER BY account ASC',
+                $id
+            ), ARRAY_A);
+            $rows = is_array($rows) ? $rows : [];
+            $line('marketplace_ledger_accounts', count($rows));
+            foreach ($rows as $row) {
+                $line(
+                    'marketplace_ledger_' . (string) $row['account'],
+                    (string) $row['rows_seen'] . ' rows, minor total ' . (string) $row['total']
+                );
+            }
+        }
+    }
+
+    echo "# ⛔ WHAT THIS SECTION DOES NOT SAY, and must not be read as saying:\n";
+    echo "#  - whether a row is «test» or «real». Nothing in a Dokan balance\n";
+    echo "#    row records that. `trn_type`, the order number in `note` and\n";
+    echo "#    the date are the evidence; the judgement is a person's.\n";
+    echo "#  - that a zero closing balance means nothing is owed. A balance\n";
+    echo "#    of zero can be a debit and a credit that cancel, and Dokan\n";
+    echo "#    records a PAID withdrawal twice on purpose (a withdraw row and\n";
+    echo "#    a debit), which is why `withdrawOverlap()` exists.\n";
+    echo "#  - anything about this plugin's ledger being the same book. It is\n";
+    echo "#    not. A zero there says nothing about a Dokan balance.\n";
+    echo "#  - that the listing is complete: each list is capped at 200 rows\n";
+    echo "#    and the cap is printed as a count, so a shop at the cap is\n";
+    echo "#    visible rather than silently truncated.\n";
 }
 
 // ------------------------------------------------------------------- the end

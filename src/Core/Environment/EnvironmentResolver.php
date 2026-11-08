@@ -53,6 +53,27 @@ final class EnvironmentResolver
         return new ResolvedEnvironment(EnvironmentType::Unknown, ResolvedEnvironment::SOURCE_NONE, $warnings, $hint);
     }
 
+    /**
+     * The site's own host, raw — NOT a resolution signal.
+     *
+     * `hostnameHint()` below turns the host into a vague `looks_non_production`
+     * string on purpose, because CORE-04 says a hostname must never decide
+     * what the environment IS. This method answers a different question:
+     * «which site is this?», which `TrialUnlock` needs in order to bind a
+     * trial grant to the site it was granted on. A database copied from
+     * staging to production carries the grant row; it cannot carry the host.
+     *
+     * Exposed here rather than by injecting the probe into `TrialUnlock`
+     * because this class already holds it, and a new required constructor
+     * argument would stop `tools/order-evidence.php` loading — the
+     * `alpha.32` trap.
+     */
+    public function host(): ?string
+    {
+        $host = $this->probe->hostname();
+        return is_string($host) && $host !== '' ? strtolower($host) : null;
+    }
+
     private function hostnameHint(): ?string
     {
         $host = $this->probe->hostname();

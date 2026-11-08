@@ -11,6 +11,7 @@ use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Modules\Order\Application\DokanPresenceInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -299,6 +300,28 @@ final class StorefrontPage
             . '</td></tr>';
         echo '<tr><th scope="row">' . esc_html__('تصمیم‌های باز', 'tecteb-marketplace-core') . '</th><td>'
             . esc_html(implode('، ', OrderOperationsGate::OPEN_DECISIONS)) . '</td></tr>';
+        // ⛔ The one row that is not about a missing decision, and the one the
+        // trial switch below cannot waive. Printed whether Dokan is running
+        // or not, because «دکان اجرا نمی‌شود» is the answer a manager needs
+        // before pressing anything on this page.
+        $dokan = $this->container->get(DokanPresenceInterface::class);
+        // ⛔ The short sentence on the page, the reasoning in the drawer
+        // («تکه کن، بازنویسی نکن» — `alpha.85`). The actionable half is one
+        // line; why two systems claim one product is an explanation.
+        echo '<tr><th scope="row">' . esc_html__('دکان', 'tecteb-marketplace-core') . '</th><td>'
+            . ($dokan->isRunning()
+                ? '<strong>' . esc_html__('در حال اجرا', 'tecteb-marketplace-core') . '</strong> — '
+                    . Components::code($dokan->signal()) . '<br>'
+                    . esc_html__('تا دکان اجرا می‌شود این دروازه بسته است، و حالت آزمایشی بازش نمی‌کند.', 'tecteb-marketplace-core')
+                    . Components::moreDetails([
+                        __('دکان محصول را از post_author می‌شناسد و این افزونه از مالکیت بازارگاه. محصولِ منتقل‌شده هر دو شرط را دارد، پس اگر هر دو مسیر کار کنند یک فروش دو بار ثبت می‌شود.', 'tecteb-marketplace-core'),
+                        __('این تنها ردیف این جدول است که «تصمیم باز» نیست، و تنها دلیلی که کلید آزمایشی کنارش نمی‌زند.', 'tecteb-marketplace-core'),
+                    ])
+                : esc_html__('اجرا نمی‌شود، پس این دروازه را نمی‌بندد.', 'tecteb-marketplace-core')
+                    . Components::moreDetails([
+                        __('پرسش این است که کد دکان بارگذاری شده یا نه — جدول‌های جامانده‌اش اهمیتی ندارند و عمداً نگه داشته می‌شوند، چون آرشیو مالی همان‌هاست.', 'tecteb-marketplace-core'),
+                    ]))
+            . '</td></tr>';
         echo '</tbody></table>';
         unset($fa);
         $this->renderTrialSwitch();
@@ -329,6 +352,7 @@ final class StorefrontPage
         $trial = $this->container->get(TrialUnlock::class);
         $requested = $trial->isRequested();
         $permitted = $trial->isPermitted();
+        $refusal = $trial->refusal();
 
         echo '<h3 class="tmc-card__subtitle">'
             . esc_html__('حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</h3>';
@@ -351,6 +375,25 @@ final class StorefrontPage
                     . '</p>';
             }
             return;
+        }
+
+        // ⛔ And the refusal this round added: the grant is bound to the site
+        // it was granted on. Said here rather than only in the machine
+        // reason, because both spellings have a one-press remedy and a
+        // manager who is not told will read a shut gate as a defect.
+        if ($refusal === 'host_unrecorded' || $refusal === 'host_changed') {
+            echo Components::notice('warning', $refusal === 'host_changed'
+                ? esc_html__('این کلید روی نشانی دیگری روشن شده بود، پس همین‌جا پذیرفته نمی‌شود.', 'tecteb-marketplace-core')
+                : esc_html__('این کلید پیش از این نسخه روشن شده و نشانی سایتش ثبت نیست، پس پذیرفته نمی‌شود.', 'tecteb-marketplace-core'));
+            echo Components::moreDetails($refusal === 'host_changed'
+                ? [
+                    __('اگر این سایت کپیِ یک سایت آزمایشی است، پیش از هر کاری بررسی کنید چه چیز دیگری با آن کپی آمده.', 'tecteb-marketplace-core'),
+                    __('و اگر واقعاً همین سایت را می‌خواهید آزمایش کنید، کلید را یک بار دیگر همین‌جا روشن کنید.', 'tecteb-marketplace-core'),
+                ]
+                : [
+                    __('یک بار روشن‌کردنش همین‌جا درستش می‌کند.', 'tecteb-marketplace-core'),
+                    __('این سخت‌گیری عمدی است: بی آن، یک دیتابیسِ کپی‌شده کلید را با خودش به سایت دیگری می‌برد.', 'tecteb-marketplace-core'),
+                ]);
         }
 
         echo '<form method="post">';

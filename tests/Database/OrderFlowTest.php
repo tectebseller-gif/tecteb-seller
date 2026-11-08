@@ -68,6 +68,8 @@ use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
+use Tecteb\Marketplace\Modules\Order\OrderModule;
+use Tecteb\Marketplace\Tests\Support\FakeDokanPresence;
 use Tecteb\Marketplace\Tests\Support\FakeTrialUnlock;
 use Tecteb\Marketplace\Tests\Support\FakeWcProduct;
 use Tecteb\Marketplace\Tests\Support\RecordingAuditRepository;
@@ -103,6 +105,7 @@ final class OrderFlowTest extends DatabaseTestCase
     private FakeCatalogProjector $storefront;
     private FakeProductImages $images;
     private FakeTrialUnlock $trial;
+    private FakeDokanPresence $dokan;
     /** Kept so one test can rebuild the capture over a database that refuses. */
     private SyncCatalog $catalogService;
     private OrderOperationsGate $orderGate;
@@ -140,6 +143,11 @@ final class OrderFlowTest extends DatabaseTestCase
         $this->images = new FakeProductImages();
         $this->storefront = new FakeCatalogProjector();
         $this->trial = new FakeTrialUnlock(true);
+        // Dokan is OFF in the fixture, which is the state the migration is
+        // for. One test below switches it on, and it is the only one that
+        // may: a gate that refused everywhere would make every other test in
+        // this file a test of the refusal.
+        $this->dokan = new FakeDokanPresence(false);
 
         $access = new StaffAccess($this->staff, $this->vendors);
         $this->access = $access;
@@ -149,7 +157,7 @@ final class OrderFlowTest extends DatabaseTestCase
         $this->logger = $audit;
         $publishing = new ProductPublishPolicy($options);
         $rates = new ResolveCommissionRate($this->rules);
-        $gate = new OrderOperationsGate($rates, $this->ledger, $this->trial);
+        $gate = new OrderOperationsGate($rates, $this->ledger, $this->trial, $this->dokan);
         $this->orderGate = $gate;
 
         $this->manage = new ManageProducts(
@@ -210,6 +218,85 @@ final class OrderFlowTest extends DatabaseTestCase
         // A sample rate, so the trial can run the whole path (FIN-02 forbids
         // guessing one; this one is set on purpose, in a disposable database).
         $this->rules->setRate(RateScope::General, 'general', CommissionRate::ofBasisPoints(1000));
+    }
+
+    /**
+     * ⛔ THE WHOLE POINT OF THE MIGRATION, AND THE GUARD AROUND IT.
+     *
+     * Two halves of one fact, in one test because separating them is how the
+     * second half gets forgotten:
+     *
+     *  - with Dokan gone, a real basket records exactly what it always did;
+     *  - with Dokan running, the module does not operate at all — and the
+     *    trial switch, which is on in this fixture, cannot change that.
+     *
+     * The second half is the hazard the owner's §3 names. Dokan attributes a
+     * product by `post_author`, `TransferOwnership` deliberately never
+     * changes it, and `CaptureOrder` asks about `link_ownership`, so for a
+     * transferred product both systems answer «mine» and one sale would be
+     * recorded twice. Nothing in the capture path could have noticed: it is
+     * right about its own books either way.
+     */
+    /**
+     * The one binding `OrderModule::blockedReason()` reaches for.
+     *
+     * Built fresh on every call on purpose: the gate memoises its answer per
+     * instance, so reusing one would make the second half of the test read
+     * the first half's verdict.
+     */
+    private function containerForGate(): Container
+    {
+        $container = new Container();
+        $container->bind(OrderOperationsGate::class, fn () => new OrderOperationsGate(
+            new ResolveCommissionRate($this->rules),
+            $this->ledger,
+            $this->trial,
+            $this->dokan
+        ));
+        return $container;
+    }
+
+    public function testWithDokanRunningTheModuleDoesNotOperateAndATrialCannotChangeThat(): void
+    {
+        // Dokan gone: the state the migration exists to reach.
+        //
+        // ⛔ A FRESH gate for each half, because `OrderOperationsGate`
+        // memoises its answer per instance — rightly, since the catalogue
+        // asks it once per product on a shop page and nothing can change
+        // inside one request. Reusing `$this->orderGate` here made the second
+        // half read the first half's verdict, and the test passed against a
+        // gate that had never been asked about Dokan at all.
+        self::assertFalse($this->dokan->isRunning(), 'the fixture starts where the migration ends');
+        self::assertTrue($this->containerForGate()->get(OrderOperationsGate::class)->check()['ready'], 'and the gate is open there');
+        self::assertSame([], $this->containerForGate()->get(OrderOperationsGate::class)->blockers());
+
+        // Dokan back: the state during the migration, and the hazard.
+        $this->dokan->running = true;
+        self::assertTrue($this->trial->isActive(), 'the trial is on, which is what makes this worth testing');
+
+        $answer = $this->containerForGate()->get(OrderOperationsGate::class)->check();
+        self::assertFalse($answer['ready'], 'the gate shuts');
+        self::assertSame(OrderOperationsGate::DOKAN_RUNNING, $answer['reason']);
+        self::assertNotSame(
+            OrderOperationsGate::READY_ON_TRIAL,
+            $answer['reason'],
+            'and the trial switch did not waive it'
+        );
+
+        // And the module reports it as the reason it will not register, which
+        // is what keeps `OrderHooks` — the ONLY place the capture hooks are
+        // added — from being attached at all.
+        self::assertSame(
+            OrderOperationsGate::DOKAN_RUNNING . ':class_WeDevs_Dokan',
+            (new OrderModule())->blockedReason($this->containerForGate()),
+            'the module is blocked, so no capture hook is ever registered'
+        );
+
+        $this->dokan->running = false;
+        self::assertNull(
+            (new OrderModule())->blockedReason($this->containerForGate()),
+            'and switching Dokan off puts it back exactly as it was'
+        );
     }
 
     public function testAMultiVendorBasketBecomesOneLinePerVendorWithItsOwnShare(): void

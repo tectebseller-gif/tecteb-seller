@@ -59,20 +59,76 @@ final class TrialUnlock implements OrderTrialInterface
     ) {
     }
 
-    /** Whether the switch is on AND this environment is allowed to honour it. */
+    /** The key inside the stored grant that names the site it was granted on. */
+    private const HOST = 'host';
+    /** The key that says the grant is on. */
+    private const GRANTED = 'granted';
+
+    /**
+     * Whether the switch is on, this environment may honour it, AND the grant
+     * was made on THIS site.
+     *
+     * ⛔ The third condition is the one added this round, and it is the only
+     * guard here that a wrong `TMC_ENVIRONMENT` cannot talk its way past.
+     *
+     * The resolution order is constant → option → platform (CORE-04), so a
+     * production site whose `wp-config.php` says `TMC_ENVIRONMENT` is
+     * `staging` — or whose `WP_ENVIRONMENT_TYPE` does — resolves to staging
+     * and `isPermitted()` says yes. That is not a defect in the resolver:
+     * a declared environment must win over a guess. But it means the FIRST
+     * two conditions are both carried by things a site copy carries: the
+     * option travels in the database and the constant travels in the file.
+     * And a copy is not hypothetical here — `PRODUCTION-CUTOVER-FA.md` is a
+     * plan to clone a tested staging site onto production.
+     *
+     * The host does not travel. So the grant records the site it was made on
+     * and is refused anywhere else, with a named reason on the screen.
+     */
     public function isActive(): bool
     {
-        return $this->isRequested() && $this->isPermitted();
+        return $this->isRequested() && $this->isPermitted() && $this->isForThisSite();
     }
 
     public function isRequested(): bool
     {
-        return (bool) $this->options->get(self::OPTION, false);
+        $stored = $this->options->get(self::OPTION, false);
+        if (is_array($stored)) {
+            return (bool) ($stored[self::GRANTED] ?? false);
+        }
+        // A scalar truthy value is a grant written by `alpha.97` or earlier,
+        // before grants carried a host. It still means «somebody asked» —
+        // `isForThisSite()` is what refuses it.
+        return (bool) $stored;
     }
 
     public function isPermitted(): bool
     {
         return in_array($this->environment->resolve()->type->value, self::allowed(), true);
+    }
+
+    /**
+     * Whether the stored grant names this site.
+     *
+     * ⛔ **Fail-closed, and that has a cost that is paid on purpose.** A grant
+     * with no host recorded — every grant that exists today — answers `false`,
+     * so the first thing this round does on the owner's staging site is turn
+     * the trial off. The screen says exactly why and the button re-grants it
+     * in one press. The alternative was to treat an unhosted grant as valid
+     * everywhere, which is the state this guard exists to end.
+     *
+     * A site whose own host cannot be read answers `false` too: «I do not
+     * know which site this is» is not a reason to record money under sample
+     * rules.
+     */
+    public function isForThisSite(): bool
+    {
+        $stored = $this->options->get(self::OPTION, false);
+        if (!is_array($stored)) {
+            return false;
+        }
+        $granted = strtolower(trim((string) ($stored[self::HOST] ?? '')));
+        $here = $this->environment->host();
+        return $granted !== '' && $here !== null && hash_equals($granted, $here);
     }
 
     /** '', or why the switch is not being honoured. */
@@ -81,7 +137,20 @@ final class TrialUnlock implements OrderTrialInterface
         if (!$this->isRequested()) {
             return '';
         }
-        return $this->isPermitted() ? '' : 'environment_' . $this->environment->resolve()->type->value;
+        if (!$this->isPermitted()) {
+            return 'environment_' . $this->environment->resolve()->type->value;
+        }
+        if (!$this->isForThisSite()) {
+            // Two reasons, not one: «this grant was made somewhere else» and
+            // «this grant does not say where it was made» are different pieces
+            // of work. The first is a copied database and wants a human to
+            // look; the second is simply an old grant and wants one press.
+            $stored = $this->options->get(self::OPTION, false);
+            return is_array($stored) && (string) ($stored[self::HOST] ?? '') !== ''
+                ? 'host_changed'
+                : 'host_unrecorded';
+        }
+        return '';
     }
 
     public function environmentName(): string
@@ -107,8 +176,19 @@ final class TrialUnlock implements OrderTrialInterface
      */
     public function request(bool $on): bool
     {
-        return $on
-            ? $this->options->set(self::OPTION, true)
-            : $this->options->delete(self::OPTION);
+        if (!$on) {
+            return $this->options->delete(self::OPTION);
+        }
+        // The host is recorded WITH the grant, in one write, because a grant
+        // and the site it was granted on are one fact. A second row would be
+        // a second thing to go missing.
+        $here = $this->environment->host();
+        if ($here === null) {
+            // Nothing to bind the grant to, so no grant. Refusing here rather
+            // than storing an unbound one keeps `isForThisSite()` the only
+            // place that decides, and keeps the stored shape honest.
+            return false;
+        }
+        return $this->options->set(self::OPTION, [self::GRANTED => true, self::HOST => $here]);
     }
 }

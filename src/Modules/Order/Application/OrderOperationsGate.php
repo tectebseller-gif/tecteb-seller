@@ -42,6 +42,15 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
  *
  * Nothing else moved. DEC-02 and DEC-04 are still the owner's and still close
  * this gate, and the ledger probe still runs.
+ *
+ * **And one addition that is NOT waivable: Dokan running.** Every other
+ * answer here is a definition somebody has not written down, which is what
+ * makes the trial switch legitimate. Dokan running is a second system that
+ * attributes the same products — by `post_author`, which the ownership
+ * transfer deliberately leaves alone — so letting a trial through would
+ * record one sale twice. It is asked first and the switch cannot answer it;
+ * `DokanPresenceInterface` carries the measurement and the reason it does not
+ * ask about Dokan's tables.
  */
 final class OrderOperationsGate
 {
@@ -67,6 +76,17 @@ final class OrderOperationsGate
      */
     public const RATE_UNSET = 'rate_unset';
     public const LEDGER_UNWRITABLE = 'ledger_unwritable';
+    /**
+     * Dokan is running, so one sale would be recorded twice.
+     *
+     * ⛔ **This one is not waivable.** `READY_ON_TRIAL` exists because DEC-02
+     * and DEC-04 are missing DEFINITIONS and a test site may proceed without
+     * them. Dokan running is not a missing definition; it is a second system
+     * recording the same sale, and a trial switch is not a reason to let it.
+     * So this is asked FIRST and the trial cannot answer it — see
+     * `DokanPresenceInterface` for why both paths claim the same product.
+     */
+    public const DOKAN_RUNNING = 'dokan_running';
     public const DECISIONS_OPEN = 'decisions_open';
     public const TRIAL_REFUSED = 'trial_refused';
 
@@ -95,7 +115,20 @@ final class OrderOperationsGate
          */
         private readonly ResolveCommissionRate $rates,
         private readonly LedgerRepositoryInterface $ledger,
-        private readonly ?OrderTrialInterface $trial = null
+        private readonly ?OrderTrialInterface $trial = null,
+        /**
+         * Null means «nobody asked», which this class reads as «no Dokan» —
+         * the same posture as `$trial`, and for the same reason: a fourth
+         * REQUIRED parameter would stop the evidence probes of `alpha.38` and
+         * `alpha.39` loading, which is the `alpha.32` trap this repository has
+         * now paid for three times.
+         *
+         * The fail-closed half lives in two places instead. The probe itself
+         * treats «active but not loaded» as running, and
+         * `OrderGateAsksAboutDokanTest` pins that the container passes a real
+         * probe — because a guard nothing wires is not a guard (`alpha.80`).
+         */
+        private readonly ?DokanPresenceInterface $dokan = null
     ) {
     }
 
@@ -119,7 +152,23 @@ final class OrderOperationsGate
     /** @param array<string,string> $rateReferences @return array{ready:bool, reason:string, detail:string} */
     private function evaluate(array $rateReferences): array
     {
-        // The decisions come first and cost nothing: while they are open and
+        // ⛔ DOKAN FIRST, AND ABOVE THE TRIAL.
+        //
+        // Everything below can be waived by the trial switch, because
+        // everything below is a decision somebody has not made yet. This is
+        // not: it is a second system that would record the same sale, so
+        // waiving it would create exactly the double entry the switch exists
+        // to let us MEASURE. Asked before the ledger probe too, so a blocked
+        // site does not write even a probe transaction.
+        if ($this->dokan?->isRunning() === true) {
+            return [
+                'ready' => false,
+                'reason' => self::DOKAN_RUNNING,
+                'detail' => 'dokan is running (' . $this->dokan->signal()
+                    . '); it attributes the same products by post_author and would record the sale too',
+            ];
+        }
+        // The decisions come next and cost nothing: while they are open and
         // no trial is running, the module cannot operate whatever the rates
         // say — and this method is called on every product of every shop page.
         if (self::OPEN_DECISIONS !== [] && $this->trial?->isActive() !== true) {
@@ -170,6 +219,12 @@ final class OrderOperationsGate
      */
     public function blockers(array $rateReferences = []): array
     {
+        if ($this->dokan?->isRunning() === true) {
+            // Named on its own line rather than joined with the decisions:
+            // the remedy is «switch Dokan off», and it does not become
+            // unnecessary when DEC-02 and DEC-04 close.
+            return [self::DOKAN_RUNNING . ':' . $this->dokan->signal()];
+        }
         if (self::OPEN_DECISIONS !== [] && $this->trial?->isActive() !== true) {
             $refusal = $this->trial?->refusal() ?? '';
             return [

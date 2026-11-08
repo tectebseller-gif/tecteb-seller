@@ -27,11 +27,24 @@ use Tecteb\Marketplace\Tests\Support\InMemoryOptionStore;
  */
 final class TrialUnlockRequestTest extends TestCase
 {
-    private function unlock(InMemoryOptionStore $options, string $platform): TrialUnlock
+    private const HERE = 'staging.tecteb.com';
+
+    /**
+     * ⛔ The host is supplied now, and it was not before — the fixture, not
+     * the rule, is what changed.
+     *
+     * Three tests in this file failed the moment a grant started carrying the
+     * site it was granted on, because they built a site with no host at all.
+     * A real WordPress always has one (`home_url()`), so the old fixture was
+     * describing a site that cannot exist; passing one restores exactly the
+     * behaviour they were written to pin. The NEW rule gets its own tests
+     * below rather than being folded into theirs.
+     */
+    private function unlock(InMemoryOptionStore $options, string $platform, string $host = self::HERE): TrialUnlock
     {
         return new TrialUnlock(
             $options,
-            new EnvironmentResolver(new FakeEnvironmentProbe(null, null, $platform))
+            new EnvironmentResolver(new FakeEnvironmentProbe(null, null, $platform, $host))
         );
     }
 
@@ -83,11 +96,119 @@ final class TrialUnlockRequestTest extends TestCase
         $options = new InMemoryOptionStore();
         $trial = new TrialUnlock(
             $options,
-            new EnvironmentResolver(new FakeEnvironmentProbe(null, null, null))
+            new EnvironmentResolver(new FakeEnvironmentProbe(null, null, null, self::HERE))
         );
         $trial->request(true);
 
         self::assertFalse($trial->isActive());
         self::assertSame('environment_unknown', $trial->refusal());
+    }
+
+    /**
+     * ⛔ THE GUARD ADDED THIS ROUND: a grant does not travel with a database.
+     *
+     * `PRODUCTION-CUTOVER-FA.md` is a plan to clone a tested staging site onto
+     * production, and both of the older conditions survive that clone — the
+     * option is a row in `wp_options` and the constant is a line in
+     * `wp-config.php`. So a staging site with the trial on, copied onto
+     * production and still declaring itself staging, would have sold on
+     * sample rules. The host is the one thing the copy cannot bring.
+     */
+    public function testAGrantMadeOnAnotherSiteIsRefusedHere(): void
+    {
+        $options = new InMemoryOptionStore();
+        $this->unlock($options, 'staging', 'staging.tecteb.com')->request(true);
+
+        // The same database, now being read on a different site that still
+        // calls itself staging.
+        $elsewhere = $this->unlock($options, 'staging', 'tecteb.com');
+
+        self::assertTrue($elsewhere->isRequested(), 'the ask is still in the database');
+        self::assertTrue($elsewhere->isPermitted(), 'and this site still says it may honour it');
+        self::assertFalse($elsewhere->isForThisSite());
+        self::assertFalse($elsewhere->isActive(), 'and it is still refused');
+        self::assertSame('host_changed', $elsewhere->refusal());
+    }
+
+    /**
+     * A grant written by `alpha.97` or earlier carries no host, and is
+     * refused rather than trusted — fail-closed, at the cost of one press.
+     */
+    public function testAGrantWithNoHostRecordedIsRefused(): void
+    {
+        $options = new InMemoryOptionStore();
+        // Exactly what the older code wrote.
+        $options->set(TrialUnlock::OPTION, true);
+        $trial = $this->unlock($options, 'staging');
+
+        self::assertTrue($trial->isRequested(), 'somebody did ask');
+        self::assertFalse($trial->isActive());
+        self::assertSame('host_unrecorded', $trial->refusal());
+
+        // And one press fixes it, on the site where it is being pressed.
+        self::assertTrue($trial->request(true));
+        self::assertTrue($trial->isActive());
+        self::assertSame('', $trial->refusal());
+    }
+
+    /**
+     * A site whose own host cannot be read grants nothing. «I do not know
+     * which site this is» is not a reason to record money on sample rules.
+     */
+    public function testASiteWithNoReadableHostGrantsNothing(): void
+    {
+        $options = new InMemoryOptionStore();
+        $trial = new TrialUnlock(
+            $options,
+            new EnvironmentResolver(new FakeEnvironmentProbe(null, null, 'staging', null))
+        );
+
+        self::assertFalse($trial->request(true), 'nothing to bind the grant to');
+        self::assertFalse($trial->isRequested(), 'and nothing was stored');
+        self::assertFalse($trial->isActive());
+    }
+
+    /**
+     * ⛔ A STORED GRANT WHOSE HOST IS EMPTY — and why this test exists.
+     *
+     * The empty-host check inside `isForThisSite()` survived a mutation that
+     * made it trust such a grant, and that was not a defect: it is a DOUBLE
+     * GUARD whose other half is `!is_array($stored)`, and the fixtures only
+     * ever reached the first half. `request()` never writes an array with an
+     * empty host, so nothing in the plugin produces this row.
+     *
+     * But a person can: an option row is editable, by hand or by a migration
+     * somebody writes later. So the row is built here directly, which is the
+     * only way to make the guard reachable — and the only way to measure it
+     * (`alpha.91`).
+     */
+    public function testAStoredGrantWhoseHostIsEmptyIsRefused(): void
+    {
+        $options = new InMemoryOptionStore();
+        $options->set(TrialUnlock::OPTION, ['granted' => true, 'host' => '']);
+        $trial = $this->unlock($options, 'staging');
+
+        self::assertTrue($trial->isRequested(), 'the row says granted');
+        self::assertFalse($trial->isForThisSite(), 'but it names no site');
+        self::assertFalse($trial->isActive());
+        self::assertSame('host_unrecorded', $trial->refusal());
+    }
+
+    /** And a grant whose host is only whitespace is the same thing. */
+    public function testAStoredGrantWhoseHostIsBlankIsRefused(): void
+    {
+        $options = new InMemoryOptionStore();
+        $options->set(TrialUnlock::OPTION, ['granted' => true, 'host' => '   ']);
+
+        self::assertFalse($this->unlock($options, 'staging')->isActive());
+    }
+
+    /** The host is compared case-insensitively: a host is not case-sensitive. */
+    public function testTheHostComparisonIgnoresCase(): void
+    {
+        $options = new InMemoryOptionStore();
+        $this->unlock($options, 'staging', 'Staging.Tecteb.COM')->request(true);
+
+        self::assertTrue($this->unlock($options, 'staging', 'staging.tecteb.com')->isActive());
     }
 }

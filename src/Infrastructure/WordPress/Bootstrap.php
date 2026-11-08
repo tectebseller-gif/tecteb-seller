@@ -48,8 +48,10 @@ use Tecteb\Marketplace\Modules\Finance\FinanceModule;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Application\DokanPresenceInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress\WpDokanPresence;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
@@ -450,10 +452,17 @@ final class Bootstrap
             function_exists('wc_get_order')
                 ? new WcBuyerVerifier($c->get(OrderItemRepositoryInterface::class))
                 : new NullBuyerVerifier());
+        $c->bind(DokanPresenceInterface::class, static fn () => new WpDokanPresence());
         $c->bind(OrderOperationsGate::class, static fn (ContainerInterface $c) => new OrderOperationsGate(
             $c->get(ResolveCommissionRate::class),
             $c->get(LedgerRepositoryInterface::class),
-            $c->get(TrialUnlock::class)
+            $c->get(TrialUnlock::class),
+            // ⛔ The guard no trial switch can waive. Passed HERE and nowhere
+            // else, which is why `OrderGateAsksAboutDokanTest` reads these
+            // bytes: the gate's own parameter is optional so the older
+            // evidence probes keep loading, so this wiring is the only thing
+            // that makes the guard real on a site.
+            $c->get(DokanPresenceInterface::class)
         ));
     }
 

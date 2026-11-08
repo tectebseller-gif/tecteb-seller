@@ -59,6 +59,30 @@ find "${PAYLOAD}" -depth \( -name '.*' -o -name '*.docx' -o -name '*.zip' -o -na
 for dev in vendor node_modules tests tools; do
   [ -e "${PAYLOAD}/${dev}" ] && { echo "removing ${dev}/"; rm -rf "${PAYLOAD:?}/${dev}"; }
 done
+# --- the two READ-ONLY audit tools, and only those two ---------------------
+#
+# ⛔ They are copied AFTER the removal loop above, into a differently named
+# directory, because `tools/` is removed by name and would take these with it.
+#
+# Why they ship at all: `FINAL-AUDIT-FA.md` asks two questions this plugin
+# cannot answer from its own source — «does shop 40 really hold no products»
+# and «what does account 2 own» — and the answers are rows on the owner's own
+# site. Until this round the tools lived only in the source archive, so using
+# them meant uploading a PHP file to a production server by hand, which is a
+# worse operation than the one it enables.
+#
+# Safe to ship, for three reasons that are each tested rather than asserted:
+# every file here `return`s unless `ABSPATH` is defined, so a direct web hit
+# executes nothing (the same guard every WordPress plugin file uses); neither
+# file contains a single writing verb, which `ReadOnlyInventoryTest` and
+# `ShopDependencyCensusIsReadOnlyTest` check by reading the bytes; and nothing
+# in the plugin ever loads them — they run only when a person names them.
+mkdir -p "${PAYLOAD}/admin-tools"
+for ro in shop-dependency-census.php plugin-exit-inventory.php; do
+  cp "tools/${ro}" "${PAYLOAD}/admin-tools/${ro}"
+done
+cp dist/ADMIN-TOOLS.txt "${PAYLOAD}/admin-tools/README.txt" 2>/dev/null || true
+
 # A Composer install nested deeper would still be wrong; refuse rather than
 # guess, so the next surprise stops the build instead of shipping.
 NESTED="$(find "${PAYLOAD}" -type f -name autoload.php -path '*/vendor/*' | head -1)"
