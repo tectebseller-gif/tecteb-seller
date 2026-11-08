@@ -5,7 +5,7 @@
 | **بسته** | `dist/tecteb-marketplace-core-0.1.0-alpha.99.zip` |
 | **نسخه** | `0.1.0-alpha.99` |
 | **SHA-256** | `ab5108ca63809dac02f513b23427c5a2ffe3b784e433749d2dcf743fc0b4a5e3` |
-| **commit** | `__COMMIT__` |
+| **commit** | `b53ae226ffa58272d9cd0fe18da1f4dd3746b365` |
 | **شاخه** | `claude/new-session-z1vafy` |
 | **تعداد فایل داخل ZIP** | **۶۵۵** فایل، ۲٬۲۲۵٬۷۷۶ بایت · `php -l` روی **۶۴۰** فایل PHP |
 | **ساختار داده** | **۳۸ → ۳۹** — **این دور migration دارد** (`M0039WcOrderStatusOnRows`): یک ستون nullable و دو ایندکس، **افزودنی و بدون backfill** |
