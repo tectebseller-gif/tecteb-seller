@@ -1,0 +1,355 @@
+{
+ "url": "http://127.0.0.1:8099/",
+ "mode": "mobile",
+ "reduce": true,
+ "runs": [
+  {
+   "lcp": [
+    {
+     "t": 2448,
+     "render": 2448,
+     "load": 0,
+     "size": 1716,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 2768,
+     "render": 2768,
+     "load": 0,
+     "size": 33820,
+     "el": "p.th-hero__lead.th-in",
+     "url": ""
+    },
+    {
+     "t": 3068,
+     "render": 3068,
+     "load": 2997,
+     "size": 54964,
+     "el": "img.skip-lazy",
+     "url": "hero-3d-dark-720.webp"
+    }
+   ],
+   "cls": [
+    {
+     "t": 3130,
+     "v": 0.0033,
+     "input": false,
+     "src": [
+      {
+       "el": "#text",
+       "from": [
+        272,
+        94
+       ],
+       "to": [
+        269,
+        94
+       ]
+      },
+      {
+       "el": "#text",
+       "from": [
+        118,
+        89
+       ],
+       "to": [
+        112,
+        89
+       ]
+      },
+      {
+       "el": "#text",
+       "from": [
+        202,
+        47
+       ],
+       "to": [
+        196,
+        47
+       ]
+      },
+      {
+       "el": null,
+       "from": [
+        412,
+        25
+       ],
+       "to": [
+        411,
+        26
+       ]
+      },
+      {
+       "el": "li",
+       "from": [
+        574,
+        36
+       ],
+       "to": [
+        574,
+        36
+       ]
+      }
+     ]
+    }
+   ],
+   "fcp": 2448,
+   "dataJs": 2353,
+   "ttfb": 9,
+   "dcl": 3639,
+   "load": 3646,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/client/blocks/wc-blocks.css?ver=wc-11.0.1",
+     "kb": 2.8,
+     "end": 1227
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1274
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1243
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1330
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1267
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1290
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1808
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.5",
+     "kb": 5.5,
+     "end": 1847
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-homepage/assets/css/tecteb-home.css?ver=0.3.6",
+     "kb": 8.3,
+     "end": 1974
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 2005
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2252
+    }
+   ],
+   "header": 67,
+   "cls_total": 0.0033,
+   "requests": 31,
+   "kb": 300.9
+  },
+  {
+   "lcp": [
+    {
+     "t": 2524,
+     "render": 2524,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 2648,
+     "render": 2648,
+     "load": 0,
+     "size": 33934,
+     "el": "p.th-hero__lead.th-in",
+     "url": ""
+    },
+    {
+     "t": 2984,
+     "render": 2984,
+     "load": 2900,
+     "size": 54964,
+     "el": "img.skip-lazy",
+     "url": "hero-3d-dark-720.webp"
+    }
+   ],
+   "cls": [],
+   "fcp": 2524,
+   "dataJs": 2460,
+   "ttfb": 6,
+   "dcl": 3704,
+   "load": 4469,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/client/blocks/wc-blocks.css?ver=wc-11.0.1",
+     "kb": 2.8,
+     "end": 1251
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1305
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1282
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1401
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1298
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1847
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1886
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.5",
+     "kb": 5.5,
+     "end": 1958
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-homepage/assets/css/tecteb-home.css?ver=0.3.6",
+     "kb": 8.3,
+     "end": 2013
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2204
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 2442
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 31,
+   "kb": 300.9
+  },
+  {
+   "lcp": [
+    {
+     "t": 2516,
+     "render": 2516,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 2612,
+     "render": 2612,
+     "load": 0,
+     "size": 33934,
+     "el": "p.th-hero__lead.th-in",
+     "url": ""
+    },
+    {
+     "t": 2920,
+     "render": 2920,
+     "load": 2861,
+     "size": 54964,
+     "el": "img.skip-lazy",
+     "url": "hero-3d-dark-720.webp"
+    }
+   ],
+   "cls": [],
+   "fcp": 2516,
+   "dataJs": 2429,
+   "ttfb": 4,
+   "dcl": 3672,
+   "load": 3750,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/client/blocks/wc-blocks.css?ver=wc-11.0.1",
+     "kb": 2.8,
+     "end": 1231
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1286
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1263
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1294
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1382
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1819
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1850
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.5",
+     "kb": 5.5,
+     "end": 1937
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-homepage/assets/css/tecteb-home.css?ver=0.3.6",
+     "kb": 8.3,
+     "end": 1993
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2192
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 2414
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 31,
+   "kb": 300.9
+  }
+ ]
+}
