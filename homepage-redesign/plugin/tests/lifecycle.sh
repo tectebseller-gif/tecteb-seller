@@ -74,6 +74,9 @@ q plugin uninstall tecteb-homepage >/dev/null                                   
 
 # --- بازنشانی برای توسعه
 q option update show_on_front posts >/dev/null
-q plugin install "$ZIP" --activate >/dev/null
+# پیوند نمادین به سورس، مثل tests/lifecycle.sh ِ هدر — نه نصب از ZIP: اجرای بعدیِ tools/falsify.py سورس را جهش می‌دهد،
+# و نسخهٔ نصب‌شده از ZIP آن جهش را نمی‌بیند (همهٔ جهش‌ها «زنده» گزارش می‌شدند؛ یک بار در 0.3.5 و یک بار در 0.3.6).
+ln -sfn "$HERE/tecteb-homepage" "$PLUG"
+q plugin activate tecteb-homepage >/dev/null
 echo; echo "$PASS passed, $FAIL failed"
 exit $(( FAIL > 0 ))
