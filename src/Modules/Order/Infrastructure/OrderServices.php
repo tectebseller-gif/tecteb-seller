@@ -8,12 +8,14 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Application\SyncOrderLifecycle;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress\WcOrderReader;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -47,6 +49,21 @@ final class OrderServices
             // failed read cannot look like an empty ledger.
             $c->get(VendorMoneyUnitRegistryInterface::class),
             // The unit of work the claim and the accrual share.
+            $c->get(DatabaseInterface::class)
+        ));
+        // The one place a WooCommerce order status becomes a decision about
+        // the marketplace's own record of it. Bound in this module rather than
+        // in Bootstrap because it WRITES — a reversing document and a line's
+        // status — and a module the gate has shut must not be able to do
+        // either. Reading what was already recorded stays in Bootstrap, which
+        // is why the finance screens keep working while this is blocked.
+        $c->bind(SyncOrderLifecycle::class, static fn (ContainerInterface $c) => new SyncOrderLifecycle(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(AuditLogger::class),
+            // The unit of work the reversal and the status change share.
+            // Without it the sync refuses by name: either half alone is worse
+            // than neither.
             $c->get(DatabaseInterface::class)
         ));
         $c->bind(ManageOrderItems::class, static fn (ContainerInterface $c) => new ManageOrderItems(

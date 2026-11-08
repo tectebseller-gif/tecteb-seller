@@ -6,8 +6,10 @@ namespace Tecteb\Marketplace\Modules\Operations\Presentation\Admin;
 use Tecteb\Marketplace\Contracts\AuditRecord;
 use Tecteb\Marketplace\Contracts\AuditRepositoryInterface;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Core\Support\SiteTime;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Operations\Presentation\OperationsMessages;
@@ -115,7 +117,11 @@ final class AuditPage
             : $record->objectType . ':' . (string) $record->objectId;
 
         return '<tr><td data-label="' . esc_attr__('زمان', 'tecteb-marketplace-core') . '">'
-            . esc_html($fa($record->createdAtUtc->format('Y-m-d H:i'))) . '</td>'
+            // RENDERED IN THE SITE'S OWN ZONE, not as stored. The column is
+            // UTC and printing it raw read about three and a half hours early
+            // on the owner's site — and on the wrong DAY for anything in the
+            // first three and a half hours of one.
+            . esc_html($fa($this->time()->render($record->createdAtUtc))) . '</td>'
             . '<td data-label="' . esc_attr__('رویداد', 'tecteb-marketplace-core') . '">'
             . esc_html(OperationsMessages::auditEvent($record->eventType)) . '</td>'
             . '<td data-label="' . esc_attr__('کاربر', 'tecteb-marketplace-core') . '">'
@@ -204,7 +210,23 @@ final class AuditPage
     private function filters(Request $request): array
     {
         return [
-            'event' => $request->queryKey('event'),
+            // ⛔ NOT `queryKey()`, and the reason is a measured one.
+            //
+            // `sanitize_key()` strips the dot, so `order.captured` arrived as
+            // `ordercaptured` and matched no row ever recorded — the owner
+            // selected the event on staging and got an empty table while the
+            // same event was plainly there under «همه». Every event type in
+            // this plugin has a dot in it, so the filter had never worked for
+            // any of them.
+            //
+            // The value is read as text, which keeps the dot, and then
+            // CHECKED AGAINST THE ALLOWLIST rather than trusted: an event
+            // type that is not one of this plugin's own is dropped to «all»,
+            // so nothing arbitrary reaches the query. `queryKey()` is
+            // untouched — it is right for the slugs and ids its other
+            // nineteen callers pass it, and widening it to allow dots would
+            // weaken all of them to fix one.
+            'event' => self::eventFilter($request),
             'actor' => $request->queryInt('actor'),
             'object_type' => $request->queryKey('object_type'),
             'object_id' => $request->queryText('object_id'),
@@ -212,6 +234,22 @@ final class AuditPage
             'to' => $request->queryText('to'),
             'search' => $request->queryText('search'),
         ];
+    }
+
+    /**
+     * The chosen event type, or `''` for «all».
+     *
+     * The allowlist is `AuditEventCatalog::allowlist()`'s own keys — the list
+     * the sanitiser already uses to decide which events may be WRITTEN — so
+     * the reader and the writer cannot drift apart. Deliberately not the
+     * distinct values present in the table: that list is what the `<select>`
+     * is built from and is a fact about today's data, while this is a question
+     * about what is a valid event type at all.
+     */
+    private static function eventFilter(Request $request): string
+    {
+        $raw = trim($request->queryText('event'));
+        return isset(AuditEventCatalog::allowlist()[$raw]) ? $raw : '';
     }
 
     /**
@@ -248,6 +286,22 @@ final class AuditPage
     {
         $user = get_userdata($userId);
         return $user === false ? '#' . $userId : (string) $user->display_name;
+    }
+
+    /**
+     * The site's zone — the same object the date filters are converted with,
+     * so the day a row is PRINTED on and the day it is FOUND on are one
+     * decision.
+     */
+    private function time(): SiteTime
+    {
+        try {
+            return $this->container->has(SiteTime::class)
+                ? $this->container->get(SiteTime::class)
+                : SiteTime::utc();
+        } catch (\Throwable) {
+            return SiteTime::utc();
+        }
     }
 
     private function audit(): AuditRepositoryInterface

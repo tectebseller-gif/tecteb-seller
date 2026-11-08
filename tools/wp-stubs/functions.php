@@ -908,6 +908,33 @@ function wp_date(string $format, ?int $timestamp = null, mixed $timezone = null)
     return gmdate($format, $timestamp ?? time());
 }
 
+/**
+ * The site's configured zone, as `wp-includes/functions.php` builds it.
+ *
+ * Ported rather than simplified, because the whole point of reading the
+ * setting is that a site may have it either way: `timezone_string` when an
+ * admin picked a city, and a `gmt_offset` in hours when they picked a raw
+ * offset — which is the shape every pre-5.3 site still carries, and the one
+ * a UTC+3:30 site cannot express as a whole number.
+ */
+function wp_timezone_string(): string
+{
+    $timezone = (string) get_option('timezone_string', '');
+    if ($timezone !== '') {
+        return $timezone;
+    }
+    $offset = (float) get_option('gmt_offset', 0);
+    $hours = (int) $offset;
+    $minutes = abs(($offset - $hours) * 60);
+    $sign = $offset < 0 ? '-' : '+';
+    return sprintf('%s%02d:%02d', $sign, abs($hours), $minutes);
+}
+
+function wp_timezone(): \DateTimeZone
+{
+    return new \DateTimeZone(wp_timezone_string());
+}
+
 function status_header(int $code): void
 {
     TmcWpStubs\State::$statusHeader = $code;

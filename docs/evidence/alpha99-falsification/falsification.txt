@@ -1,0 +1,373 @@
+alpha.99 falsification — 33 mutations
+database filter inside the loop: OrderFlowTest|ShipmentAndReturnFlowTest|OrderLedgerReportTest|AuditTrailReadabilityTest|AdminPagesRenderTest|SettlementFlowTest
+the closing baseline runs the database suite UNFILTERED
+tree: 9c7aef3 (plus the uncommitted round)
+
+=== 1/33 a cancelled order no longer cancels the line (the staging defect, back)
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: database
+applied: a cancelled order no longer cancels the line (the staging defect, back)
+sha256 after: cc30ca82bbc08776eca6fb884ce301b3e123a8c5eb557274d3abc7110253045c
+    database: 5
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/33 the accrual is cancelled but never reversed
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: architecture,database
+applied: the accrual is cancelled but never reversed
+sha256 after: e0c36e93c5767146e219163ffa0b984f0b050afef223fee607df37e09598ff74
+    architecture: 0
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/33 a failed status write leaves the reversing document standing
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: architecture
+applied: a failed status write leaves the reversing document standing
+sha256 after: 5652bf09166b1682cbfe66a1316bf1b102ed4bc5fdf5106f63e8c62049ffa54c
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/33 the reversal is written under the accrual's own key, so it never lands
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: architecture,database
+applied: the reversal is written under the accrual's own key, so it never lands
+sha256 after: 03a49ec7d1ecb5510e5ef8b2de85febaf80df8202604911f7e013f87867603fd
+    architecture: 1
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/33 a shipped line is cancelled behind the shop's back
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: database
+applied: a shipped line is cancelled behind the shop's back
+sha256 after: 2d82a625d24499047087e32aa4ecf9dbf5bedeb25d8150aff97b2a9b571eb447
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/33 an order leaving `cancelled` is silently re-opened
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: database
+applied: an order leaving `cancelled` is silently re-opened
+sha256 after: 0538ca5017bfe56cfd58056edd93f67d2ff97fdc0b5e8a9ec0d424bb0e71865b
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/33 a refunded order is treated as a cancellation
+    file:   src/Modules/Order/Domain/WcOrderLifecycle.php
+    expect: unit,database
+applied: a refunded order is treated as a cancellation
+sha256 after: 659002d2250879f89ab07d381238512e47991b6b42ef5f2e3abec21fa86df21f
+    unit: 2
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/33 a status this release does not know is read as paid
+    file:   src/Modules/Order/Domain/WcOrderDisposition.php
+    expect: unit,database
+applied: a status this release does not know is read as paid
+sha256 after: 0f94a281d579140634da8a378e7b4275ce6fa221e33bf406df7bf5bc96a76402
+    unit: 0
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/33 the prefixed post status stops being the same status
+    file:   src/Modules/Order/Domain/WcOrderLifecycle.php
+    expect: unit
+applied: the prefixed post status stops being the same status
+sha256 after: a29ec72c08dfd713b5bef7e042ba7c1267a1659175d9dfdb5cbc10ef5307d1ef
+    unit: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/33 a trashed order keeps its obligation
+    file:   src/Modules/Order/Domain/WcOrderLifecycle.php
+    expect: unit,database
+applied: a trashed order keeps its obligation
+sha256 after: 976a606ccd1d1cf7f1586319abc8a492611fc162c1d640e115f8ae42beaa705c
+    unit: 2
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/33 nothing listens to the order's status at all
+    file:   src/Modules/Order/Infrastructure/WordPress/OrderHooks.php
+    expect: contract
+applied: nothing listens to the order's status at all
+sha256 after: 3e5c8ac81fd6165ba9ff0365ee35b41014471ee1387d43e7f3e5adf8bc574c03
+    contract: 4
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/33 a cancelled line can have a return opened on it, reversing twice
+    file:   src/Modules/Order/Application/ManageReturns.php
+    expect: database
+applied: a cancelled line can have a return opened on it, reversing twice
+sha256 after: a126e06cd97e737d03de6378c563778ae5676c62e4644382d1085f7d8c3644d2
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/33 the event filter goes back through `sanitize_key()` and loses the dot
+    file:   src/Modules/Operations/Presentation/Admin/AuditPage.php
+    expect: database
+applied: the event filter goes back through `sanitize_key()` and loses the dot
+sha256 after: 3b3ebe3d86eca79b3680682880d093239041990e8b9fa6d3458ddc8f371037d0
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/33 any string reaches the event filter, allowlist or not
+    file:   src/Modules/Operations/Presentation/Admin/AuditPage.php
+    expect: database
+applied: any string reaches the event filter, allowlist or not
+sha256 after: 979197ba1fb7dd073d55e30fea997f73276ccab3a7b4ed0c08fbce8c750ed548
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15/33 the audit timestamp is printed as stored, in UTC
+    file:   src/Modules/Operations/Presentation/Admin/AuditPage.php
+    expect: database
+applied: the audit timestamp is printed as stored, in UTC
+sha256 after: c58c275babb4d3796c25d387bf0a3a60dce22823f7660472a5daaebe61ca52a7
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 16/33 the audit date filter treats a local date as a UTC midnight
+    file:   src/Infrastructure/WordPress/WpAuditRepository.php
+    expect: database
+applied: the audit date filter treats a local date as a UTC midnight
+sha256 after: e08a48f9e4fe03898c147c43600b482366e458242bec04c52d46fa17bc939320
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 17/33 a date nobody can place becomes a window anyway
+    file:   src/Core/Support/SiteTime.php
+    expect: unit,database
+applied: a date nobody can place becomes a window anyway
+sha256 after: 1b208bd52908178217197aac008fc20c2f1f80abff8537238948e3d98f0927aa
+    unit: 0
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 18/33 a date that is not on the calendar is rolled over instead of refused
+    file:   src/Core/Support/SiteTime.php
+    expect: unit
+applied: a date that is not on the calendar is rolled over instead of refused
+sha256 after: b9aeff135ccde654bf2d628d0e3df9108256249d960aa64270448d1e8647a7cb
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 19/33 the capture's refusal reasons are dropped from the audit row again
+    file:   src/Core/Audit/AuditEventCatalog.php
+    expect: database
+applied: the capture's refusal reasons are dropped from the audit row again
+sha256 after: 443e2d70545aee20e5e20855217c3d8b10c1bb4bc0e3405c28db59e469f9d105
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 20/33 a vendor's scope is validated instead of overwritten, so a filter widens it
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: a vendor's scope is validated instead of overwritten, so a filter widens it
+sha256 after: d93d1c87c4e45a7fdc0deb6cda7e36f73aa3f11ae51618822f2ffb86e28ed8df
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 21/33 the marketplace-wide report stops asking for the finance capability
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: the marketplace-wide report stops asking for the finance capability
+sha256 after: 473f2adcdc2c5faf1989d67e49d3ed7bcb242c1c7d3aadd3bfbe3b8a40d9999e
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 22/33 a cancelled line counts towards the valid total again
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: unit
+applied: a cancelled line counts towards the valid total again
+sha256 after: e1ffb53136c49c84c62138fd11f97a9f18d13b98d8725fa9437b68e0f3e18153
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 23/33 two currencies are added together
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: unit
+applied: two currencies are added together
+sha256 after: 076fc9d0d8390a37474845e5a7a87554de0b428faf957c42a54c2679bbacf985
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 24/33 the reversal lookup is asked once per row
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: the reversal lookup is asked once per row
+sha256 after: 397375eff28947177a1dd6a216ecc4ac9f6253e2fe2b27b9d5061a88dd1500a7
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 25/33 the report's page count is derived from the page's own length
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: database
+applied: the report's page count is derived from the page's own length
+sha256 after: febe4bd56ae46d3b242b7596ddec55a645db7e3d201ff0dd6fc172f267618882
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 26/33 the sort comes from the request
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: architecture
+applied: the sort comes from the request
+sha256 after: d63e36ea8b05f0611b4ad1e2189e4f72e9a1cb12c83565458d8377e029eb09a8
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 27/33 a search term's wildcards are not escaped
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: database
+applied: a search term's wildcards are not escaped
+sha256 after: e3dbe531efc68941d4a21b53952b095c39c8b77cb15a7f137331800a4e577630
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 28/33 the count and the page build two different WHERE clauses
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: architecture
+applied: the count and the page build two different WHERE clauses
+sha256 after: abc11855acb8d7b98c74520eef99b00f266aeb404facc7c01f155eb0cb9f41b0
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 29/33 an id of nought becomes a filter that matches nothing
+    file:   src/Modules/Order/Domain/OrderLedgerFilter.php
+    expect: unit
+applied: an id of nought becomes a filter that matches nothing
+sha256 after: fdd0b622e3ef0bbba2465026e71e4fc18b2dd83261c70be10b1dcccb7ec487bd
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 30/33 a page size from the request reaches the LIMIT
+    file:   src/Modules/Order/Domain/OrderLedgerFilter.php
+    expect: unit
+applied: a page size from the request reaches the LIMIT
+sha256 after: edf97445c9d579c26ae1499dcf7240fa372863bceedcd6ff9908276cc4496684
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 31/33 the status mirror column stops being nullable, so «unknown» is unsayable
+    file:   src/Modules/Order/Infrastructure/Migrations/M0039WcOrderStatusOnRows.php
+    expect: architecture,database
+applied: the status mirror column stops being nullable, so «unknown» is unsayable
+sha256 after: 810630b9f1bd6d0a3eabb2993842d00ec328440ed4dea1e66ffb889b44e75dee
+    architecture: 1
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 32/33 the migration stops adding the indexes the report filters on
+    file:   src/Modules/Order/Infrastructure/Migrations/M0039WcOrderStatusOnRows.php
+    expect: database
+applied: the migration stops adding the indexes the report filters on
+sha256 after: 876f493cc4c54babaccd7f363a0558cde98c3c27df095fc3c615663345e6e129
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 33/33 a failed catalogue read is treated as «the column is absent»
+    file:   src/Modules/Order/Infrastructure/Migrations/M0039WcOrderStatusOnRows.php
+    expect: database
+applied: a failed catalogue read is treated as «the column is absent»
+sha256 after: e4343fb708233035f3440e8320a9d95634efbe09ccd01c000f240f9b3b7d6424
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 0
+
+problems: 5
+
+=== SECOND RUN — the five that survived, after their gaps were closed
+    (same harness, quiet tree, byte-for-byte restore; the first run's
+     answers above are left exactly as they were)
+
+=== 17 (second run) a date nobody can place becomes a window anyway
+    file:   src/Core/Support/SiteTime.php
+    expect: architecture
+applied: a date nobody can place becomes a window anyway
+sha256 after: 488bc757d2106cf3531a9c21a049d00eb9915f0bc0e8a444bc8791526f641623
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 19 (second run) the capture's refusal reasons are dropped from the audit row again
+    file:   src/Core/Audit/AuditEventCatalog.php
+    expect: unit
+applied: the capture's refusal reasons are dropped from the audit row again
+sha256 after: 443e2d70545aee20e5e20855217c3d8b10c1bb4bc0e3405c28db59e469f9d105
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 21 (second run) the marketplace-wide report stops asking for the finance capability
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: the marketplace-wide report stops asking for the finance capability
+sha256 after: 473f2adcdc2c5faf1989d67e49d3ed7bcb242c1c7d3aadd3bfbe3b8a40d9999e
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 25 (second run) the report's page count is derived from the page's own length
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: database
+applied: the report's page count is derived from the page's own length
+sha256 after: febe4bd56ae46d3b242b7596ddec55a645db7e3d201ff0dd6fc172f267618882
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 33 (second run) a failed catalogue read is treated as «the column is absent»
+    file:   src/Modules/Order/Infrastructure/Migrations/M0039WcOrderStatusOnRows.php
+    expect: database
+applied: a failed catalogue read is treated as «the column is absent»
+sha256 after: e4343fb708233035f3440e8320a9d95634efbe09ccd01c000f240f9b3b7d6424
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards (second run)
+    unit: 0
+    architecture: 0
+    contract: 0
+    database: 0
+
+problems (second run): 0

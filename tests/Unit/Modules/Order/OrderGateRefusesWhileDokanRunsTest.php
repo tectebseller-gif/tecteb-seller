@@ -84,6 +84,18 @@ final class OrderGateRefusesWhileDokanRunsTest extends TestCase
                 throw new \LogicException('the gate asked the ledger while Dokan was running');
             }
 
+            /** @param list<string> $eventKeys
+             *  @return list<string> */
+            public function eventsPresent(array $eventKeys): array
+            {
+                // The bulk form, modelled the same way as the single one so the
+                // double cannot answer the two questions differently.
+                return array_values(array_filter(
+                    array_map(static fn ($k): string => (string) $k, $eventKeys),
+                    fn (string $key): bool => $this->hasEvent($key)
+                ));
+            }
+
             public function record(LedgerTransaction $transaction): bool
             {
                 throw new \LogicException('the gate WROTE to the ledger while Dokan was running');
@@ -154,6 +166,18 @@ class FakeLedgerForGate implements LedgerRepositoryInterface
     public function hasEvent(string $eventKey): bool
     {
         return false;
+    }
+
+    /** @param list<string> $eventKeys
+     *  @return list<string> */
+    public function eventsPresent(array $eventKeys): array
+    {
+        // The bulk form, modelled the same way as the single one so the
+        // double cannot answer the two questions differently.
+        return array_values(array_filter(
+            array_map(static fn ($k): string => (string) $k, $eventKeys),
+            fn (string $key): bool => $this->hasEvent($key)
+        ));
     }
 
     /** @return array{currency:string, exponent:int, resolved:bool} */

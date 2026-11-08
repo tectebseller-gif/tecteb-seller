@@ -21,6 +21,25 @@ interface LedgerRepositoryInterface
     public function hasEvent(string $eventKey): bool;
 
     /**
+     * Which of these event keys the ledger already holds — in ONE query.
+     *
+     * The bulk form of `hasEvent()`, and it exists because the detailed report
+     * has to say, per line, whether a reversing document stands beside the
+     * accrual. Asked one row at a time that is a query per row, which is the
+     * shape `alpha.96` measured and removed from a different screen for being
+     * unusable at volume. The unique index on `(event_key, account)` makes an
+     * `IN` list an index scan.
+     *
+     * An unreadable answer is `[]`, which a caller must read as «I could not
+     * find out» rather than «none of them are there»: the report prints
+     * «نامعلوم» for a document it cannot confirm and never «no reversal».
+     *
+     * @param list<string> $eventKeys
+     * @return list<string> the subset present, in no particular order
+     */
+    public function eventsPresent(array $eventKeys): array;
+
+    /**
      * Every distinct unit of money this vendor's ledger already holds.
      *
      * Exists because `balances()` sums `amount_minor` grouped by ACCOUNT and

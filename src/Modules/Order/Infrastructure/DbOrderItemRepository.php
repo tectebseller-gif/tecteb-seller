@@ -5,10 +5,14 @@ namespace Tecteb\Marketplace\Modules\Order\Infrastructure;
 
 use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Core\Support\SiteTime;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables as Settlement;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\OrderLedgerFilter;
+use Tecteb\Marketplace\Modules\Order\Domain\WcOrderLifecycle;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0039WcOrderStatusOnRows as WcStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as T;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as U;
@@ -24,11 +28,44 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
 {
     /** @var array<string,string> per-instance answers: present, absent or unknown */
     private array $unitColumns = [];
+    /** `null` until asked once: see `hasWcOrderStatusColumn()`. */
+    private ?bool $wcStatusColumn = null;
 
     public function __construct(
         private readonly DatabaseInterface $db,
-        private readonly ClockInterface $clock
+        private readonly ClockInterface $clock,
+        /**
+         * The zone the report's date filters are read in.
+         *
+         * Optional, and the default is UTC — which is what a build with no
+         * setting to read should answer rather than inheriting a guess about
+         * where the server is. Bootstrap passes the site's own setting, so a
+         * manager filtering «from the 9th» gets the 9th as their calendar has
+         * it. Every other query in this class is unaffected: `created_at` is
+         * stored in UTC and stays that way.
+         */
+        private readonly ?SiteTime $time = null
     ) {
+    }
+
+    private function time(): SiteTime
+    {
+        return $this->time ?? SiteTime::utc();
+    }
+
+    /**
+     * A value made safe for a `LIKE`, exactly as `wpdb::esc_like()` does it.
+     *
+     * Done here rather than by widening `DatabaseInterface`, because adding a
+     * method to that interface breaks every double in the suite and every
+     * evidence probe a previous round left behind (`alpha.32`, measured: a new
+     * interface method stopped an older probe loading at all and reported
+     * sixty-one failures about a build that was fine). WordPress's own
+     * implementation is `addcslashes($text, '_%\\')` and this is that line.
+     */
+    private static function likeValue(string $value): string
+    {
+        return addcslashes($value, '_%\\');
     }
 
     public function record(VendorOrderItem $item): int
@@ -366,6 +403,256 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
             $this->figuresChanged((int) ($this->find($id)?->vendorUserId ?? 0));
         }
         return $written;
+    }
+
+    public function recordWcOrderStatus(int $wcOrderId, string $status): ?int
+    {
+        // The column arrived in migration 39, so a build whose structure has
+        // not caught up must not have its write reported as a success — and
+        // must not throw either, because this runs on a customer's checkout.
+        // `null` says «I could not», which is the one answer that is true in
+        // both cases.
+        if (!$this->hasWcOrderStatusColumn()) {
+            return null;
+        }
+        // Trimmed to the column's width rather than refused: a status longer
+        // than thirty-two characters is a plugin's own slug and the useful part
+        // is that it is not one of ours. `WcOrderLifecycle` reads an unknown
+        // slug as `Unknown` whether it was cut or not.
+        $written = $this->db->execute(
+            'UPDATE `' . $this->table() . '` SET `' . WcStatus::COLUMN . '` = %s WHERE wc_order_id = %d',
+            [substr(trim($status), 0, 32), $wcOrderId]
+        );
+        if ($written === null) {
+            return null;
+        }
+        // Deliberately NOT `updated_at` and deliberately NOT a report
+        // invalidation. This column is a filter and never a figure: bumping
+        // the row's timestamp would make a mirror refresh look like an edit to
+        // the line, and busting the report cache on it would throw a shop's
+        // cached totals away for something none of them are computed from.
+        return $written;
+    }
+
+    public function detailed(OrderLedgerFilter $filter): array
+    {
+        $carried = $this->unitColumnsOn($this->table()) === U::PRESENT;
+        $mirror = $this->hasWcOrderStatusColumn();
+        [$where, $params] = $this->detailedWhere($filter, $mirror);
+
+        // COUNTED FIRST AND SEPARATELY. A page shorter than its limit and a
+        // failed read are the same array, so the total cannot be derived from
+        // the rows — and a report whose total came back nought off a broken
+        // query would tell a manager the shop had sold nothing (`alpha.8`).
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->table() . '` ' . $where,
+            $params
+        );
+        $total = $counted === null ? null : (int) $counted;
+
+        $rows = $this->db->getResults(
+            'SELECT id, wc_order_id, wc_order_item_id, wc_product_id, variation_id, product_id,
+                    vendor_user_id, title, sku, quantity, unit_price_minor, base_minor, tax_minor,
+                    commission_minor, vendor_share_minor, rate_bp, rate_source, ledger_event,
+                    status, carrier, tracking_code, shipped_at, created_at,
+                    settlement_completed_at, withdrawal_id,
+                    ' . ($mirror ? '`' . WcStatus::COLUMN . '` AS wc_order_status,' : 'NULL AS wc_order_status,') . '
+                    ' . ($carried
+                        ? '`' . U::CURRENCY . '` AS tmc_currency, `' . U::EXPONENT . '` AS tmc_exponent'
+                        : 'NULL AS tmc_currency, NULL AS tmc_exponent') . '
+             FROM `' . $this->table() . '` ' . $where . ' ORDER BY ' . self::orderBy($filter->sort) . '
+             LIMIT %d OFFSET %d',
+            [...$params, $filter->perPage, $filter->offset()]
+        );
+
+        return [
+            'rows' => array_map(static function (array $row) use ($mirror): array {
+                return [
+                    'id' => (int) $row['id'],
+                    'wc_order_id' => (int) $row['wc_order_id'],
+                    'wc_order_item_id' => (int) $row['wc_order_item_id'],
+                    'wc_product_id' => (int) $row['wc_product_id'],
+                    'variation_id' => ($row['variation_id'] ?? null) === null ? null : (int) $row['variation_id'],
+                    'product_id' => (int) $row['product_id'],
+                    'vendor_user_id' => (int) $row['vendor_user_id'],
+                    'title' => (string) $row['title'],
+                    'sku' => (string) $row['sku'],
+                    'quantity' => (int) $row['quantity'],
+                    // Every money column stays `null` when the row holds
+                    // `null`: an unresolvable rate records NOTHING rather than
+                    // zero, and a report that cast it would print «۰ تومان
+                    // commission» where the truth is «nobody worked it out»
+                    // (FIN-02).
+                    'unit_price_minor' => ($row['unit_price_minor'] ?? null) === null ? null : (int) $row['unit_price_minor'],
+                    'base_minor' => (int) $row['base_minor'],
+                    'tax_minor' => (int) $row['tax_minor'],
+                    'commission_minor' => ($row['commission_minor'] ?? null) === null ? null : (int) $row['commission_minor'],
+                    'vendor_share_minor' => ($row['vendor_share_minor'] ?? null) === null ? null : (int) $row['vendor_share_minor'],
+                    'rate_bp' => ($row['rate_bp'] ?? null) === null ? null : (int) $row['rate_bp'],
+                    'rate_source' => (string) $row['rate_source'],
+                    'ledger_event' => (string) $row['ledger_event'],
+                    'status' => (string) $row['status'],
+                    'carrier' => (string) $row['carrier'],
+                    'tracking_code' => (string) $row['tracking_code'],
+                    'shipped_at' => ($row['shipped_at'] ?? null) === null ? null : (string) $row['shipped_at'],
+                    'created_at' => (string) $row['created_at'],
+                    'settlement_completed_at' => ($row['settlement_completed_at'] ?? null) === null
+                        ? null
+                        : (string) $row['settlement_completed_at'],
+                    'withdrawal_id' => ($row['withdrawal_id'] ?? null) === null ? null : (int) $row['withdrawal_id'],
+                    // ⛔ THREE ANSWERS, not two. Without the mirror column the
+                    // honest answer is «I cannot tell», and `false` here would
+                    // be read as «this order has no status» — which no order
+                    // has. The reader turns it into «نامعلوم».
+                    'wc_order_status' => !$mirror || ($row['wc_order_status'] ?? null) === null
+                        ? null
+                        : (string) $row['wc_order_status'],
+                    'wc_status_readable' => $mirror,
+                    'currency' => trim((string) ($row['tmc_currency'] ?? '')) === ''
+                        ? null
+                        : strtoupper(trim((string) $row['tmc_currency'])),
+                    'exponent' => ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'],
+                ];
+            }, $rows),
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * The `WHERE` both halves of `detailed()` use — one clause list, one
+     * parameter list.
+     *
+     * Built once and used by the count AND the page, because two spellings of
+     * one filter are two filters that agree until somebody edits one
+     * (`alpha.87`: a list and its own counter must ask the same question).
+     *
+     * @return array{0:string, 1:list<mixed>}
+     */
+    private function detailedWhere(OrderLedgerFilter $filter, bool $mirror): array
+    {
+        $clauses = [];
+        $params = [];
+        foreach ([
+            'vendor_user_id' => $filter->vendorUserId,
+            'wc_order_id' => $filter->wcOrderId,
+            'wc_product_id' => $filter->wcProductId,
+            'variation_id' => $filter->variationId,
+        ] as $column => $value) {
+            if ($value !== null) {
+                $clauses[] = '`' . $column . '` = %d';
+                $params[] = $value;
+            }
+        }
+        if ($filter->title !== '') {
+            $clauses[] = 'title LIKE %s';
+            $params[] = '%' . self::likeValue($filter->title) . '%';
+        }
+        if ($filter->sku !== '') {
+            $clauses[] = 'sku LIKE %s';
+            $params[] = '%' . self::likeValue($filter->sku) . '%';
+        }
+        if ($filter->shipping !== null) {
+            $clauses[] = 'status = %s';
+            $params[] = $filter->shipping->value;
+        }
+        if ($filter->minAmountMinor !== null) {
+            $clauses[] = 'base_minor >= %d';
+            $params[] = $filter->minAmountMinor;
+        }
+        if ($filter->maxAmountMinor !== null) {
+            $clauses[] = 'base_minor <= %d';
+            $params[] = $filter->maxAmountMinor;
+        }
+        $from = $this->time()->dayStartUtc($filter->fromLocalDate);
+        if ($from !== null) {
+            $clauses[] = 'created_at >= %s';
+            $params[] = $from;
+        }
+        $to = $this->time()->dayEndUtc($filter->toLocalDate);
+        if ($to !== null) {
+            $clauses[] = 'created_at <= %s';
+            $params[] = $to;
+        }
+        // THE COMMISSION SHAPE, derived from the two columns that hold it.
+        // `RecordCommission` writes `rate_bp` at the percentage's basis points
+        // and `0` for a fixed rule, so «percent» and «fixed» are a reading
+        // rather than a fifth column — and «unrecorded» is the FIN-02 state
+        // where nothing was worked out at all.
+        $clauses = array_merge($clauses, match ($filter->commissionKind) {
+            'percent' => ['commission_minor IS NOT NULL AND rate_bp > 0'],
+            'fixed' => ['commission_minor IS NOT NULL AND COALESCE(rate_bp, 0) = 0 AND commission_minor > 0'],
+            'none' => ['commission_minor = 0'],
+            'unrecorded' => ['commission_minor IS NULL'],
+            default => [],
+        });
+        if ($filter->payment !== '' && $mirror) {
+            // The slugs each state covers come from `WcOrderLifecycle`, which
+            // is the one table that says what a WooCommerce status means — so
+            // the filter and the column a row prints cannot disagree.
+            $slugs = match ($filter->payment) {
+                'paid' => WcOrderLifecycle::PAID,
+                'unpaid' => array_merge(WcOrderLifecycle::AWAITING_PAYMENT, WcOrderLifecycle::PAYMENT_FAILED),
+                'void' => WcOrderLifecycle::VOID,
+                'refunded' => WcOrderLifecycle::REFUNDED,
+                default => [],
+            };
+            if ($filter->payment === 'unknown') {
+                // «Nobody has told us» is a row with no mirrored value, and a
+                // slug this release does not map is the same question from the
+                // other side: both are «I cannot say what this order is».
+                $known = WcOrderLifecycle::known();
+                $clauses[] = '(`' . WcStatus::COLUMN . '` IS NULL OR `' . WcStatus::COLUMN . '` NOT IN ('
+                    . implode(',', array_fill(0, count($known), '%s')) . '))';
+                $params = [...$params, ...$known];
+            } elseif ($slugs !== []) {
+                $clauses[] = '`' . WcStatus::COLUMN . '` IN ('
+                    . implode(',', array_fill(0, count($slugs), '%s')) . ')';
+                $params = [...$params, ...$slugs];
+            }
+        }
+        return [$clauses === [] ? '' : 'WHERE ' . implode(' AND ', $clauses), $params];
+    }
+
+    /**
+     * The sort, from a fixed list — never from the request.
+     *
+     * Every one of these ends in `id`, because `created_at` is a `DATETIME`
+     * with second precision and thirty rows in one second put a page boundary
+     * somewhere different on every request (`alpha.32`'s measurement).
+     */
+    private static function orderBy(string $sort): string
+    {
+        return match ($sort) {
+            'oldest' => 'created_at ASC, id ASC',
+            'amount_high' => 'base_minor DESC, id DESC',
+            'amount_low' => 'base_minor ASC, id ASC',
+            'order' => 'wc_order_id DESC, id DESC',
+            'share_high' => 'vendor_share_minor DESC, id DESC',
+            default => 'created_at DESC, id DESC',
+        };
+    }
+
+    /**
+     * Whether the status mirror exists yet.
+     *
+     * Memoised per INSTANCE rather than statically, for the reason
+     * `ProductTableShape` is: a static memo outlives a test that changes the
+     * table's shape and answers the stale question (`alpha.67`).
+     */
+    private function hasWcOrderStatusColumn(): bool
+    {
+        if ($this->wcStatusColumn === null) {
+            $count = $this->db->getVar(
+                'SELECT COUNT(*) FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s',
+                [$this->table(), WcStatus::COLUMN]
+            );
+            // A read that failed answers `null`, and the conservative reading
+            // of that is «no column»: the alternative is an `UPDATE` naming a
+            // column that may not be there, on a checkout request.
+            $this->wcStatusColumn = $count !== null && ((int) $count) > 0;
+        }
+        return $this->wcStatusColumn;
     }
 
     /**

@@ -174,6 +174,42 @@ class wpdb
         }
     }
 
+    /**
+     * One column of the result set, as `wp-db.php` returns it.
+     *
+     * ⛔ Added in `alpha.99`, and its absence had been hiding a whole path.
+     * `WpAuditRepository::eventTypes()` is the only caller, the audit page's
+     * `<select>` is built from it, and nothing in any suite had ever reached
+     * it — so the page could not be rendered against the real repository at
+     * all, which is why the dotted-event defect survived to staging. A double
+     * that does not model a method the real object has makes the code behind
+     * it untestable rather than tested (`alpha.59`'s rule, on `wpdb`).
+     *
+     * `false` columns come back as `null` the way `get_var()` does, and a
+     * failed statement answers `[]` — which `AuditRepositoryInterface` treats
+     * as «no types to offer», exactly as it always did.
+     *
+     * @return list<mixed>
+     */
+    public function get_col(string $sql, int $column = 0): array
+    {
+        $this->num_queries++;
+        $this->queries[] = $sql;
+        try {
+            $stmt = $this->pdo()->query($sql);
+            $rows = $stmt ? $stmt->fetchAll(\PDO::FETCH_NUM) : [];
+            $out = [];
+            foreach ($rows as $row) {
+                $value = $row[$column] ?? null;
+                $out[] = $value === false ? null : $value;
+            }
+            return $out;
+        } catch (\PDOException $e) {
+            $this->last_error = $e->getMessage();
+            return [];
+        }
+    }
+
     public function get_results(string $sql, string $output = OBJECT): array
     {
         $this->num_queries++;

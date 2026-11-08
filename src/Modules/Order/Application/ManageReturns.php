@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
 use Tecteb\Marketplace\Modules\Finance\Domain\Money;
+use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnAllocation;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnRequest;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStateMachine;
@@ -176,6 +177,22 @@ final class ManageReturns
         }
         if ($quantity < 1) {
             return OperationResult::failure('quantity_required');
+        }
+        // ⛔ A CANCELLED LINE HAS NO RETURN, and from `alpha.99` that is a
+        // guard rather than a fact nobody could break.
+        //
+        // The lifecycle sync reverses a cancelled line's accrual with a
+        // document of its own — and `reversedTotals()` reads the RETURNS
+        // table, which that document is deliberately not in. So a return
+        // opened on a cancelled line would compute its share from the line's
+        // full figures and reverse the same money a second time. The goods
+        // never left, so there is nothing to send back either way; this names
+        // the refusal instead of leaving the arithmetic to find out.
+        if ($item->status === OrderItemStatus::Cancelled) {
+            return OperationResult::failure('item_cancelled', [
+                'item_id' => $item->id,
+                'order_id' => $item->orderId,
+            ]);
         }
         $returnable = $this->returnableQuantity($item->id, $item->quantity);
         if ($quantity > $returnable) {

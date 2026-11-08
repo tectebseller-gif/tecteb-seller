@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Order\Application;
 
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\OrderLedgerFilter;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 
 /**
@@ -35,6 +36,49 @@ interface OrderItemRepositoryInterface
     public function forOrder(int $wcOrderId): array;
 
     public function updateStatus(int $id, OrderItemStatus $status, string $carrier, string $trackingCode, ?string $shippedAt): bool;
+
+    /**
+     * Records the WooCommerce order status the plugin was told about, on every
+     * line of that order.
+     *
+     * Not the line's own status — that is `updateStatus()` and it is a
+     * vendor's. This is the ORDER's, mirrored so a detailed report can filter
+     * on it without loading an order per row (migration 39).
+     *
+     * ⛔ **It records what it was told and infers nothing.** A row is `NULL`
+     * until WooCommerce announces a change, and `NULL` means «nobody has told
+     * us» rather than `pending`. The column is also not a guard: nothing in
+     * this plugin decides anything from it, so a mirror that falls behind is a
+     * stale FILTER and never a stale obligation — the obligation is the line's
+     * own status and the ledger.
+     *
+     * @return int|null rows touched, or `null` when the write could not be
+     *                  made at all — «I do not know» rather than nought, so a
+     *                  caller can tell a failure from an order with no
+     *                  marketplace lines (`alpha.8`).
+     */
+    public function recordWcOrderStatus(int $wcOrderId, string $status): ?int;
+
+    /**
+     * One page of the per-line report, and how many rows the same filter
+     * matches.
+     *
+     * **Server-side, both halves.** «صفحه‌بندی سمت سرور» and «جست‌وجوی سریع
+     * بدون بارگذاری همه سفارش‌ها»: the `LIMIT` is in the statement and the
+     * count is a `COUNT(*)` over the same `WHERE`, so a shop with fifty
+     * thousand lines costs the same as one with fifty. Nothing in this path
+     * loads a WooCommerce order or a product.
+     *
+     * The count is asked SEPARATELY and FIRST by the caller rather than
+     * derived from the page's length, because a short page and a failed read
+     * look identical (`alpha.8`) — and a report that read «۰ ردیف» off a
+     * broken query would say the shop had sold nothing.
+     *
+     * @return array{rows:list<array<string,mixed>>, total:int|null}
+     *         `total` is `null` when the count could not be taken — «نامعلوم»,
+     *         never nought.
+     */
+    public function detailed(OrderLedgerFilter $filter): array;
 
     /**
      * What this vendor has earned and owes — all three figures in ONE unit,

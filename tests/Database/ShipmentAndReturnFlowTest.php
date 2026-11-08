@@ -786,6 +786,34 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         return $line->id;
     }
 
+    /**
+     * WHAT THIS PROVES: a cancelled line cannot have a return opened on it.
+     *
+     * The guard `alpha.99` added, and it is that round's own doing that makes
+     * it necessary. The lifecycle sync reverses a cancelled line's accrual
+     * with a document of its own, and that document is deliberately NOT in
+     * the returns table — which is where `reversedTotals()` reads. So a
+     * return opened afterwards would compute its share from the line's full
+     * figures and reverse the same money a second time.
+     *
+     * The status is set through the repository rather than by running the sync,
+     * because the guard is about the line's STATE and not about how it got
+     * there: a line cancelled by a vendor's own button is the same hazard.
+     * `OrderFlowTest` is where the sync itself is measured.
+     */
+    public function testAReturnCannotBeOpenedOnACancelledLine(): void
+    {
+        $item = $this->sell(3, 600000);
+        $first = $this->returns->open(self::VENDOR, self::VENDOR, $item, 1);
+        self::assertTrue($first->ok, 'a placed line may have a return: ' . $first->code);
+
+        self::assertTrue($this->orderItems->updateStatus($item, OrderItemStatus::Cancelled, '', '', null));
+        $after = $this->returns->open(self::VENDOR, self::VENDOR, $item, 1);
+
+        self::assertFalse($after->ok);
+        self::assertSame('item_cancelled', $after->code, 'named, rather than left to the arithmetic');
+    }
+
     private function refundServiceWith(SpyRefundRecorder $recorder): ManageReturns
     {
         $db = new WpDatabase($this->wpdb);

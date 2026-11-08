@@ -50,6 +50,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\SupplierPaymentsPage;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
 use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Presentation\Admin\OrderLedgerPage;
 use Tecteb\Marketplace\Modules\Order\Presentation\Admin\ReturnsPage;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaExtensions;
@@ -255,7 +256,8 @@ final class FinanceModule implements ModuleInterface
         // decidable on such a day. Its services are bound in Bootstrap for the
         // same reason (F-15).
         $returns = new ReturnsPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns, $supplierPayments): array {
+        $orderLedger = new OrderLedgerPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns, $supplierPayments, $orderLedger): array {
             $pages[] = [
                 'slug' => CommissionRulesPage::SLUG,
                 'page_title' => CommissionRulesPage::menuLabel(),
@@ -287,7 +289,28 @@ final class FinanceModule implements ModuleInterface
                 'capability' => ReturnsPage::CAPABILITY,
                 'render' => [$returns, 'render'],
             ];
+            // The per-line order report, registered HERE and not in the order
+            // module — for the same reason `ReturnsPage` is. That module is
+            // self-gated: with Dokan running, or with `DEC-02` open, it
+            // registers nothing at all. Reading what was already recorded is
+            // not operating orders, and a manager must be able to look at the
+            // ledger of a marketplace whose order gate is shut — which is
+            // exactly the state staging is in today.
+            $pages[] = [
+                'slug' => OrderLedgerPage::SLUG,
+                'page_title' => OrderLedgerPage::menuLabel(),
+                'menu_label' => OrderLedgerPage::menuLabel(),
+                'capability' => OrderLedgerPage::CAPABILITY,
+                'render' => [$orderLedger, 'render'],
+            ];
             return $pages;
+        });
+
+        // The CSV the report offers. On `admin-post.php` rather than inside
+        // the page, because a download has no next page and routing it
+        // through one would put the rows in a URL.
+        add_action('admin_post_' . OrderLedgerPage::EXPORT_ACTION, static function () use ($orderLedger): void {
+            $orderLedger->export();
         });
 
         // «کمیسیون تک‌طب» on WooCommerce's own product editor. Registered

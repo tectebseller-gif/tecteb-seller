@@ -78,4 +78,75 @@ final class AuditTest extends TestCase
         self::assertFalse($r->ok);
         self::assertStringContainsString('simulated insert failure', (string) $r->error);
     }
+
+    /**
+     * WHAT THIS PROVES: a capture's own refusal reasons reach the audit row.
+     *
+     * ⛔ **Found by the falsification loop, not by reading.** `alpha.99`
+     * widened `ORDER_CAPTURED`'s allowlist from five keys to ten, and a
+     * mutation that narrowed it back **survived every suite**: the fix had no
+     * test. The five that were being dropped are exactly the ones a person
+     * needs when a capture went wrong — `failed`, `refused_unit`, `repaired`,
+     * `incomplete` and `reasons` — so the trail recorded that a capture had
+     * happened and silently discarded why part of it had not.
+     *
+     * The sanitiser copies ONLY allowlisted keys, so this is asked of the
+     * sanitiser rather than of the page: a key that is not on the list cannot
+     * be stored, and nothing downstream can put it back.
+     */
+    public function testACapturesRefusalReasonsAreNotDroppedFromItsRow(): void
+    {
+        $sanitizer = new AuditEventSanitizer(new AuditEventCatalog());
+        $clean = $sanitizer->sanitize(AuditEventCatalog::ORDER_CAPTURED, [
+            'order_id' => 12300,
+            'vendors' => 1,
+            'items' => 1,
+            'recorded' => 0,
+            'skipped' => 0,
+            'failed' => 1,
+            'refused_unit' => 1,
+            'repaired' => 0,
+            'incomplete' => 1,
+            'reasons' => 'unit_unreadable,line_incomplete',
+        ]);
+
+        self::assertNotNull($clean);
+        foreach (['failed', 'refused_unit', 'repaired', 'incomplete', 'reasons'] as $key) {
+            self::assertArrayHasKey($key, $clean, $key . ' is why a capture did not finish');
+        }
+        self::assertSame('unit_unreadable,line_incomplete', $clean['reasons']);
+    }
+
+    /**
+     * WHAT THIS PROVES: the lifecycle sync's own row carries what it did and
+     * what it refused.
+     *
+     * Same shape, same reason. A pass that wrote nothing because every line
+     * had already shipped is the most important one to find afterwards.
+     */
+    public function testTheLifecycleSyncsRowCarriesItsCountsAndItsReasons(): void
+    {
+        $sanitizer = new AuditEventSanitizer(new AuditEventCatalog());
+        $clean = $sanitizer->sanitize(AuditEventCatalog::ORDER_LIFECYCLE_SYNCED, [
+            'order_id' => 12300,
+            'wc_status' => 'cancelled',
+            'disposition' => 'void',
+            'items' => 2,
+            'cancelled' => 1,
+            'voided' => 1,
+            'untouched' => 1,
+            'failed' => 0,
+            'vendors' => 1,
+            'reasons' => 'cancel_after_shipping',
+        ]);
+
+        self::assertNotNull($clean);
+        foreach ([
+            'order_id', 'wc_status', 'disposition', 'items',
+            'cancelled', 'voided', 'untouched', 'failed', 'vendors', 'reasons',
+        ] as $key) {
+            self::assertArrayHasKey($key, $clean, $key . ' must survive the allowlist');
+        }
+        self::assertSame('cancel_after_shipping', $clean['reasons']);
+    }
 }

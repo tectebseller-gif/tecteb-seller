@@ -56,6 +56,28 @@ final class AuditEventCatalog
     /** Orders: what the marketplace recorded about a WooCommerce sale. */
     public const ORDER_CAPTURED = 'order.captured';
     public const ORDER_ITEM_STATUS_CHANGED = 'order.item_status_changed';
+
+    /**
+     * The marketplace's record of an order brought into line with
+     * WooCommerce's own status.
+     *
+     * Separate from `ORDER_ITEM_STATUS_CHANGED`, which is a vendor moving
+     * their own line. This one is not a person's action at all: it is what the
+     * plugin did when WooCommerce said the order had been cancelled, and the
+     * payload has to carry both statuses because the question a reader asks
+     * later is «what did WooCommerce say, and what did we do about it».
+     */
+    public const ORDER_LIFECYCLE_SYNCED = 'order.lifecycle_synced';
+
+    /**
+     * Somebody took a CSV of the per-line order report.
+     *
+     * It changes nothing, and it is recorded anyway: a file holding every
+     * line's commission and vendor share is worth knowing the taker of, which
+     * is half of what «خروجی CSV قابل سوءاستفاده نباشد» asks for. The other
+     * half is the capability, and that is on the page.
+     */
+    public const ORDER_LEDGER_EXPORTED = 'order.ledger_exported';
     public const ORDER_BLOCKED = 'order.blocked';
     public const ORDER_TRIAL_CHANGED = 'order.trial_mode_changed';
     public const ORDER_SETTLEMENT_RECORDED = 'order.settlement_recorded';
@@ -352,7 +374,22 @@ final class AuditEventCatalog
             self::PRODUCT_SEO_CHANGED => ['product_id', 'has_slug', 'has_title'],
             self::PRODUCT_FIELD_OWNERSHIP => ['vendor_id', 'product_id', 'field', 'decision'],
             self::PRODUCT_CORRECTED => ['vendor_id', 'product_id', 'fields'],
-            self::ORDER_CAPTURED => ['order_id', 'vendors', 'items', 'recorded', 'skipped'],
+            // ⛔ The five keys this row carried until `alpha.99` were the five
+            // the owner saw on staging — and `CaptureOrder` has logged ten
+            // since `alpha.40`. `failed`, `refused_unit`, `repaired`,
+            // `incomplete` and `reasons` were dropped here, silently, which
+            // is the one place a reader goes to find out WHY a capture
+            // recorded less than it read. Same defect as `alpha.91`'s
+            // `records_version`, on the order path.
+            self::ORDER_CAPTURED => [
+                'order_id', 'vendors', 'items', 'recorded', 'skipped',
+                'failed', 'refused_unit', 'repaired', 'incomplete', 'reasons',
+            ],
+            self::ORDER_LEDGER_EXPORTED => ['vendor_id', 'rows'],
+            self::ORDER_LIFECYCLE_SYNCED => [
+                'order_id', 'wc_status', 'disposition', 'items',
+                'cancelled', 'voided', 'untouched', 'failed', 'vendors', 'reasons',
+            ],
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
             self::ORDER_TRIAL_CHANGED => ['requested', 'permitted', 'environment'],

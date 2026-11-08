@@ -61,6 +61,12 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             ['tmc-tickets', 'tmc_review_vendor', 'تیکت فروشندگان'],
             // فروش و مالی
             ['tmc-storefront', 'tmc_manage_storefront', 'وضعیت فروش بازارگاه'],
+            // The per-line order report. Its capability is the FINANCIAL one
+            // and not the list one, because every row prints a commission and
+            // a vendor share — `alpha.86` separated those two keys for exactly
+            // this reason, and pinning it here is what stops the next edit
+            // quietly widening who may read a shop's money.
+            ['tmc-order-ledger', 'tmc_view_vendor_finance', 'سفارش‌ها ردیف به ردیف'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
             ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
             // `alpha.57`: a RECORD of money already paid to a supplier, on the

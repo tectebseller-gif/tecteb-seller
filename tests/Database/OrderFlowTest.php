@@ -33,6 +33,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFina
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
+use Tecteb\Marketplace\Modules\Order\Application\SyncOrderLifecycle;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
@@ -97,6 +98,7 @@ final class OrderFlowTest extends DatabaseTestCase
     private ManageProducts $manage;
     private ReviewProducts $review;
     private CaptureOrder $capture;
+    private SyncOrderLifecycle $lifecycle;
     private ManageOrderItems $orders;
     private StaffAccess $access;
     private ShipItems $ship;
@@ -212,6 +214,14 @@ final class OrderFlowTest extends DatabaseTestCase
             $clock
         );
         $this->purchase = new PurchasePolicy($this->products, $access, $gate);
+        // The one place a WooCommerce order status becomes a decision about
+        // the marketplace's record of it.
+        $this->lifecycle = new SyncOrderLifecycle(
+            $this->orderItems,
+            $this->ledger,
+            $audit,
+            new WpDatabase($this->wpdb)
+        );
 
         $this->vendors->upsertProfile(self::VENDOR_A, 'داروخانه یک', true, false);
         $this->vendors->upsertProfile(self::VENDOR_B, 'داروخانه دو', true, false);
@@ -1947,6 +1957,374 @@ final class OrderFlowTest extends DatabaseTestCase
             // The unit of work the claim and the accrual share.
             new WpDatabase($this->wpdb)
         );
+    }
+
+    /**
+     * ⛔ THE OWNER'S STAGING MEASUREMENT, REPRODUCED AND CLOSED.
+     *
+     * Order 12300 was captured, the vendor's share was recorded, and the order
+     * was then cancelled in WooCommerce. WooCommerce said `Cancelled`; the
+     * marketplace went on reporting the share as recorded, the same share as
+     * pending, and the line still awaiting shipment. This asserts all four
+     * figures on both sides of the cancel, because the defect was not that one
+     * of them was wrong — it was that nothing moved at all.
+     */
+    public function testCancellingAnOrderInWooCommerceVoidsTheShareAndTheLine(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-5');
+        self::assertSame(1, $this->capture->capture(12300, [$this->line(71, $product, 1, 206010000)])['captured']);
+
+        $before = $this->balanceOf(self::VENDOR_A);
+        self::assertGreaterThan(0, $before['earned'], 'the sale was recorded');
+        self::assertSame($before['earned'], $before['pending'], 'and is pending, because nobody has called it complete');
+        self::assertSame(1, $this->orderItems->countForVendor(self::VENDOR_A, OrderItemStatus::Placed));
+
+        $report = $this->lifecycle->sync(12300, 'cancelled');
+
+        self::assertSame('void', $report['disposition']);
+        self::assertSame(1, $report['items']);
+        self::assertSame(1, $report['cancelled']);
+        self::assertSame(1, $report['voided'], 'the accrual had a document, so one was written to undo it');
+        self::assertSame(0, $report['failed']);
+
+        $after = $this->balanceOf(self::VENDOR_A);
+        self::assertSame(0, $after['earned'], 'a cancelled line is earned by nobody');
+        self::assertSame(0, $after['pending'], 'and pending for nobody — the owner saw both of these unchanged');
+        self::assertSame(0, $after['eligible']);
+        self::assertSame(
+            0,
+            $this->orderItems->countForVendor(self::VENDOR_A, OrderItemStatus::Placed),
+            'and it is no longer awaiting shipment, which is the figure that said 2'
+        );
+        self::assertSame(1, $this->orderItems->countForVendor(self::VENDOR_A, OrderItemStatus::Cancelled));
+    }
+
+    /**
+     * WHAT THIS PROVES: the history survives the correction.
+     *
+     * «حفظ مبلغ تاریخی فروش با باقی‌ماندن تعهد مالی معتبر تفاوت دارد» — so the
+     * accrual's own four lines are still there afterwards, byte for byte, with
+     * a reversing document BESIDE them under a key of its own. Nothing is
+     * deleted and nothing is rewritten; what changes is that the line's own
+     * status takes it out of every total.
+     */
+    public function testTheAccrualStaysInTheLedgerAndAReversingDocumentIsAddedBesideIt(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-6');
+        // Tax on purpose. `LedgerTransaction::add()` skips a zero amount, so a
+        // fixture without tax posts three lines and would let a missing tax
+        // reversal pass unnoticed — the same reason the returns fixture
+        // carries one.
+        $line = $this->line(72, $product, 1, 206010000);
+        $line['line_tax_minor'] = 18000000;
+        $this->capture->capture(12301, [$line]);
+
+        $accrualKey = CaptureOrder::eventKey(12301, 72);
+        $accrualBefore = $this->ledger->forEvent($accrualKey);
+        self::assertCount(4, $accrualBefore, 'the sale posted all four accounts, tax included');
+
+        $this->lifecycle->sync(12301, 'cancelled');
+
+        $accrualAfter = $this->ledger->forEvent($accrualKey);
+        self::assertSame(
+            array_map(static fn ($e): array => [$e->id, $e->account->value, $e->amount->minor], $accrualBefore),
+            array_map(static fn ($e): array => [$e->id, $e->account->value, $e->amount->minor], $accrualAfter),
+            'the accrual is untouched: same ids, same accounts, same amounts'
+        );
+
+        $void = $this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12301, 72));
+        self::assertCount(4, $void, 'and the reversal is its own document');
+        self::assertNotSame($accrualKey, SyncOrderLifecycle::voidEventKey(12301, 72));
+
+        // The two together net to nothing, per account, which is what «the
+        // obligation is void» means in a ledger.
+        $net = [];
+        foreach ([...$accrualAfter, ...$void] as $entry) {
+            $net[$entry->account->value] = ($net[$entry->account->value] ?? 0) + $entry->amount->minor;
+        }
+        foreach ($net as $account => $sum) {
+            self::assertSame(0, $sum, $account . ' does not net to nothing');
+        }
+    }
+
+    /**
+     * WHAT THIS PROVES: a repeated hook writes nothing twice.
+     *
+     * WooCommerce fires a status change more than once in ordinary use, and
+     * `woocommerce_trash_order` arrives on top of it. The reversal collides on
+     * the ledger's unique event key and the status change is a no-op, so the
+     * second pass reports the line as untouched rather than voiding it again.
+     */
+    public function testARepeatedCancelHookWritesNothingTwice(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-7');
+        $this->capture->capture(12302, [$this->line(73, $product, 1, 150000)]);
+
+        $first = $this->lifecycle->sync(12302, 'cancelled');
+        self::assertSame(1, $first['voided']);
+        $documents = count($this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12302, 73)));
+
+        foreach (['cancelled', 'wc-cancelled', 'trash'] as $again) {
+            $second = $this->lifecycle->sync(12302, $again);
+            self::assertSame(0, $second['voided'], $again . ' wrote a second document');
+            self::assertSame(0, $second['cancelled'], $again);
+            self::assertSame(1, $second['untouched'], $again);
+            self::assertSame([], $second['reasons'], $again . ' reported something to a reader for no reason');
+        }
+        self::assertSame(
+            $documents,
+            count($this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12302, 73))),
+            'the reversing document is still exactly one document'
+        );
+        self::assertSame(0, $this->balanceOf(self::VENDOR_A)['earned']);
+    }
+
+    /**
+     * WHAT THIS PROVES: an unpaid order is recorded and unsettleable, and a
+     * failed payment does not reverse.
+     *
+     * §3-4 asks that a cancelled, unpaid order create no shippable item, no
+     * settleable income and no valid debt. The first two come from the cancel;
+     * the third was already true and this pins it — an order that has not been
+     * paid for has no completion recorded, so every penny of it is `pending`
+     * rather than `eligible`, whatever WooCommerce's status says.
+     */
+    public function testAnUnpaidOrFailedOrderKeepsItsRecordAndIsSettleableByNobody(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-8');
+        $this->capture->capture(12303, [$this->line(74, $product, 1, 500000)]);
+
+        foreach (['pending', 'on-hold', 'failed', 'processing', 'completed'] as $status) {
+            $report = $this->lifecycle->sync(12303, $status);
+            self::assertSame(0, $report['cancelled'], $status . ' cancelled a line');
+            self::assertSame(0, $report['voided'], $status . ' reversed an accrual');
+            self::assertSame(1, $report['untouched'], $status);
+            self::assertSame([], $report['reasons'], $status . ' reported a decision nobody has to make');
+
+            $balance = $this->balanceOf(self::VENDOR_A);
+            self::assertGreaterThan(0, $balance['earned'], $status . ' lost the recorded sale');
+            self::assertSame($balance['earned'], $balance['pending'], $status . ' made money settleable');
+            self::assertSame(0, $balance['eligible'], $status . ' made money eligible');
+        }
+    }
+
+    /**
+     * WHAT THIS PROVES: a refunded order is named, not acted on.
+     *
+     * «ثبت لغو را با استرداد واقعی یکی نگیر؛ تعیین تکلیف پول باید بر اساس
+     * جریان ووکامرس و تصمیم مدیر مجاز باشد.» Money has moved somewhere this
+     * plugin cannot see, and its instrument for that is the return cycle,
+     * which a named manager drives. So nothing is written and the line is
+     * reported.
+     */
+    public function testARefundedOrderIsReportedAndNothingIsWritten(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-9');
+        $this->capture->capture(12304, [$this->line(75, $product, 1, 500000)]);
+        $earned = $this->balanceOf(self::VENDOR_A)['earned'];
+
+        $report = $this->lifecycle->sync(12304, 'refunded');
+
+        self::assertSame('refunded', $report['disposition']);
+        self::assertSame(0, $report['cancelled']);
+        self::assertSame(0, $report['voided']);
+        self::assertSame(1, $report['untouched']);
+        self::assertSame(['refund_needs_decision'], $report['reasons']);
+        self::assertSame([], $this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12304, 75)));
+        self::assertSame($earned, $this->balanceOf(self::VENDOR_A)['earned'], 'nothing was reversed');
+    }
+
+    /**
+     * WHAT THIS PROVES: a status this release has never heard of writes
+     * nothing and says the name.
+     *
+     * Plugins register order statuses freely. The safe answer to «what does
+     * `wc-awaiting-shipment` mean» is not to guess, and a default that fell
+     * through to either «paid» or «void» would let any plugin's status move
+     * somebody's money.
+     */
+    public function testAnUnknownStatusWritesNothingAndNamesItself(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-10');
+        $this->capture->capture(12305, [$this->line(76, $product, 1, 500000)]);
+        $earned = $this->balanceOf(self::VENDOR_A)['earned'];
+
+        $report = $this->lifecycle->sync(12305, 'awaiting-shipment');
+
+        self::assertSame('unknown', $report['disposition']);
+        self::assertSame(0, $report['cancelled']);
+        self::assertSame(0, $report['voided']);
+        self::assertSame(['wc_status_unknown:awaiting-shipment'], $report['reasons']);
+        self::assertSame($earned, $this->balanceOf(self::VENDOR_A)['earned']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a shipped line is not cancelled behind the shop's
+     * back.
+     *
+     * Goods are in the world. A line marked «cancelled» beside a tracking code
+     * is a record that contradicts a delivery, and the state machine has
+     * refused that move since the day it was written — this agrees with it
+     * rather than going round it, and reports the case so a manager can use
+     * the instrument that fits: a return.
+     */
+    public function testACancelAfterTheGoodsShippedIsReportedAndWritesNothing(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-11');
+        $this->capture->capture(12306, [$this->line(77, $product, 1, 500000)]);
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertTrue($this->orderItems->updateStatus(
+            $line->id,
+            OrderItemStatus::Shipped,
+            'پست پیشتاز',
+            'TRACK-1',
+            '2026-11-08 10:00:00'
+        ));
+        $earned = $this->balanceOf(self::VENDOR_A)['earned'];
+
+        $report = $this->lifecycle->sync(12306, 'cancelled');
+
+        self::assertSame(['cancel_after_shipping'], $report['reasons']);
+        self::assertSame(0, $report['cancelled']);
+        self::assertSame(0, $report['voided']);
+        self::assertSame(
+            OrderItemStatus::Shipped,
+            $this->orderItems->find($line->id)?->status,
+            'the shipment is still a shipment'
+        );
+        self::assertSame($earned, $this->balanceOf(self::VENDOR_A)['earned'], 'and the money is untouched');
+        self::assertSame([], $this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12306, 77)));
+    }
+
+    /**
+     * WHAT THIS PROVES: an order that comes back out of `cancelled` does not
+     * get its obligation back by itself.
+     *
+     * §3-9 asks for no inconsistent state and no double counting. Re-creating
+     * an obligation from a status flip is the one thing a plugin must not do
+     * with somebody's money — a reinstatement is a manager's decision with a
+     * document of its own — so the divergence is REPORTED rather than
+     * resolved, and nothing is counted twice in either direction.
+     */
+    public function testAnOrderThatLeavesCancelledIsReportedAndNotReinstated(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-12');
+        $this->capture->capture(12307, [$this->line(78, $product, 1, 500000)]);
+        $this->lifecycle->sync(12307, 'cancelled');
+        self::assertSame(0, $this->balanceOf(self::VENDOR_A)['earned']);
+        $documents = count($this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12307, 78)));
+
+        $report = $this->lifecycle->sync(12307, 'processing');
+
+        self::assertSame(['reopened_after_void'], $report['reasons']);
+        self::assertSame(0, $report['voided']);
+        self::assertSame(0, $report['cancelled']);
+        self::assertSame(1, $report['untouched']);
+        self::assertSame(
+            OrderItemStatus::Cancelled,
+            $this->orderItems->find($this->orderItems->forOrder(12307)[0]->id)?->status,
+            'the line stays cancelled: only a person may put an obligation back'
+        );
+        self::assertSame(0, $this->balanceOf(self::VENDOR_A)['earned'], 'and no money came back by itself');
+        self::assertSame(
+            $documents,
+            count($this->ledger->forEvent(SyncOrderLifecycle::voidEventKey(12307, 78))),
+            'no second document either'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: one vendor's cancelled line does not take another's
+     * with it, and a multi-vendor basket is counted per line.
+     *
+     * The order status is one fact about the whole order; the obligation is
+     * one per vendor line. A cancel of the order voids every marketplace line
+     * on it — and the counts have to add up, which is why `items` is asserted
+     * against the sum of the other three.
+     */
+    public function testAMultiVendorOrderVoidsEveryLineAndTheCountsAddUp(): void
+    {
+        $a = $this->publish(self::VENDOR_A, 'دستکش', 'M-A');
+        $b = $this->publish(self::VENDOR_B, 'ماسک', 'M-B');
+        $this->capture->capture(12308, [
+            $this->line(81, $a, 2, 400000),
+            $this->line(82, $b, 1, 150000),
+        ]);
+        self::assertGreaterThan(0, $this->balanceOf(self::VENDOR_A)['earned']);
+        self::assertGreaterThan(0, $this->balanceOf(self::VENDOR_B)['earned']);
+
+        $report = $this->lifecycle->sync(12308, 'cancelled');
+
+        self::assertSame(2, $report['items']);
+        self::assertSame(2, $report['cancelled']);
+        self::assertSame(2, $report['voided']);
+        self::assertSame(
+            $report['items'],
+            $report['cancelled'] + $report['untouched'] + $report['failed'],
+            'every line is counted exactly once'
+        );
+        self::assertCount(2, $report['vendors']);
+        self::assertSame(0, $this->balanceOf(self::VENDOR_A)['earned']);
+        self::assertSame(0, $this->balanceOf(self::VENDOR_B)['earned']);
+    }
+
+    /**
+     * WHAT THIS PROVES: a line that never accrued is still taken out of the
+     * operational count.
+     *
+     * FIN-02 records nothing rather than zero when a rate cannot be resolved,
+     * so there is no document to reverse — and inventing one would invent a
+     * number. The line still has to stop awaiting shipment, and the reason
+     * says which of the two cases it was.
+     */
+    public function testALineThatNeverAccruedIsCancelledWithoutADocument(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دفیبریلاتور', 'AED-13');
+        $id = $this->orderItems->record(new VendorOrderItem(
+            0,
+            12309,
+            91,
+            $product,
+            self::VENDOR_A,
+            'دفیبریلاتور',
+            'AED-13',
+            1,
+            null,
+            500000,
+            0,
+            // No commission, no share, no event: the FIN-02 shape.
+            null,
+            null,
+            null,
+            '',
+            ''
+        ));
+        self::assertGreaterThan(0, $id);
+        self::assertSame(1, $this->orderItems->countForVendor(self::VENDOR_A, OrderItemStatus::Placed));
+
+        $report = $this->lifecycle->sync(12309, 'cancelled');
+
+        self::assertSame(1, $report['cancelled']);
+        self::assertSame(0, $report['voided'], 'there was nothing to reverse');
+        self::assertSame(['cancelled_unrecorded'], $report['reasons']);
+        self::assertSame(0, $this->orderItems->countForVendor(self::VENDOR_A, OrderItemStatus::Placed));
+    }
+
+    /**
+     * WHAT THIS PROVES: an order with no marketplace lines is silent.
+     *
+     * A basket of the shop's own goods, or Dokan's, cancelled. Nothing to say
+     * and nothing to log — silence here is the common case on a site that also
+     * sells its own stock, and a trail full of «nothing to do» is a trail
+     * nobody reads.
+     */
+    public function testAnOrderWithNoMarketplaceLinesIsSilent(): void
+    {
+        $report = $this->lifecycle->sync(999777, 'cancelled');
+        self::assertSame(0, $report['items']);
+        self::assertSame(0, $report['cancelled']);
+        self::assertSame([], $report['reasons']);
+        self::assertSame([], $report['vendors']);
     }
 
     private function line(int $orderItemId, int $productId, int $quantity, int $totalMinor): array

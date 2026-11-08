@@ -76,6 +76,31 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         ) > 0;
     }
 
+    public function eventsPresent(array $eventKeys): array
+    {
+        $keys = [];
+        foreach ($eventKeys as $key) {
+            $key = trim((string) $key);
+            if ($key !== '') {
+                $keys[$key] = true;     // deduplicated, so one key is one placeholder
+            }
+        }
+        if ($keys === []) {
+            return [];
+        }
+        $keys = array_keys($keys);
+        $rows = $this->db->getResults(
+            'SELECT DISTINCT event_key FROM `' . $this->table() . '` WHERE event_key IN ('
+            . implode(',', array_fill(0, count($keys), '%s')) . ')',
+            $keys
+        );
+        $present = [];
+        foreach ($rows as $row) {
+            $present[] = (string) $row['event_key'];
+        }
+        return $present;
+    }
+
     public function unitsFor(int $vendorUserId): array
     {
         $rows = $this->db->getResults(

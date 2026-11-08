@@ -110,6 +110,7 @@ final class AdminNavigation
         //     that come out of an order.
         self::ORDERS => [
             'tmc-storefront',
+            'tmc-order-ledger',
             'tmc-returns',
         ],
         // 5 — کمیسیون و تسویه

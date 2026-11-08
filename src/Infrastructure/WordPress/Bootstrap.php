@@ -32,6 +32,7 @@ use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
 use Tecteb\Marketplace\Core\Migration\UpgradeGate;
 use Tecteb\Marketplace\Core\Modules\LoadReport;
+use Tecteb\Marketplace\Core\Support\SiteTime;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\Otp\NullOtpProvider;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
@@ -47,6 +48,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStor
 use Tecteb\Marketplace\Modules\Finance\FinanceModule;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
+use Tecteb\Marketplace\Modules\Order\Application\OrderLedgerReport;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\DokanPresenceInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
@@ -65,6 +67,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0030SupplierPa
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0031SupplierObligations;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0034UnitPriceMayBeUnknown;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0039WcOrderStatusOnRows;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0036DefaultCategoryAcceptance;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\Migrations\M0037ShopRecordConfirmation;
@@ -327,7 +330,20 @@ final class Bootstrap
         // must see the same lock row as the lock itself.
         $c->bind(GuardedOptionStoreInterface::class, static fn (ContainerInterface $c) => $c->get(LockStoreInterface::class));
         $c->bind(DatabaseInterface::class, static fn () => new WpDatabase($GLOBALS['wpdb']));
-        $c->bind(AuditRepositoryInterface::class, static fn () => new WpAuditRepository($GLOBALS['wpdb']));
+        // The site's own zone, read from WordPress's setting rather than
+        // written into the code: «timezone ایران به‌صورت ثابت در کد نوشته
+        // نشود». One object, so the screen that PRINTS a timestamp and the
+        // query that FILTERS on one cannot disagree about which day a row is
+        // on. A build without the function — the contract suite's bare
+        // WordPress — gets UTC, which is what every release before this one
+        // did everywhere.
+        $c->bind(SiteTime::class, static fn (): SiteTime => function_exists('wp_timezone')
+            ? new SiteTime(wp_timezone())
+            : SiteTime::utc());
+        $c->bind(AuditRepositoryInterface::class, static fn (ContainerInterface $c) => new WpAuditRepository(
+            $GLOBALS['wpdb'],
+            $c->get(SiteTime::class)
+        ));
         $c->bind(CapabilityCheckerInterface::class, static fn () => new WpCapabilities());
         $c->bind(DependencyProbeInterface::class, static fn () => new WpDependencyProbe());
         $c->bind(SettingsService::class, static fn (ContainerInterface $c) => new SettingsService($c->get(OptionStoreInterface::class)));
@@ -404,7 +420,21 @@ final class Bootstrap
         // itself is blocked and never registers. Reading is not operating.
         $c->bind(OrderItemRepositoryInterface::class, static fn (ContainerInterface $c) => new DbOrderItemRepository(
             $c->get(DatabaseInterface::class),
-            $c->get(ClockInterface::class)
+            $c->get(ClockInterface::class),
+            // The site's zone, so the detailed report's date filters mean the
+            // days a manager's calendar shows. The same object the audit page
+            // uses, so two screens cannot disagree about which day a row is on.
+            $c->get(SiteTime::class)
+        ));
+        // The per-line order report, bound here rather than in the order
+        // module for the reason the repository above is: reading what was
+        // recorded is not operating orders, and a manager must be able to
+        // open this on a marketplace whose order gate is shut.
+        $c->bind(OrderLedgerReport::class, static fn (ContainerInterface $c) => new OrderLedgerReport(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(CapabilityCheckerInterface::class)
         ));
         // The parcels and the returns, bound here for the same reason: a
         // manager reviewing a return, and a vendor reading what was sent,
@@ -520,6 +550,7 @@ final class Bootstrap
             new M0036DefaultCategoryAcceptance(),
             new M0037ShopRecordConfirmation(),
             new M0038ObservedMirroredStatusBackfill(),
+            new M0039WcOrderStatusOnRows(),
         ];
     }
 

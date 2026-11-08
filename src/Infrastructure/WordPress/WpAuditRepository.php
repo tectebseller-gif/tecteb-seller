@@ -6,14 +6,34 @@ namespace Tecteb\Marketplace\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\AuditRecord;
 use Tecteb\Marketplace\Contracts\AuditRepositoryInterface;
 use Tecteb\Marketplace\Core\Migration\Migrations\M0001CreateAuditTable;
+use Tecteb\Marketplace\Core\Support\SiteTime;
 
 /** Prepared insert via $wpdb->insert() with explicit formats; NULL actor allowed. */
 final class WpAuditRepository implements AuditRepositoryInterface
 {
     private string $error = '';
 
-    public function __construct(private \wpdb $wpdb)
+    public function __construct(
+        private \wpdb $wpdb,
+        /**
+         * The zone the date filters are read in.
+         *
+         * ⛔ Optional, and the default is the behaviour of every release
+         * before this one: `created_at` is stored in UTC and a `from`/`to`
+         * filter used to be put into the query as UTC midnight to midnight.
+         * On a +03:30 site that silently dropped the first three and a half
+         * hours of the day asked for — measured by the owner on the audit
+         * page. Bootstrap passes the site's own setting; a construction site
+         * that passes nothing keeps the old answer rather than inheriting a
+         * guess about where the server is.
+         */
+        private ?SiteTime $time = null
+    ) {
+    }
+
+    private function time(): SiteTime
     {
+        return $this->time ?? SiteTime::utc();
     }
 
     public function insert(AuditRecord $record): bool
@@ -188,13 +208,21 @@ final class WpAuditRepository implements AuditRepositoryInterface
             $clauses[] = 'object_id = %s';
             $params[] = (string) $filters['object_id'];
         }
-        if (($filters['from'] ?? '') !== '') {
+        // THE TYPED DATE IS LOCAL; THE COLUMN IS UTC.
+        //
+        // Converted rather than concatenated, and a date that cannot be placed
+        // leaves the clause OFF rather than becoming a window nobody asked
+        // for: a filter built from a fallback answers about the wrong days,
+        // which on an audit trail reads as «nothing happened».
+        $from = $this->time()->dayStartUtc((string) ($filters['from'] ?? ''));
+        if ($from !== null) {
             $clauses[] = 'created_at >= %s';
-            $params[] = (string) $filters['from'] . ' 00:00:00';
+            $params[] = $from;
         }
-        if (($filters['to'] ?? '') !== '') {
+        $to = $this->time()->dayEndUtc((string) ($filters['to'] ?? ''));
+        if ($to !== null) {
             $clauses[] = 'created_at <= %s';
-            $params[] = (string) $filters['to'] . ' 23:59:59';
+            $params[] = $to;
         }
         if (($filters['search'] ?? '') !== '') {
             // Against the payload only. It is a LIKE and therefore a scan, which
