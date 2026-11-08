@@ -4,17 +4,17 @@
  "score": {
   "median": 93,
   "min": 93,
-  "max": 95
+  "max": 94
  },
  "fcp": {
-  "median": 1712.597,
-  "min": 1699.861,
-  "max": 1718.801
+  "median": 1707.954,
+  "min": 1656.1,
+  "max": 1726.286
  },
  "lcp": {
-  "median": 3080.861,
-  "min": 2858.656,
-  "max": 3091.801
+  "median": 3082.136,
+  "min": 3006.954,
+  "max": 3088.845
  },
  "cls": {
   "median": 0,
@@ -22,14 +22,14 @@
   "max": 0
  },
  "tbt": {
-  "median": 1,
+  "median": 12,
   "min": 0,
-  "max": 5.362
+  "max": 14
  },
  "si": {
-  "median": 1712.597,
-  "min": 1699.861,
-  "max": 1718.801
+  "median": 1707.954,
+  "min": 1656.1,
+  "max": 1993.256
  },
  "requests": {
   "median": 33,
@@ -37,13 +37,13 @@
   "max": 33
  },
  "kb": {
-  "median": 304.575,
-  "min": 304.575,
-  "max": 304.575
+  "median": 304.578,
+  "min": 304.578,
+  "max": 304.578
  },
  "render_blocking_ms": {
   "median": 850,
-  "min": 700,
+  "min": 650,
   "max": 900
  },
  "lcp_element": [
