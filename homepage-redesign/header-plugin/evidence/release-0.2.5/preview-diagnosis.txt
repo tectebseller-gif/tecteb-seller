@@ -1,0 +1,1 @@
+### preview-diagnosis: env LABEL=0.2.5 node tests/preview-diagnosis.mjs
