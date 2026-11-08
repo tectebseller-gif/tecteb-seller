@@ -1,0 +1,1 @@
+### upgrade-024: bash tests/upgrade-024.sh dist/tecteb-header-0.2.4.zip dist/tecteb-header-0.2.5.zip

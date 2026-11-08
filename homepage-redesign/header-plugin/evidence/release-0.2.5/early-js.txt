@@ -1,1 +1,31 @@
 ### early-js: node tests/early-js.mjs
+PASS 320: header in JS mode before the first paint (data-js at FCP)
+PASS 320: no layout shift from the header switching to JS (CLS 0)
+PASS 320: header height at first paint = final height (127px)
+PASS 320: header.js ran (data-tth-ready) and data-js stayed
+PASS 390: header in JS mode before the first paint (data-js at FCP)
+PASS 390: no layout shift from the header switching to JS (CLS 0)
+PASS 390: header height at first paint = final height (127px)
+PASS 390: header.js ran (data-tth-ready) and data-js stayed
+PASS 768: header in JS mode before the first paint (data-js at FCP)
+PASS 768: no layout shift from the header switching to JS (CLS 0)
+PASS 768: header height at first paint = final height (127px)
+PASS 768: header.js ran (data-tth-ready) and data-js stayed
+PASS 1024: header in JS mode before the first paint (data-js at FCP)
+PASS 1024: no layout shift from the header switching to JS (CLS 0)
+PASS 1024: header height at first paint = final height (127px)
+PASS 1024: header.js ran (data-tth-ready) and data-js stayed
+PASS 1440: header in JS mode before the first paint (data-js at FCP)
+PASS 1440: no layout shift from the header switching to JS (CLS < 0.001, font swap only)
+PASS 1440: header height at first paint = final height (122px)
+PASS 1440: header.js ran (data-tth-ready) and data-js stayed
+PASS 390, header.js fails to load: after load the header is back in its complete no-JS form (no data-js)
+PASS 390, header.js fails: categories and account are plain links, no dead buttons
+PASS 390, header.js fails: menu row (categories, links, supplier) visible for navigation
+PASS 1440, header.js fails to load: after load the header is back in its complete no-JS form (no data-js)
+PASS 1440, header.js fails: categories and account are plain links, no dead buttons
+PASS 390, header.js delayed by an optimizer: the inline script stands aside (no data-js, as in 0.2.4)
+PASS 390, delayed: the no-JS header is complete (plain links, menu row)
+
+27 passed, 0 failed
+exit=0
