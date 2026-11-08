@@ -1,0 +1,19 @@
+### browser: node tests/browser.mjs
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8095/header/b-inner.html
+Call log:
+[2m  - navigating to "http://127.0.0.1:8095/header/b-inner.html", waiting until "networkidle"[22m
+
+    at dims (/home/user/tecteb-seller/homepage-redesign/header-plugin/tests/browser.mjs:91:13)
+    at async file:///home/user/tecteb-seller/homepage-redesign/header-plugin/tests/browser.mjs:102:13 {
+  log: [
+    '  - navigating to "http://127.0.0.1:8095/header/b-inner.html", waiting until "networkidle"'
+  ],
+  name: 'Error'
+}
+
+Node.js v22.22.0
+exit=1

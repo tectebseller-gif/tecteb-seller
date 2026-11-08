@@ -1,0 +1,2 @@
+### isolation: node tests/isolation.mjs 0.2.5
+Warning: Could not delete 'tthh_hostile' option. Does it exist?
