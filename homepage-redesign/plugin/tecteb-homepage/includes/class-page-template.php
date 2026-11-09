@@ -46,18 +46,14 @@ final class PageTemplate {
 	 * elementor/frontend/after_enqueue_post_styles، که Elementor همیشه پس از همان بلوک صدا می‌زند) برگردانده می‌شود.
 	 * میان این دو فقط کد خودِ Elementor اجرا می‌شود. محض احتیاط، آخرین شنوندهٔ wp_enqueue_scripts هم برمی‌گرداند.
 	 *
-	 * فقط وقتی: takes_over_front() (پس نه در ویرایشگر، پیش‌نمایش، ?tecteb_home_original=1 یا صفحه‌ای دیگر) و برگه
-	 * واقعاً با Elementor ساخته شده باشد. هدر، فوتر، Popup و Kit ِ Elementor دست نمی‌خورند (Theme Builder آن‌ها را
-	 * جدا بارگذاری می‌کند)؛ هیچ داده‌ای نوشته یا حذف نمی‌شود.
+	 * فقط وقتی takes_over_front() (پس نه در ویرایشگر، پیش‌نمایش، ?tecteb_home_original=1 یا صفحه‌ای دیگر). شرط «برگه
+	 * با Elementor ساخته شده» عمداً نیست: Elementor متای `_elementor_page_assets` ِ برگه‌ای را که بعداً به ویرایشگر
+	 * معمولی برگشته هم بارگذاری می‌کند (آزموده)، و محتوای برگه در هر حال با این جایگزینی چاپ نمی‌شود. هدر، فوتر،
+	 * Popup و Kit ِ Elementor دست نمی‌خورند (Theme Builder آن‌ها را جدا بارگذاری می‌کند)؛ هیچ داده‌ای نوشته یا حذف
+	 * نمی‌شود.
 	 */
 	public static function hide_front_document(): void {
-		if ( false !== self::$stashed_post || ! self::takes_over_front() || ! class_exists( '\Elementor\Plugin' ) ) {
-			return;
-		}
-		$id        = (int) get_the_ID();
-		$documents = \Elementor\Plugin::$instance->documents ?? null;
-		$document  = ( $id > 0 && is_object( $documents ) && method_exists( $documents, 'get' ) ) ? $documents->get( $id ) : null;
-		if ( ! is_object( $document ) || ! method_exists( $document, 'is_built_with_elementor' ) || ! $document->is_built_with_elementor() ) {
+		if ( false !== self::$stashed_post || ! self::takes_over_front() ) {
 			return;
 		}
 		self::$stashed_post = $GLOBALS['post'] ?? null;

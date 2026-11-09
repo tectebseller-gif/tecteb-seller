@@ -190,6 +190,23 @@ check("0.2.5 LCP: bar logo has fetchpriority=high, the hidden drawer copy does n
 check("0.2.5: default logo is the lossless WebP (PNG kept in the package for old cached pages)", "tecteb-logo-mark-96.webp" in code["includes/class-renderer.php"] and (ROOT / "assets/img/tecteb-logo-mark-96.webp").is_file() and (ROOT / "assets/img/tecteb-logo-mark-96.png").is_file())
 check("0.2.5: tecteb-header.css printed inline (no separate render-blocking request), same handle after header.css", "wp_register_style( 'tecteb-header', false, array( 'tecteb-header-base' )" in code["includes/class-assets.php"] and "$css . 'tecteb-header.css'" not in code["includes/class-assets.php"])
 check("0.2.5: shipped header.css carries no comments except the provenance header", (ROOT / "assets/css/header.css").read_text(encoding="utf-8").count("/*") == 1)
+# ۰٫۲٫۶ — دارایی‌های قالب جایگزین‌شده بارگذاری نمی‌شوند (perf/tests/elementor-assets.sh روی Elementor ِ واقعی)
+_rep = code["includes/class-replace.php"]
+check("0.2.6: hiding wraps Pro's enqueue step exactly (wp_enqueue_scripts 9 and 11, Pro is at 10)",
+      "add_action( 'wp_enqueue_scripts', array( self::class, 'skip_replaced_assets' ), 9 );" in _rep and "add_action( 'wp_enqueue_scripts', array( self::class, 'end_skip' ), 11 );" in _rep)
+check("0.2.6: hides only header-location templates that were selected (Pro's own template-id filter, 0 = skipped as unpublished)",
+      "return ( 'header' === $location && in_array( (int) $template_id, self::$assets_skipped, true ) ) ? 0 : $template_id;" in _rep)
+check("0.2.6: skips only when the replacement will happen: active(), every queued header selected, not the template's own page",
+      re.search(r"function skip_replaced_assets\(\): void \{\s*self::\$assets_skipped = array\(\);\s*if \( ! self::active\(\) \) \{\s*return;", _rep) is not None
+      and "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {" in _rep)
+check("0.2.6: the filter is removed and the location cache cleared right after Pro, so the render-time queue still has the template",
+      re.search(r"function end_skip\(\): void \{\s*remove_filter\( 'elementor/theme/get_location_templates/template_id', array\( self::class, 'hide_from_enqueue' \), PHP_INT_MAX \);", _rep) is not None and _rep.count("clear_location_cache()") >= 3)
+check("0.2.6: if Elementor prints its own header after all (start not replaced, finish elementor_printed), the skipped assets are restored",
+      re.search(r"self::decide\( \$manager \);\s*if \( 'replaced' !== self::\$decision \) \{\s*self::restore_skipped_assets\(\);", _rep) is not None
+      and re.search(r"self::\$decision = 'elementor_printed';\s*self::restore_skipped_assets\(\);", _rep) is not None)
+check("0.2.6: nothing is dequeued or deregistered by handle (no global effect on another document's assets)",
+      not re.search(r"wp_(dequeue|deregister)_(style|script)", _rep))
+check("0.2.6: only public Elementor/Pro API (no Reflection, no private property writes)", "Reflection" not in _rep and "setAccessible" not in _rep)
 
 fails = [r for r in results if not r[0]]
 for ok, name, detail in results:

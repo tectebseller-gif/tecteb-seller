@@ -62,7 +62,16 @@ def navoverflow() -> bool:
     return r.returncode == 0
 
 
-S, I, ISO, NAV = static, integration, isolation, navoverflow
+def elementor() -> bool:
+    """۰٫۲٫۶: دارایی‌های قالب جایگزین‌شده روی Elementor ِ واقعی (perf/tests/elementor-assets.sh، بستر tth_perf روی 8092)."""
+    import os, tempfile
+    out = pathlib.Path(tempfile.gettempdir()) / "tth-falsify-elementor.txt"
+    r = subprocess.run(["bash", str(HERE.parent / "perf/tests/elementor-assets.sh")], capture_output=True, env={**os.environ, "OUT": str(out)})
+    out.unlink(missing_ok=True)
+    return r.returncode == 0
+
+
+S, I, ISO, NAV, EL = static, integration, isolation, navoverflow, elementor
 MUTATIONS = [
     ("allow SVG icons", "includes/class-settings.php", "array( 'image/png', 'image/webp' );", "array( 'image/png', 'image/webp', 'image/svg+xml' );", [S, I]),
     ("hide_empty default on", "includes/class-settings.php", "'hide_empty'         => false,", "'hide_empty'         => true,", [S, I]),
@@ -126,6 +135,14 @@ MUTATIONS = [
     ("ready marker dropped from header.js", "assets/js/header.js", "    root.setAttribute('data-tth-ready', '');", "", [S, early]),
     ("bar logo loses fetchpriority=high", "templates/header.php", 'width="96" height="96" alt="" fetchpriority="high">', 'width="96" height="96" alt="">', [S]),
     ("tecteb-header.css back to a render-blocking file", "includes/class-assets.php", "wp_register_style( 'tecteb-header', false, array( 'tecteb-header-base' ), $v );", "wp_register_style( 'tecteb-header', TECTEB_HEADER_URL . 'assets/css/tecteb-header.css', array( 'tecteb-header-base' ), $v );", [S]),
+    # ۰٫۲٫۶ — دارایی‌های قالب جایگزین‌شده
+    ("replaced header's CSS and assets loaded again (filter never hides it)", "includes/class-replace.php", "return ( 'header' === $location && in_array( (int) $template_id, self::$assets_skipped, true ) ) ? 0 : $template_id;", "return $template_id;", [S, EL]),
+    ("hiding filter left on after Pro's enqueue step (header vanishes at render)", "includes/class-replace.php", "\t\tremove_filter( 'elementor/theme/get_location_templates/template_id', array( self::class, 'hide_from_enqueue' ), PHP_INT_MAX );\n", "", [S, EL]),
+    ("no restore when the replacement backs out at render (start)", "includes/class-replace.php", "\t\t\t// Elementor هدر خودش را چاپ می‌کند: آنچه در <head> بارگذاری نشد برگردد (0.2.6).\n\t\t\tself::restore_skipped_assets();", "\t\t\t// Elementor هدر خودش را چاپ می‌کند: آنچه در <head> بارگذاری نشد برگردد (0.2.6).", [S, EL]),
+    ("no restore when Elementor prints its header after all (finish)", "includes/class-replace.php", "\t\t\tself::$decision = 'elementor_printed';\n\t\t\tself::restore_skipped_assets();", "\t\t\tself::$decision = 'elementor_printed';", [S, EL]),
+    ("assets skipped even when the queue holds a template not selected for replacement", "includes/class-replace.php", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {", "if ( array() === $ids || in_array( (int) get_the_ID(), $ids, true ) ) {", [S]),
+    ("assets skipped on the header template's own page", "includes/class-replace.php", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) ) {", [S]),
+    ("assets skipped when the replacement is off", "includes/class-replace.php", "\t\tself::$assets_skipped = array();\n\t\tif ( ! self::active() ) {\n\t\t\treturn;\n\t\t}\n\t\t$conditions = self::conditions_manager();", "\t\tself::$assets_skipped = array();\n\t\t$conditions = self::conditions_manager();", [S, EL]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 

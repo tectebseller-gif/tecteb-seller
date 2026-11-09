@@ -1,0 +1,22 @@
+tecteb-header 0.2.5 · tecteb-homepage 0.3.6 · Elementor 4.2.3 · PRO Elements 4.2.2
+
+front page (guest): {"rendered": ["2770"], "tth": true, "head_css": ["woocommerce-layout-rtl", "woocommerce-smallscreen-rtl", "woocommerce-general-rtl", "hello-elementor", "hello-elementor-theme-style", "hello-elementor-header-footer", "elementor-frontend", "elementor-post-11", "widget-heading", "widget-icon-list", "widget-divider", "base-desktop", "base-mobile", "elementor-post-2770", "tecteb-header-base", "tecteb-home", "elementor-gf-roboto", "elementor-gf-robotoslab"], "body_css": ["wc-blocks-style-rtl"], "js": ["jquery-core", "jquery-migrate", "wc-jquery-blockui", "wc-add-to-cart", "wc-js-cookie", "woocommerce", "tecteb-header", "wc-cart-fragments", "hello-theme-frontend", "elementor-webpack-runtime", "elementor-frontend-modules", "jquery-ui-core", "elementor-frontend", "sourcebuster-js", "wc-order-attribution", "tecteb-home", "elementor-pro-webpack-runtime", "wp-hooks", "wp-i18n", "elementor-pro-frontend", "pro-elements-handlers"], "inline_2652": false, "comment": []}
+PASS front page: Header B printed, Elementor header 2652 and the old Elementor front page NOT printed, Elementor footer printed
+PASS front page: none of the replaced header's assets load (post-2652.css, nav-menu, search, icon-box, social-icons, buzz-out, apple-webkit, image)
+PASS front page: none of the old Elementor front page's assets load (post-2753.css, swiper, image-carousel, testimonial, counter, grow)
+PASS front page: everything the Elementor footer needs is still in <head> (heading, icon-list, divider, post-2770.css, frontend, kit)
+PASS front page: smartmenus (header nav menu), swiper and numerator (old front page) not loaded
+PASS front page: header.css and tecteb-home.css still load
+PASS /shop/: Header B, no header-2652 assets, footer assets present
+PASS /cart/: Header B, no header-2652 assets, footer assets present
+PASS /?page_id=2754: Header B, no header-2652 assets, footer assets present
+PASS admin ?tth_original=1: Elementor header 2652 printed WITH its CSS and assets in <head> (nothing skipped)
+PASS fallback: another plugin re-adds 2652 after this one (elementor_printed) ⇒ Elementor header printed, and its CSS, widget assets and smartmenus are loaded again (late, in the body)
+PASS fallback: replacement switched off between <head> and the header (start: off) ⇒ Elementor header printed with its assets restored
+PASS admin ?tecteb_home_original=1: old Elementor front page printed WITH its CSS and assets in <head>
+PASS header replacement off: Elementor header 2652 and all its assets in <head>, as without this plugin
+PASS front-page takeover off: old Elementor front page and all its assets in <head>, as without this plugin
+PASS front page no longer built with Elementor but with stale page-assets meta (Elementor still loads it): skipped too — no front-page assets, footer intact
+PASS no PHP notice, warning or error from either plugin in debug.log
+
+17 passed, 0 failed

@@ -12,6 +12,7 @@ Falsification: هر گارد مهم یک بار شکسته می‌شود و با
 from __future__ import annotations
 
 import hashlib
+import tempfile
 import os
 import pathlib
 import re
@@ -195,6 +196,13 @@ MUTATIONS = [
     # ۰٫۳٫۶ — سرعت
     ("0.3.6: supplier eyebrow logo eager again (PNG in the initial load)", "templates/supplier.php",
      "assets/img/tecteb-logo-mark-96.webp' ); ?>\" width=\"20\" height=\"20\" alt=\"\" loading=\"lazy\" decoding=\"async\">", "assets/img/tecteb-logo-mark-96.png' ); ?>\" width=\"20\" height=\"20\" alt=\"\">", "static"),
+    # ۰٫۳٫۷ — دارایی‌های Elementor ِ برگهٔ نخستی که چاپ نمی‌شود
+    ("0.3.7: front-page Elementor document not hidden (its CSS and widget assets load again)", "includes/class-page-template.php",
+     "\t\t$GLOBALS['post']    = null;", "\t\t$GLOBALS['post']    = $GLOBALS['post'];", "elementor"),
+    ("0.3.7: front-page Elementor assets skipped even when the takeover is off", "includes/class-page-template.php",
+     "if ( false !== self::$stashed_post || ! self::takes_over_front() ) {", "if ( false !== self::$stashed_post ) {", "elementor"),
+    ("0.3.7: current post not restored right after Elementor's post block", "includes/class-page-template.php",
+     "\t\tadd_action( 'elementor/frontend/after_enqueue_post_styles', array( self::class, 'restore_front_document' ), PHP_INT_MIN );\n", "", "static"),
     ("0.3.6: comments back in the shipped stylesheet", "assets/css/tecteb-home.css",
      ".tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }", "/* x */ .tecteb-home-v1:is(.tecteb-home-v1, #th-boost).th-c .th-head--shop .th-eyebrow { display: none; }", "static"),
 ]
@@ -232,6 +240,11 @@ def run(kind: str) -> tuple[int, str]:
             (PLUGIN / "tests/evidence/isolation" / f"falsify-tmp.{ext}").unlink(missing_ok=True)
         n = 0 if p.returncode == 0 else 1
         return n, (p.stdout.strip().splitlines() or [""])[0][:140]
+    elif kind == "elementor":
+        # ۰٫۳٫۷: دارایی‌های Elementor ِ برگهٔ نخستِ جایگزین‌شده، روی Elementor ِ واقعی (بستر tth_perf روی 8092).
+        out = pathlib.Path(tempfile.gettempdir()) / "tth-falsify-elementor-home.txt"
+        p = subprocess.run(["bash", str(PLUGIN.parent / "perf/tests/elementor-assets.sh")], capture_output=True, text=True, env=dict(os.environ, OUT=str(out)))
+        out.unlink(missing_ok=True)
     elif kind == "products":
         subprocess.run(WP + ["eval-file", "tests/fixtures/seed.php", "seed"], cwd=PLUGIN, capture_output=True)
         env = dict(os.environ, NODE_PATH="/opt/node-tools/node_modules", LABEL="falsify-tmp")

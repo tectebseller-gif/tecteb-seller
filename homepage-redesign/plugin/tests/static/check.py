@@ -238,6 +238,15 @@ for name in ["tecteb-home-v1", "Requires Plugins:  woocommerce", "Requires PHP: 
 # --- ۰٫۳٫۶: سرعت
 check("0.3.6: supplier eyebrow logo is the lossless WebP, lazy and async (below the fold)", 'tecteb-logo-mark-96.webp\' ); ?>" width="20" height="20" alt="" loading="lazy" decoding="async">' in raw["templates/supplier.php"] and (ROOT / "assets/img/tecteb-logo-mark-96.webp").is_file())
 check("0.3.6: shipped tecteb-home.css carries no comments except the provenance header", raw["assets/css/tecteb-home.css"].count("/*") == 1)
+_pt = code["includes/class-page-template.php"]
+check("0.3.7: the current post is hidden only around Elementor's post-asset block (last on after_enqueue_styles, restored first on after_enqueue_post_styles, safety restore on wp_enqueue_scripts)",
+      "add_action( 'elementor/frontend/after_enqueue_styles', array( self::class, 'hide_front_document' ), PHP_INT_MAX );" in _pt
+      and "add_action( 'elementor/frontend/after_enqueue_post_styles', array( self::class, 'restore_front_document' ), PHP_INT_MIN );" in _pt
+      and "add_action( 'wp_enqueue_scripts', array( self::class, 'restore_front_document' ), PHP_INT_MAX );" in _pt)
+check("0.3.7: only when this plugin takes over the front page (not in the editor, preview, ?tecteb_home_original=1 or with the option off)",
+      "if ( false !== self::$stashed_post || ! self::takes_over_front() ) {" in _pt)
+check("0.3.7: restore puts back exactly the stashed post and clears the stash", re.search(r"function restore_front_document\(\): void \{\s*if \( false === self::\$stashed_post \) \{\s*return;\s*\}\s*\$GLOBALS\['post'\]\s*= self::\$stashed_post;\s*self::\$stashed_post = false;", _pt) is not None)
+check("0.3.7: nothing is dequeued or deregistered by handle, no Elementor data written", not re.search(r"wp_(dequeue|deregister)_(style|script)|update_post_meta|delete_post_meta", _pt))
 check("0.3.6: no lazy-loading on the Hero image (above the fold, fetchpriority=high kept)", 'fetchpriority="high"' in raw["templates/hero.php"] or "fetchpriority" in code.get("includes/class-renderer.php", ""))
 
 fails = [r for r in results if not r[0]]

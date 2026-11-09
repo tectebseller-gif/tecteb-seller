@@ -1,0 +1,52 @@
+{
+ "mode": "desktop",
+ "runs": 5,
+ "score": {
+  "median": 97,
+  "min": 96,
+  "max": 97
+ },
+ "fcp": {
+  "median": 574.522,
+  "min": 570.656,
+  "max": 603.316
+ },
+ "lcp": {
+  "median": 1010.656,
+  "min": 930.93,
+  "max": 1014.522
+ },
+ "cls": {
+  "median": 0,
+  "min": 0,
+  "max": 0.011
+ },
+ "tbt": {
+  "median": 0,
+  "min": 0,
+  "max": 0
+ },
+ "si": {
+  "median": 1458.056,
+  "min": 1394.012,
+  "max": 1641.086
+ },
+ "requests": {
+  "median": 79,
+  "min": 79,
+  "max": 79
+ },
+ "kb": {
+  "median": 478.951,
+  "min": 478.951,
+  "max": 478.951
+ },
+ "render_blocking_ms": {
+  "median": 300,
+  "min": 300,
+  "max": 350
+ },
+ "lcp_element": [
+  "div#placeholder"
+ ]
+}

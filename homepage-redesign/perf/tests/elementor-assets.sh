@@ -12,14 +12,14 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SITE="${SITE:-http://127.0.0.1:8092}"
 W="wp --allow-root --path=/home/user/wp2/core"
-OUT="$HERE/perf/evidence/elementor-real/assets-tests.txt"
+OUT="${OUT:-$HERE/perf/evidence/elementor-real/assets-tests.txt}"
 TMP="$(mktemp -d)"
 PASS=0; FAIL=0; LOG=()
 check() { if [[ "$2" == "0" ]]; then PASS=$((PASS+1)); LOG+=("PASS $1"); else FAIL=$((FAIL+1)); LOG+=("FAIL $1${3:+  — $3}"); fi; }
 [[ "$($W eval 'echo DB_NAME;' 2>/dev/null)" == "tth_perf" ]] || { echo "refused: not the tth_perf testbed" >&2; exit 1; }
 JAR="$TMP/jar"; curl -s -c "$JAR" -b "$JAR" -o /dev/null "$SITE/wp-login.php"; curl -s -c "$JAR" -b "$JAR" -o /dev/null --data-urlencode "log=tthadmin" --data-urlencode "pwd=local-only-2026" --data-urlencode "testcookie=1" "$SITE/wp-login.php"
 # صفحه (مهمان یا مدیر) ← JSON: قالب‌های رندرشده، و handle های css/js در head و body.
-page() { local path="$1" who="${2:-guest}" f="$TMP/p.html"; if [[ "$who" == "admin" ]]; then curl -s -b "$JAR" "$SITE$path" > "$f"; else curl -s "$SITE$path" > "$f"; fi
+page() { local path="$1" who="${2:-guest}" f="$TMP/p.html"; if [[ "$who" == "admin" ]]; then curl -sL -b "$JAR" "$SITE$path" > "$f"; else curl -sL "$SITE$path" > "$f"; fi
   python3 - "$f" <<'EOF'
 import re, sys, json
 h = open(sys.argv[1]).read(); head, _, body = h.partition("</head>")
@@ -83,7 +83,7 @@ $W eval '$s = get_option("tecteb_home_settings"); $s["front_page"] = true; updat
 # ۵. برگهٔ نخستِ غیر-Elementor: Homepage هیچ کاری نمی‌کند (و پست جاری هرگز خالی نمی‌ماند).
 $W post meta update "$FRONT" _elementor_edit_mode '' >/dev/null 2>&1
 d="$(page /)"
-[[ "$(val "$d" tth)" == "True" ]] && lacks "$d" head_css "${FRONT_ONLY[@]}" && has "$d" head_css "${FOOTER[@]}"; check "front page not built with Elementor: nothing to skip, page unchanged (no front-page assets, footer intact)" $? "$d"
+[[ "$(val "$d" tth)" == "True" ]] && lacks "$d" head_css "${FRONT_ONLY[@]}" && has "$d" head_css "${FOOTER[@]}"; check "front page no longer built with Elementor but with stale page-assets meta (Elementor still loads it): skipped too — no front-page assets, footer intact" $? "$d"
 $W post meta update "$FRONT" _elementor_edit_mode builder >/dev/null 2>&1
 
 # ۶. هیچ خطا یا هشدار PHP از دو افزونه.

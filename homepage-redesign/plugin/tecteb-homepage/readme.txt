@@ -3,7 +3,7 @@ Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 0.3.6
+Stable tag: 0.3.7
 License: GPL-2.0-or-later
 
 صفحهٔ اصلی تک‌طب (Concept C، Hero تیره). فقط فارسی و راست‌به‌چپ.
@@ -29,6 +29,13 @@ TECTEB_HOME_CATEGORIES_URL.
 فونت Vazirmatn تحت مجوز SIL OFL 1.1 (assets/fonts/OFL.txt).
 
 == Changelog ==
+
+= 0.3.7 =
+* سرعت — وقتی «نمایش روی صفحهٔ نخست» روشن است، CSS ِ Elementor ِ برگهٔ نخست (post-{ID}.css، فونت‌ها و آیکون‌های آن) و
+  «دارایی‌های صفحه» ِ ابزارک‌هایش (widget-*، swiper، e-animation-*، …) دیگر بارگذاری نمی‌شوند؛ محتوای آن برگه با این
+  جایگزینی هرگز چاپ نمی‌شد. هدر، فوتر، Popup و Kit ِ Elementor دست نمی‌خورند. در ویرایشگر و پیش‌نمایش Elementor،
+  با ?tecteb_home_original=1 و وقتی گزینه خاموش است هیچ تغییری نیست.
+* ظاهر، تنظیمات و داده بی‌تغییر؛ هیچ migration. شامل همهٔ تغییرات 0.3.6.
 
 = 0.3.6 =
 * سرعت: tecteb-home.css بی توضیح‌ها ساخته می‌شود (gzip ۱۳٫۰ ← ۸٫۱ کیلوبایت روی مسیر رندر-بلاک صفحهٔ اصلی)؛ همان قاعده‌ها، همان رندر (مقایسهٔ getComputedStyle ِ ۷۲۰ عنصر × ۶۰ ویژگی در ۱۲ حالت: ۰ تفاوت).

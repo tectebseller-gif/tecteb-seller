@@ -3,7 +3,7 @@ Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 0.2.5
+Stable tag: 0.2.6
 License: GPL-2.0-or-later
 
 هدر سراسری تک‌طب (طرح B). فقط فارسی و راست‌به‌چپ.
@@ -31,6 +31,16 @@ wp eval-file wp-content/plugins/tecteb-header/tools/inspect-header-template.php 
 و در پیشخوان: مدیریت هدر ← جایگزینی هدر ← «بررسی فقط‌خواندنی قالب هدر».
 
 == Changelog ==
+
+= 0.2.6 =
+* سرعت — دارایی‌های قالبی که چاپ نمی‌شود بارگذاری نمی‌شوند. وقتی این هدر قالب هدر Elementor (مثلاً ۲۶۵۲) را جایگزین
+  می‌کند، Elementor Pro تا 0.2.5 باز هم CSS ِ همان قالب، فونت‌ها و آیکون‌های ثبت‌شده در آن و «دارایی‌های صفحه» ِ
+  ابزارک‌هایش (widget-nav-menu، widget-search، widget-icon-box، widget-social-icons، e-animation-*، e-apple-webkit،
+  smartmenus، …) را در <head> بارگذاری می‌کرد — همه مسدودکنندهٔ رندر و بی‌اثر. حالا فقط برای همان گام بارگذاری،
+  قالب جایگزین‌شده از دید Theme Builder پنهان می‌شود (با فیلتر خودِ Pro: elementor/theme/get_location_templates/template_id)
+  و پیش از رندر برمی‌گردد؛ جایگزینی دقیقاً مثل 0.2.5 است. دارایی‌هایی که فوتر، Popup یا خودِ صفحه هم لازم دارند
+  دست نمی‌خورند. اگر هدر Elementor به هر دلیل چاپ شود، دارایی‌هایش دوباره بارگذاری می‌شوند.
+* ظاهر، تنظیمات و داده بی‌تغییر؛ هیچ migration. شامل همهٔ تغییرات 0.2.5.
 
 = 0.2.5 =
 * سرعت موبایل — CLS: هدر از اولین رسم در حالت JS است. تا 0.2.4 ویژگی data-js را header.js (defer) پس از اولین رسم
