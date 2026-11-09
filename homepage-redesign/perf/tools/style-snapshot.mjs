@@ -51,7 +51,7 @@ try {
     if (state === 'drawer') { await page.click('[data-tth-header] .tth-burger'); await page.waitForTimeout(600); }
     res[`${w}px ${state}`] = await page.evaluate((PROPS) => {
       document.getAnimations().forEach((a) => { try { a.finish(); } catch (e) { a.cancel(); } });
-      const els = [...document.querySelectorAll('[data-tth-header], [data-tth-header] *, .tecteb-home-v1, .tecteb-home-v1 *')].filter((e) => !(e instanceof SVGElement && e.tagName !== 'svg') && !['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'].includes(e.tagName));
+      const els = [...document.querySelectorAll('[data-tth-header], [data-tth-header] *, .tecteb-home-v1, .tecteb-home-v1 *, .elementor-location-footer, .elementor-location-footer *')].filter((e) => !(e instanceof SVGElement && e.tagName !== 'svg') && !['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE'].includes(e.tagName));
       return els.map((e, i) => { const cs = getComputedStyle(e); const r = e.getBoundingClientRect(); return `${i}:${e.tagName}.${(e.getAttribute('class') || '').split(' ')[0]}|` + PROPS.map((p) => cs.getPropertyValue(p)).join('|') + `|${r.x.toFixed(3)},${(r.y + scrollY).toFixed(3)},${r.width.toFixed(3)},${r.height.toFixed(3)}`; });
     }, PROPS);
     await ctx.close();

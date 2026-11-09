@@ -8,13 +8,14 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LABEL="$1"; RUNS="${2:-5}"; MODE="${3:-mobile}"
+SRC="${SRC:-http://127.0.0.1:8090}"; WPROOT="${WPROOT:-/home/user/wp/core}"   # بستر Elementor ِ واقعی: SRC=http://127.0.0.1:8092 WPROOT=/home/user/wp2/core
 LH="${LH:-/tmp/claude-0/-home-user-tecteb-seller/abc7dd8b-6e40-5d40-8130-3e6a187d547a/scratchpad/lh}"
 OUT="$HERE/perf/evidence/$LABEL"; mkdir -p "$OUT"
 export CHROME_PATH=/opt/pw-browsers/chromium
 # تصویر لحظه‌ای تازه از همان کدی که الان نصب است (بازدیدکننده، بی کوکی).
-curl -s http://127.0.0.1:8090/ | sed 's#http://127.0.0.1:8090#http://127.0.0.1:8099#g' > "$OUT/home-snapshot.html"
+curl -s "$SRC/" | sed "s#$SRC#http://127.0.0.1:8099#g" > "$OUT/home-snapshot.html"
 pkill -f "perf-server.mjs 8099" 2>/dev/null; sleep 0.5
-(nohup node "$HERE/perf/tools/perf-server.mjs" 8099 http://127.0.0.1:8090 /home/user/wp/core "$OUT/home-snapshot.html" >/dev/null 2>&1 &)
+(nohup node "$HERE/perf/tools/perf-server.mjs" 8099 "$SRC" "$WPROOT" "$OUT/home-snapshot.html" >/dev/null 2>&1 &)
 until curl -s -o /dev/null http://127.0.0.1:8099/; do sleep 0.3; done
 FLAGS=(--quiet --chrome-flags="--headless=new --no-sandbox" --only-categories=performance --output=json)
 [[ "$MODE" == "desktop" ]] && FLAGS+=(--preset=desktop)

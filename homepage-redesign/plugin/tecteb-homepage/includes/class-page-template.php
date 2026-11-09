@@ -20,9 +20,61 @@ final class PageTemplate {
 
 	public const FILE = 'tecteb-homepage-full-width.php';
 
+	/** @var \WP_Post|null|false پستِ کنارگذاشته در hide_front_document()؛ false یعنی چیزی کنار گذاشته نشده. */
+	private static $stashed_post = false;
+
 	public static function register_hooks(): void {
 		add_filter( 'theme_page_templates', array( self::class, 'offer' ) );
 		add_filter( 'template_include', array( self::class, 'load' ), 99 );
+		// 0.3.7 — دو طرف بلوک «CSS و دارایی‌های پست جاری» در Elementor\Frontend::enqueue_styles.
+		add_action( 'elementor/frontend/after_enqueue_styles', array( self::class, 'hide_front_document' ), PHP_INT_MAX );
+		add_action( 'elementor/frontend/after_enqueue_post_styles', array( self::class, 'restore_front_document' ), PHP_INT_MIN );
+		add_action( 'wp_enqueue_scripts', array( self::class, 'restore_front_document' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * 0.3.7 — وقتی این افزونه صفحهٔ نخست را جایگزین می‌کند، CSS و دارایی‌های Elementor ِ همان برگه بارگذاری نشوند.
+	 *
+	 * Elementor برای هر صفحهٔ singular، در Frontend::enqueue_styles (خط ۶۸۶–۶۹۷ ِ Elementor 4.2.3)، سه چیز ِ پست
+	 * جاری را در <head> می‌گذارد: post-{ID}.css (و فونت‌ها و کتابخانه‌های آیکون ثبت‌شده در متای آن)، و «دارایی‌های
+	 * صفحه» ِ ابزارک‌هایش (`_elementor_page_assets`: widget-*، swiper، e-animation-*، …). وقتی برگهٔ نخست با
+	 * Elementor ساخته شده و این افزونه به‌جایش templates/front-page.php را چاپ می‌کند، هیچ‌کدام از آن ابزارک‌ها روی
+	 * صفحه نیست — پس همهٔ آن‌ها درخواست‌های مسدودکنندهٔ رندری‌اند که هیچ چیزی را نمی‌آرایند.
+	 *
+	 * آن بلوک با `get_the_ID()` تصمیم می‌گیرد و فیلتری ندارد؛ پس درست پیش از آن (آخرین شنوندهٔ
+	 * elementor/frontend/after_enqueue_styles) پست جاری کنار گذاشته و درست پس از آن (اولین شنوندهٔ
+	 * elementor/frontend/after_enqueue_post_styles، که Elementor همیشه پس از همان بلوک صدا می‌زند) برگردانده می‌شود.
+	 * میان این دو فقط کد خودِ Elementor اجرا می‌شود. محض احتیاط، آخرین شنوندهٔ wp_enqueue_scripts هم برمی‌گرداند.
+	 *
+	 * فقط وقتی: takes_over_front() (پس نه در ویرایشگر، پیش‌نمایش، ?tecteb_home_original=1 یا صفحه‌ای دیگر) و برگه
+	 * واقعاً با Elementor ساخته شده باشد. هدر، فوتر، Popup و Kit ِ Elementor دست نمی‌خورند (Theme Builder آن‌ها را
+	 * جدا بارگذاری می‌کند)؛ هیچ داده‌ای نوشته یا حذف نمی‌شود.
+	 */
+	public static function hide_front_document(): void {
+		if ( false !== self::$stashed_post || ! self::takes_over_front() || ! class_exists( '\Elementor\Plugin' ) ) {
+			return;
+		}
+		$id        = (int) get_the_ID();
+		$documents = \Elementor\Plugin::$instance->documents ?? null;
+		$document  = ( $id > 0 && is_object( $documents ) && method_exists( $documents, 'get' ) ) ? $documents->get( $id ) : null;
+		if ( ! is_object( $document ) || ! method_exists( $document, 'is_built_with_elementor' ) || ! $document->is_built_with_elementor() ) {
+			return;
+		}
+		self::$stashed_post = $GLOBALS['post'] ?? null;
+		$GLOBALS['post']    = null; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- همان لحظه در restore_front_document() برمی‌گردد.
+	}
+
+	public static function restore_front_document(): void {
+		if ( false === self::$stashed_post ) {
+			return;
+		}
+		$GLOBALS['post']    = self::$stashed_post; // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- بازگرداندن همان مقدار.
+		self::$stashed_post = false;
+	}
+
+	/** برای آزمون‌ها: آیا پست جاری الان کنار گذاشته است؟ */
+	public static function front_document_hidden(): bool {
+		return false !== self::$stashed_post;
 	}
 
 	public static function offer( array $templates ): array {

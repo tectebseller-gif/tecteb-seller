@@ -15,7 +15,7 @@ use Tecteb\Homepage\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
-if ( 'tth_disposable' !== DB_NAME || ! str_starts_with( home_url(), 'http://127.0.0.1' ) ) {
+if ( ! in_array( DB_NAME, array( 'tth_disposable', 'tth_perf' ), true ) || ! str_starts_with( home_url(), 'http://127.0.0.1' ) ) {
 	fwrite( STDERR, "refused: not the disposable local site\n" );
 	exit( 1 );
 }

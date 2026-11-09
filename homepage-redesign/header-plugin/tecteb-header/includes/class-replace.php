@@ -64,9 +64,116 @@ final class Replace {
 	/** Locations_Manager ِ همین اجرای مکان header، برای وارسی در finish(). */
 	private static ?object $manager = null;
 
+	/** @var list<int> قالب‌هایی که CSS و دارایی‌هایشان در این درخواست بارگذاری نشد (0.2.6). */
+	private static array $assets_skipped = array();
+
 	public static function register_hooks(): void {
 		add_action( 'elementor/theme/before_do_header', array( self::class, 'start' ), PHP_INT_MAX );
 		add_action( 'elementor/theme/after_do_header', array( self::class, 'finish' ), PHP_INT_MIN );
+		// 0.2.6 — دو طرفِ Locations_Manager::enqueue_styles ِ Elementor Pro (wp_enqueue_scripts، اولویت ۱۰).
+		add_action( 'wp_enqueue_scripts', array( self::class, 'skip_replaced_assets' ), 9 );
+		add_action( 'wp_enqueue_scripts', array( self::class, 'end_skip' ), 11 );
+	}
+
+	/**
+	 * 0.2.6 — CSS و دارایی‌های قالبی را که قرار است جایگزین شود بارگذاری نکن.
+	 *
+	 * Elementor Pro در wp_enqueue_scripts (اولویت ۱۰) برای هر سند هر مکان — از جمله هدرِ ۲۶۵۲ که بعداً همین افزونه
+	 * از صف چاپ برمی‌دارد — سه چیز در <head> می‌گذارد (Locations_Manager::enqueue_styles، خط ۱۶۹–۲۲۴ ِ Pro 4.2.2):
+	 *   • post-{ID}.css (یا همان CSS درون‌خطی)،
+	 *   • فونت‌ها و کتابخانه‌های آیکون ِ ثبت‌شده در متای همان CSS (Font Awesome، فونت‌های سفارشی) —
+	 *     Elementor\Core\Files\CSS\Base::enqueue، خط ۲۴۶–۲۶۰،
+	 *   • «دارایی‌های صفحه» ِ ثبت‌شده برای ابزارک‌هایش (`_elementor_page_assets`: widget-nav-menu، widget-search،
+	 *     widget-icon-box، e-animation-*، e-apple-webkit، smartmenus، …) — handle_page_assets، خط ۲۱۶–۲۲۷.
+	 * قالب جایگزین‌شده رندر نمی‌شود، پس همهٔ این‌ها درخواست‌های مسدودکنندهٔ رندری‌اند که هیچ چیزی را نمی‌آرایند.
+	 *
+	 * سازوکار، فقط با API ِ عمومی: درست پیش از Pro (اولویت ۹) فیلتر خودِ Pro —
+	 * `elementor/theme/get_location_templates/template_id` — برای همین قالب‌ها در مکان header شناسهٔ ۰ برمی‌گرداند؛
+	 * Pro قالبِ «منتشرنشده» را رد می‌کند (Conditions_Manager::get_location_templates، خط ۳۸۵–۳۹۳)، پس در گام
+	 * بارگذاری هدری نمی‌بیند. درست پس از Pro (اولویت ۱۱) فیلتر برداشته و کش مکان‌ها پاک می‌شود، پس در لحظهٔ رندر
+	 * (do_location) همان ۲۶۵۲ دوباره در صف است و جایگزینی دقیقاً مثل 0.2.5 انجام می‌شود. دارایی‌هایی که
+	 * سند دیگری (فوتر، Popup، خودِ صفحه) هم لازم دارد دست نمی‌خورند، چون Pro آن‌ها را برای همان سند بارگذاری می‌کند.
+	 *
+	 * فقط وقتی که جایگزینی واقعاً انجام خواهد شد: active() و همهٔ اسناد هدر این صفحه در فهرست قالب‌های انتخاب‌شده.
+	 * اگر در لحظهٔ رندر جایگزینی به هر دلیلی انجام نشود و Elementor هدر خودش را چاپ کند، restore_skipped_assets()
+	 * همان دارایی‌ها را دوباره بارگذاری می‌کند (دیرتر، در پایین صفحه، ولی هدر Elementor بی‌سبک نمی‌ماند).
+	 */
+	public static function skip_replaced_assets(): void {
+		self::$assets_skipped = array();
+		if ( ! self::active() ) {
+			return;
+		}
+		$conditions = self::conditions_manager();
+		if ( null === $conditions ) {
+			return;
+		}
+		// پاسخی که پیش از این قلاب در کش مانده باشد ملاک نیست؛ جست‌وجوی تازه.
+		$conditions->clear_location_cache();
+		$ids     = array_map( 'intval', array_keys( (array) $conditions->get_documents_for_location( 'header' ) ) );
+		$allowed = array_map( 'intval', Settings::get()['replace_templates'] );
+		if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {
+			return;
+		}
+		self::$assets_skipped = $ids;
+		add_filter( 'elementor/theme/get_location_templates/template_id', array( self::class, 'hide_from_enqueue' ), PHP_INT_MAX, 2 );
+		$conditions->clear_location_cache();
+	}
+
+	/**
+	 * @param mixed  $template_id
+	 * @param string $location
+	 * @return mixed
+	 */
+	public static function hide_from_enqueue( $template_id, $location = '' ) {
+		return ( 'header' === $location && in_array( (int) $template_id, self::$assets_skipped, true ) ) ? 0 : $template_id;
+	}
+
+	public static function end_skip(): void {
+		remove_filter( 'elementor/theme/get_location_templates/template_id', array( self::class, 'hide_from_enqueue' ), PHP_INT_MAX );
+		if ( array() !== self::$assets_skipped ) {
+			$conditions = self::conditions_manager();
+			if ( null !== $conditions ) {
+				$conditions->clear_location_cache();
+			}
+		}
+	}
+
+	/** اگر هدر Elementor برخلاف انتظار چاپ می‌شود، آنچه skip_replaced_assets بارگذاری نکرد برگردد. */
+	private static function restore_skipped_assets(): void {
+		$ids                  = self::$assets_skipped;
+		self::$assets_skipped = array();
+		if ( array() === $ids || ! class_exists( '\Elementor\Plugin' ) ) {
+			return;
+		}
+		foreach ( $ids as $id ) {
+			if ( class_exists( '\Elementor\Core\Files\CSS\Post' ) ) {
+				\Elementor\Core\Files\CSS\Post::create( $id )->enqueue();
+			}
+			$assets = get_post_meta( $id, '_elementor_page_assets', true );
+			$loader = \Elementor\Plugin::$instance->assets_loader ?? null;
+			if ( is_array( $assets ) && array() !== $assets && is_object( $loader ) && method_exists( $loader, 'enable_assets' ) ) {
+				$loader->enable_assets( $assets );
+			}
+		}
+	}
+
+	/** Conditions_Manager ِ Theme Builder ِ Elementor Pro، یا null اگر نیست یا متدهای لازم را ندارد. */
+	private static function conditions_manager(): ?object {
+		$module_class = '\ElementorPro\Modules\ThemeBuilder\Module';
+		if ( ! class_exists( $module_class ) || ! method_exists( $module_class, 'instance' ) ) {
+			return null;
+		}
+		$module = $module_class::instance();
+		if ( ! is_object( $module ) || ! method_exists( $module, 'get_conditions_manager' ) ) {
+			return null;
+		}
+		$conditions = $module->get_conditions_manager();
+		return is_object( $conditions ) && method_exists( $conditions, 'get_documents_for_location' ) && method_exists( $conditions, 'clear_location_cache' ) ? $conditions : null;
+	}
+
+	/** @return list<int> برای آزمون‌ها و توضیح HTML ِ مدیر. */
+	public static function assets_skipped(): array {
+		return self::$assets_skipped;
 	}
 
 	/** آیا در این درخواست هدر Elementor جایگزین می‌شود؟ (پیش از بررسی قالب‌ها) */
@@ -102,6 +209,15 @@ final class Replace {
 
 	/** @param mixed $manager Locations_Manager ِ Elementor Pro */
 	public static function start( $manager = null ): void {
+		self::decide( $manager );
+		if ( 'replaced' !== self::$decision ) {
+			// Elementor هدر خودش را چاپ می‌کند: آنچه در <head> بارگذاری نشد برگردد (0.2.6).
+			self::restore_skipped_assets();
+		}
+	}
+
+	/** @param mixed $manager Locations_Manager ِ Elementor Pro */
+	private static function decide( $manager ): void {
 		self::$removed  = array();
 		self::$seen     = array();
 		self::$manager  = null;
@@ -166,11 +282,12 @@ final class Replace {
 		// همان‌جاست؛ این افزونه چیزی چاپ نمی‌کند ⇒ همیشه دقیقاً یک هدر، و هرگز صفر.
 		if ( ! is_object( $manager ) || ! method_exists( $manager, 'did_location' ) || $manager->did_location( 'header' ) ) {
 			self::$decision = 'elementor_printed';
+			self::restore_skipped_assets();
 			self::comment( 'not replaced: elementor_printed' );
 			return;
 		}
 		Assets::enqueue();
-		self::comment( 'replaced Elementor header template ' . implode( ',', $ids ) );
+		self::comment( 'replaced Elementor header template ' . implode( ',', $ids ) . ( array() !== self::$assets_skipped ? '; its CSS and assets not loaded: ' . implode( ',', self::$assets_skipped ) : '' ) );
 		echo Renderer::render( 'replace' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- قالب header.php هر جزء را escape می‌کند.
 	}
 
