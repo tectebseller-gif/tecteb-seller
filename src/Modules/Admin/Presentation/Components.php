@@ -12,6 +12,62 @@ use Tecteb\Marketplace\Modules\Health\Application\HealthStatus;
 final class Components
 {
     /**
+     * Every screen whose job is to report, and the capability each needs.
+     *
+     * Labels are closures because `__()` at class-constant time runs before
+     * the text domain is loaded and would freeze the untranslated string.
+     *
+     * @var array<string,array{label:callable():string, capability:string}>
+     */
+    private const REPORT_PLACES = [
+        'tmc-reports' => [
+            'label' => [self::class, 'labelOverview'],
+            'capability' => 'tmc_review_vendor',
+        ],
+        'tmc-order-ledger' => [
+            'label' => [self::class, 'labelOrders'],
+            'capability' => 'tmc_view_vendor_finance',
+        ],
+        'tmc-order-audit' => [
+            'label' => [self::class, 'labelReconcile'],
+            'capability' => 'tmc_view_vendor_finance',
+        ],
+        'tmc-returns' => [
+            'label' => [self::class, 'labelReturns'],
+            'capability' => 'tmc_review_withdrawals',
+        ],
+        'tmc-audit' => [
+            'label' => [self::class, 'labelTrail'],
+            'capability' => 'tmc_view_audit',
+        ],
+    ];
+
+    public static function labelOverview(): string
+    {
+        return __('نمای کلی', 'tecteb-marketplace-core');
+    }
+
+    public static function labelOrders(): string
+    {
+        return __('سفارش‌ها و مالی هر قلم', 'tecteb-marketplace-core');
+    }
+
+    public static function labelReconcile(): string
+    {
+        return __('تطبیق سفارش و سند', 'tecteb-marketplace-core');
+    }
+
+    public static function labelReturns(): string
+    {
+        return __('مرجوعی‌ها', 'tecteb-marketplace-core');
+    }
+
+    public static function labelTrail(): string
+    {
+        return __('ممیزی', 'tecteb-marketplace-core');
+    }
+
+    /**
      * The page shell: who we are, which group, which page.
      *
      * **Three rows, because twenty-two links in one row is not a menu.** Until
@@ -308,6 +364,58 @@ final class Components
         $summary = $summary !== '' ? $summary : __('جزئیات فنی', 'tecteb-marketplace-core');
         return '<details class="tmc-tech"><summary>' . esc_html($summary) . '</summary>'
             . self::dataList($rows) . '</details>';
+    }
+
+    /**
+     * The one way into the reports — printed by every report screen.
+     *
+     * ⛔ **WHY THIS EXISTS.** The owner's §3-د: «صفحه `ReportsPage` و
+     * `OrderLedgerPage` دو مسیر پراکنده‌اند». They are, and measurably so —
+     * `tmc-reports` sits in the eighth menu group («سلامت سیستم و
+     * گزارش‌ها») and `tmc-order-ledger` in the fourth («سفارش‌ها»), so there
+     * was no «گزارش‌ها» anywhere: there were two addresses a manager had to
+     * know separately. This strip is one list, printed by both, so arriving
+     * at either one shows the way to the rest.
+     *
+     * **It does not move a page between menu groups.** A per-line order
+     * report belongs under «سفارش‌ها» in the menu AND under «گزارش‌ها» as a
+     * report; those are two true statements, and re-grouping the menu to
+     * make one of them the only one would break every bookmark and every
+     * instruction already written for the owner.
+     *
+     * An entry the reader may not open is left out rather than printed dead
+     * (`alpha.88`), and the entry for the current page is marked rather than
+     * linked to itself.
+     *
+     * @param string $current the slug of the screen printing this
+     */
+    public static function reportNav(string $current): string
+    {
+        $entries = [];
+        foreach (self::REPORT_PLACES as $slug => $spec) {
+            if (!current_user_can($spec['capability'])) {
+                continue;
+            }
+            $entries[] = [
+                'slug' => $slug,
+                'label' => $spec['label'](),
+                'url' => admin_url('admin.php?page=' . $slug),
+                'current' => $slug === $current,
+            ];
+        }
+        if (count($entries) < 2) {
+            // One destination is not a navigation; it is the page you are on.
+            return '';
+        }
+        $out = '<nav class="tmc-reportnav" aria-label="'
+            . esc_attr__('گزارش‌های بازارگاه', 'tecteb-marketplace-core') . '"><ul class="tmc-reportnav__list">';
+        foreach ($entries as $entry) {
+            $out .= '<li><a class="tmc-reportnav__link' . ($entry['current'] ? ' is-current' : '') . '"'
+                . ' href="' . esc_url($entry['url']) . '"'
+                . ($entry['current'] ? ' aria-current="page"' : '') . '>'
+                . esc_html($entry['label']) . '</a></li>';
+        }
+        return $out . '</ul></nav>';
     }
 
     /**

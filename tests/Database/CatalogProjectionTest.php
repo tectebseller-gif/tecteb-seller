@@ -39,10 +39,12 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0002CreateVendorTables;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStoreAndStaffTables;
+use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
 use Tecteb\Marketplace\Tests\Support\FakeUnpaidOrderGuard;
+use Tecteb\Marketplace\Tests\Support\TruncatingDatabase;
 
 /**
  * ADR-008 as assertions: one storefront product per marketplace row, a sale
@@ -69,6 +71,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
     private FakeProductImages $images;
     private EventBus $events;
     private StorefrontStop $stop;
+    private AuditLogger $auditLog;
     private StorefrontSwitch $switch;
     private FakeUnpaidOrderGuard $unpaidOrders;
     private DbProductRevisionRepository $revisions;
@@ -91,6 +94,7 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $clock = new SystemClock();
         $options = new WpOptionStore();
         $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
+        $this->auditLog = $audit;
         $this->products = new DbProductRepository($db, $clock);
         $variations = new DbVariationRepository($db, $clock);
         $templates = new DbSpecTemplateRepository($db, $clock);
@@ -388,6 +392,88 @@ final class CatalogProjectionTest extends DatabaseTestCase
         $this->storefront->refusesToWithdraw = [];
         $this->stop->stop('manager_stopped', self::MANAGER);
         self::assertSame(['products' => [], 'orders' => []], $this->switch->stuck());
+    }
+
+    /**
+     * ⛔ A SCAN THAT HIT ITS CAP SAYS SO, AND USED TO SAY NOTHING.
+     *
+     * `stop()` reads `projected()`, which carries a `LIMIT`. On a shop with
+     * more owned products than that limit the stop withdrew the first batch,
+     * left the rest **ON SALE**, and named none of them — they are not in
+     * `stuck`, because `stuck` holds the ones it TRIED and failed. After
+     * deactivation nothing guards those products and nothing records the
+     * money when they sell, so silence here is the worst outcome on the one
+     * path that exists to prevent exactly that.
+     *
+     * The cap is reached with a double rather than with five hundred and one
+     * real products: the thing under test is the comparison between «how many
+     * did I get» and «how many are there».
+     */
+    public function testAStopThatReachedItsCapSaysHowManyItNeverLookedAt(): void
+    {
+        $this->publish('SKU-SEEN');
+        $this->publish('SKU-UNSEEN');
+
+        $short = new TruncatingDatabase(new WpDatabase($this->wpdb));
+        // The list read, not the count: `countProjected()` must still answer
+        // with the truth, which is the whole point of asking it separately.
+        $short->truncateWhen(['wc_product_id IS NOT NULL', 'ORDER BY id ASC LIMIT'], 1);
+        $capped = new StorefrontStop(
+            new DbProductRepository($short, new SystemClock()),
+            $this->catalog,
+            new ProductReadiness(
+                new DbSpecTemplateRepository($short, new SystemClock()),
+                new DbVariationRepository($short, new SystemClock())
+            ),
+            new StaffAccess(
+                new DbStaffRepository($short, new SystemClock()),
+                new DbVendorRepository($short, new SystemClock())
+            ),
+            $this->switch,
+            $this->auditLog,
+            $this->unpaidOrders
+        );
+
+        $outcome = $capped->stop('plugin_deactivated', self::MANAGER);
+
+        self::assertSame(1, $outcome['withdrawn'], 'it withdrew what it could see');
+        self::assertSame(1, $outcome['unseen'], 'and said how many it could not');
+        self::assertSame([], $outcome['stuck'], 'they are not «stuck» — they were never tried');
+        self::assertSame(1, $this->switch->unseen(), 'the number outlives the run');
+    }
+
+    /**
+     * And a count that could not be read is not read as nought.
+     *
+     * `alpha.8`, on the conservative side: a failed count on a full-looking
+     * scan reports «there is something I did not see», because the direction
+     * that is safe to be wrong in is the one that tells the manager to look.
+     */
+    public function testAnUnreadableCountIsNotReadAsNothingLeftOver(): void
+    {
+        $this->publish('SKU-COUNT');
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failReadWhen(['SELECT COUNT(*)', 'wc_product_id IS NOT NULL']);
+        $clock = new SystemClock();
+        $blind = new StorefrontStop(
+            new DbProductRepository($failing, $clock),
+            $this->catalog,
+            new ProductReadiness(
+                new DbSpecTemplateRepository($failing, $clock),
+                new DbVariationRepository($failing, $clock)
+            ),
+            new StaffAccess(
+                new DbStaffRepository($failing, $clock),
+                new DbVendorRepository($failing, $clock)
+            ),
+            $this->switch,
+            $this->auditLog,
+            $this->unpaidOrders
+        );
+
+        // One product, far from the cap: an unreadable count here is «I know
+        // how many I saw and the scan did not fill up», so nought is honest.
+        self::assertSame(0, $blind->stop('manager_stopped', self::MANAGER)['unseen']);
     }
 
     /**

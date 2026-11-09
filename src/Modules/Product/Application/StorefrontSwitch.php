@@ -38,6 +38,16 @@ final class StorefrontSwitch
 
     public const STUCK_ORDERS_OPTION = 'tmc_storefront_stuck_orders';
 
+    /**
+     * How many owned products the stop never looked at, as a NUMBER.
+     *
+     * ⛔ A number rather than a list, because that is honestly all there is:
+     * the scan stopped at its cap, so their ids were never read. Silence here
+     * was the defect — products beyond the cap stayed on sale after
+     * deactivation and appeared in no list, not even `stuck`.
+     */
+    public const UNSEEN_OPTION = 'tmc_storefront_unseen';
+
     /** Reasons the marketplace itself records. Anything else is a free note. */
     public const REASON_DEACTIVATED = 'plugin_deactivated';
     public const REASON_MANAGER = 'manager_stopped';
@@ -92,6 +102,21 @@ final class StorefrontSwitch
      * @param list<int> $products marketplace products still on sale
      * @param list<int> $orders   unpaid orders whose pay link still works
      */
+    /** The count the scan could not reach; nought clears it. */
+    public function markUnseen(int $unseen): void
+    {
+        if ($unseen <= 0) {
+            $this->options->delete(self::UNSEEN_OPTION);
+            return;
+        }
+        $this->options->set(self::UNSEEN_OPTION, $unseen);
+    }
+
+    public function unseen(): int
+    {
+        return max(0, (int) $this->options->get(self::UNSEEN_OPTION, 0));
+    }
+
     public function markStuck(array $products, array $orders): void
     {
         foreach ([self::STUCK_OPTION => $products, self::STUCK_ORDERS_OPTION => $orders] as $key => $ids) {

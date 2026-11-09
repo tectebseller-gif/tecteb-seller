@@ -144,6 +144,18 @@ final class OrderLedgerFilter
     }
 
     /**
+     * The same rows, read in batches of a size the CALLER picks.
+     *
+     * For a sweep, where the batch size is a memory decision rather than a
+     * reader's choice — so it deliberately does not go through
+     * `self::PER_PAGE`, which is the list of sizes a person may ASK for.
+     */
+    public function atPage(int $page, int $perPage): self
+    {
+        return $this->with(['page' => max(1, $page), 'perPage' => max(1, $perPage)]);
+    }
+
+    /**
      * A copy with some fields replaced.
      *
      * One place, so adding a field to this object cannot leave a copier behind

@@ -50,6 +50,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\WordPress\FinanceArea;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\SupplierPaymentsPage;
 use Tecteb\Marketplace\Modules\Finance\Presentation\Admin\WithdrawalsPage;
 use Tecteb\Marketplace\Modules\Order\Application\ShipmentRepositoryInterface;
+use Tecteb\Marketplace\Modules\Order\Presentation\Admin\OrderAuditPage;
 use Tecteb\Marketplace\Modules\Order\Presentation\Admin\OrderLedgerPage;
 use Tecteb\Marketplace\Modules\Order\Presentation\Admin\ReturnsPage;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
@@ -257,7 +258,8 @@ final class FinanceModule implements ModuleInterface
         // same reason (F-15).
         $returns = new ReturnsPage($c);
         $orderLedger = new OrderLedgerPage($c);
-        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns, $supplierPayments, $orderLedger): array {
+        $orderAudit = new OrderAuditPage($c);
+        add_filter(AdminExtensions::FILTER, static function (array $pages) use ($rules, $withdrawals, $returns, $supplierPayments, $orderLedger, $orderAudit): array {
             $pages[] = [
                 'slug' => CommissionRulesPage::SLUG,
                 'page_title' => CommissionRulesPage::menuLabel(),
@@ -302,6 +304,17 @@ final class FinanceModule implements ModuleInterface
                 'menu_label' => OrderLedgerPage::menuLabel(),
                 'capability' => OrderLedgerPage::CAPABILITY,
                 'render' => [$orderLedger, 'render'],
+            ];
+            // «تطبیق سفارش و سند» — the owner's §5. Registered beside the
+            // report and not in the order module, for the same reason: it
+            // reads, and it has to be openable on a marketplace whose order
+            // gate is shut, which is the only state this release ships in.
+            $pages[] = [
+                'slug' => OrderAuditPage::SLUG,
+                'page_title' => OrderAuditPage::menuLabel(),
+                'menu_label' => OrderAuditPage::menuLabel(),
+                'capability' => OrderAuditPage::CAPABILITY,
+                'render' => [$orderAudit, 'render'],
             ];
             return $pages;
         });

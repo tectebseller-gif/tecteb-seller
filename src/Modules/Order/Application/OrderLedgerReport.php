@@ -52,6 +52,18 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
  */
 final class OrderLedgerReport
 {
+    /**
+     * How many rows one batch of a sweep reads.
+     *
+     * Deliberately smaller than the biggest page a reader can ask for: a
+     * sweep is a background-shaped read inside a request, and the point of
+     * batching is that peak memory is one batch rather than the whole set.
+     */
+    public const SWEEP_BATCH = 200;
+
+    /** The most rows one export may carry. Announced, never silent. */
+    public const SWEEP_CAP = 5000;
+
     public function __construct(
         private readonly OrderItemRepositoryInterface $items,
         private readonly LedgerRepositoryInterface $ledger,
@@ -91,6 +103,139 @@ final class OrderLedgerReport
             return ['allowed' => false, 'rows' => [], 'total' => null, 'filter' => $filter];
         }
         return $this->page($filter);
+    }
+
+    /**
+     * The whole filtered set in figures — for a manager.
+     *
+     * ⛔ **THE PER-PRODUCT REPORT IS THIS METHOD WITH A PRODUCT FILTER.**
+     * «هر محصول باید گزارش مستقل سفارش‌ها، فروش معتبر، فروش تاریخی، کمیسیون،
+     * لغو و مرجوعی داشته باشد» — and that is one `WHERE` away from the report
+     * that already exists, so it is not a second screen, a second query shape
+     * or a second definition of «valid sales». A screen that built its own
+     * product totals would be a number that agrees with this one until
+     * somebody edits one of them.
+     *
+     * @return array{allowed:bool, readable:bool, groups:list<array<string,mixed>>, refused:string}
+     */
+    public function summaryForManager(OrderLedgerFilter $filter): array
+    {
+        if ($this->capabilities === null || !$this->capabilities->can(Capabilities::VIEW_VENDOR_FINANCE)) {
+            return ['allowed' => false, 'readable' => false, 'groups' => [], 'refused' => ''];
+        }
+        return self::summarise($this->items->detailedTotals($filter));
+    }
+
+    /**
+     * The same figures, for somebody who may see one shop.
+     *
+     * @return array{allowed:bool, readable:bool, groups:list<array<string,mixed>>, refused:string}
+     */
+    public function summaryForVendor(int $actorId, int $vendorUserId, OrderLedgerFilter $filter): array
+    {
+        if (!$this->access->can($actorId, $vendorUserId, StaffArea::Order, StaffLevel::View)) {
+            return ['allowed' => false, 'readable' => false, 'groups' => [], 'refused' => ''];
+        }
+        return self::summarise($this->items->detailedTotals($filter->forVendor($vendorUserId)));
+    }
+
+    /**
+     * @param array{readable:bool, groups:list<array<string,mixed>>} $answer
+     * @return array{allowed:bool, readable:bool, groups:list<array<string,mixed>>, refused:string}
+     */
+    private static function summarise(array $answer): array
+    {
+        if (!$answer['readable']) {
+            // «Could not read» rather than nought, all the way to the screen.
+            return ['allowed' => true, 'readable' => false, 'groups' => [], 'refused' => 'unreadable'];
+        }
+        $currencies = [];
+        foreach ($answer['groups'] as $group) {
+            if ($group['currency'] !== null) {
+                $currencies[(string) $group['currency']] = true;
+            }
+        }
+        return [
+            'allowed' => true,
+            'readable' => true,
+            'groups' => $answer['groups'],
+            // More than one group is reported, never added: two currencies
+            // have no sum at all, and two exponents of one currency would need
+            // a rescale this query deliberately does not do.
+            'refused' => match (true) {
+                count($currencies) > 1 => 'mixed_currencies',
+                count($answer['groups']) > 1 => 'mixed_scales',
+                default => '',
+            },
+        ];
+    }
+
+    /**
+     * Every row of the filtered set, handed over in batches.
+     *
+     * ⛔ **WHY BATCHES AND A CAP.** «خروجی CSV کامل باید در دسته‌های محدود و
+     * با سقف ایمن اجرا شود؛ از بارگذاری هزاران ردیف در حافظه یک‌باره
+     * جلوگیری کن». Each batch is one page of the SAME query the table uses,
+     * described by the SAME `describe()`, so the file and the screen cannot
+     * disagree about a row; and the caller is handed each batch and keeps
+     * nothing, so the memory cost is one batch however large the set is.
+     *
+     * The cap is ANNOUNCED rather than silent: the answer says whether the
+     * sweep reached the end, and a caller that stopped short must say so
+     * (`alpha.85`: a limit that is only half stated hides the other half).
+     *
+     * @param callable(list<array<string,mixed>>):void $onBatch
+     * @return array{allowed:bool, rows:int, finished:bool, readable:bool}
+     */
+    public function sweepForManager(OrderLedgerFilter $filter, callable $onBatch, int $maxRows): array
+    {
+        if ($this->capabilities === null || !$this->capabilities->can(Capabilities::VIEW_VENDOR_FINANCE)) {
+            return ['allowed' => false, 'rows' => 0, 'finished' => false, 'readable' => false];
+        }
+        return ['allowed' => true, ...$this->sweep($filter, $onBatch, $maxRows)];
+    }
+
+    /**
+     * @param callable(list<array<string,mixed>>):void $onBatch
+     * @return array{rows:int, finished:bool, readable:bool}
+     */
+    private function sweep(OrderLedgerFilter $filter, callable $onBatch, int $maxRows): array
+    {
+        $sent = 0;
+        $page = 1;
+        $readable = true;
+        while ($sent < $maxRows) {
+            $answer = $this->page($filter->atPage($page, self::SWEEP_BATCH));
+            if ($answer['total'] === null) {
+                $readable = false;
+            }
+            $rows = $answer['rows'];
+            if ($rows === []) {
+                return ['rows' => $sent, 'finished' => true, 'readable' => $readable];
+            }
+            // ⛔ THE CAP IS CHECKED BEFORE «was this page short», and the
+            // order is the bug this comment exists for: a page cut at the cap
+            // is short BECAUSE of the cap, so reading it as the end of the
+            // set reported a truncated export as a complete one — which is
+            // precisely the silence `alpha.85` says a half-stated limit
+            // creates. Found by the test, not by reading.
+            $capped = $sent + count($rows) > $maxRows;
+            if ($capped) {
+                $rows = array_slice($rows, 0, $maxRows - $sent);
+            }
+            $onBatch($rows);
+            $sent += count($rows);
+            if ($capped) {
+                return ['rows' => $sent, 'finished' => false, 'readable' => $readable];
+            }
+            if (count($answer['rows']) < self::SWEEP_BATCH) {
+                // A short page is the end of the set — the same reading
+                // every cursor in this plugin uses.
+                return ['rows' => $sent, 'finished' => true, 'readable' => $readable];
+            }
+            $page++;
+        }
+        return ['rows' => $sent, 'finished' => false, 'readable' => $readable];
     }
 
     /**

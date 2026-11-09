@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Core\Support\SiteTime;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Finance\Domain\WithdrawalStatus;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0007SettlementTables as Settlement;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
@@ -15,6 +16,7 @@ use Tecteb\Marketplace\Modules\Order\Domain\WcOrderLifecycle;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0039WcOrderStatusOnRows as WcStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as T;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables as P;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows as U;
 
 /**
@@ -519,6 +521,120 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
     }
 
     /**
+     * The whole filtered set, in figures — one query, no `LIMIT`.
+     *
+     * ⛔ **WHY THIS IS NOT A SECOND DEFINITION OF THE THREE TOTALS.** The card
+     * above the table sums the PAGE in PHP, because a vendor's lines can sit
+     * at two exponents of one currency and a bare `SUM()` across those is
+     * wrong by a factor of ten thousand (`alpha.67`). This method answers
+     * about the whole set instead, and it does it by refusing to combine:
+     * `GROUP BY` currency and exponent, and the caller is handed the groups.
+     * With ONE group — every real catalogue — there is no rescaling to get
+     * wrong, so the figures are exact; with two, nothing is added up and the
+     * page says so. The two readers therefore cannot disagree about a number,
+     * because in the only case both answer, both are summing identical rows
+     * at one scale (`alpha.87`: a list and its counter ask one question).
+     *
+     * The three figures are the SAME predicates `OrderLedgerReport::describe()`
+     * derives, written in SQL: «historic» is every line's share, «valid» drops
+     * the cancelled ones, and «pending» is `settlement_state` =
+     * `awaiting_completion` — not cancelled, not reserved against a
+     * withdrawal, not yet marked complete.
+     *
+     * ⛔ **`SUM()` SKIPS `NULL`, so the unrecorded are counted by name.** A
+     * line whose rate could not be resolved holds `NULL` and would silently
+     * read as «nothing was due» (FIN-02). `unrecorded` is that count, and a
+     * page that prints a total beside a non-zero `unrecorded` is telling the
+     * truth about both.
+     *
+     * ⛔ **Read as text, not cast.** `SUM()` is a `DECIMAL` wider than a PHP
+     * integer and `(int)` SATURATES rather than failing, so a sum past the
+     * range would answer `PHP_INT_MAX` and look like a figure. It goes
+     * through `DecimalAmount` and a value that will not fit answers `null`
+     * (`alpha.68` §2).
+     *
+     * @return array{readable:bool, groups:list<array<string,mixed>>}
+     */
+    public function detailedTotals(OrderLedgerFilter $filter): array
+    {
+        $carried = $this->unitColumnsOn($this->table()) === U::PRESENT;
+        $mirror = $this->hasWcOrderStatusColumn();
+        [$where, $params] = $this->detailedWhere($filter, $mirror);
+        $cancelled = OrderItemStatus::Cancelled->value;
+
+        $rows = $this->db->getResults(
+            'SELECT ' . ($carried
+                ? '`' . U::CURRENCY . '` AS tmc_currency, `' . U::EXPONENT . '` AS tmc_exponent,'
+                : 'NULL AS tmc_currency, NULL AS tmc_exponent,') . '
+                    COUNT(*) AS lines_count,
+                    SUM(CASE WHEN status = %s THEN 1 ELSE 0 END) AS cancelled_count,
+                    SUM(CASE WHEN vendor_share_minor IS NULL THEN 1 ELSE 0 END) AS unrecorded_count,
+                    SUM(CASE WHEN ledger_event = %s THEN 1 ELSE 0 END) AS no_event_count,
+                    CAST(COALESCE(SUM(base_minor), 0) AS CHAR) AS base_sum,
+                    CAST(COALESCE(SUM(tax_minor), 0) AS CHAR) AS tax_sum,
+                    CAST(COALESCE(SUM(commission_minor), 0) AS CHAR) AS commission_sum,
+                    CAST(COALESCE(SUM(vendor_share_minor), 0) AS CHAR) AS historic_sum,
+                    CAST(COALESCE(SUM(CASE WHEN status <> %s THEN vendor_share_minor ELSE 0 END), 0) AS CHAR)
+                        AS valid_sum,
+                    CAST(COALESCE(SUM(CASE WHEN status <> %s AND withdrawal_id IS NULL
+                                            AND settlement_completed_at IS NULL
+                                           THEN vendor_share_minor ELSE 0 END), 0) AS CHAR)
+                        AS pending_sum
+             FROM `' . $this->table() . '` ' . $where
+             . ($carried ? ' GROUP BY `' . U::CURRENCY . '`, `' . U::EXPONENT . '`' : ''),
+            // ⛔ THE SELECT'S PLACEHOLDERS COME FIRST, because `prepare()`
+            // substitutes in order of APPEARANCE and the four `%s` above are
+            // in the `SELECT`, before the `WHERE`. With the filter's params
+            // first, an unfiltered query happened to be right and every
+            // narrowed one silently compared `status` against a product id —
+            // so the figures came back empty for exactly the reader who had
+            // asked a question. Found by the test, not by reading.
+            [$cancelled, '', $cancelled, $cancelled, ...$params]
+        );
+
+        // ⛔ A FAILED READ IS NOT AN EMPTY SET. `getResults()` answers `[]`
+        // for both, and a report that printed nought off a broken query would
+        // tell a manager the shop had sold nothing (`alpha.8`). The count is
+        // asked separately, and `null` from it is what says «could not read».
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->table() . '` ' . $where,
+            $params
+        );
+        if ($counted === null) {
+            return ['readable' => false, 'groups' => []];
+        }
+
+        // The sums come back at the group's OWN scale, so nothing is
+        // converted here: the only question `DecimalAmount` is asked is
+        // whether the integer fits, and `null` is the answer when it does not.
+        $money = static function (array $row, string $key): ?int {
+            $raw = trim((string) ($row[$key] ?? ''));
+            return $raw === '' ? 0 : DecimalAmount::toMinor($raw, 0);
+        };
+
+        $groups = [];
+        foreach ($rows as $row) {
+            $exponent = ($row['tmc_exponent'] ?? null) === null ? null : (int) $row['tmc_exponent'];
+            $currency = trim((string) ($row['tmc_currency'] ?? ''));
+            $groups[] = [
+                'currency' => $currency === '' ? null : strtoupper($currency),
+                'exponent' => $exponent,
+                'lines' => (int) $row['lines_count'],
+                'cancelled' => (int) $row['cancelled_count'],
+                'unrecorded' => (int) $row['unrecorded_count'],
+                'unrecorded_event' => (int) $row['no_event_count'],
+                'base' => $money($row, 'base_sum'),
+                'tax' => $money($row, 'tax_sum'),
+                'commission' => $money($row, 'commission_sum'),
+                'historic' => $money($row, 'historic_sum'),
+                'valid' => $money($row, 'valid_sum'),
+                'pending' => $money($row, 'pending_sum'),
+            ];
+        }
+        return ['readable' => true, 'groups' => $groups];
+    }
+
+    /**
      * The `WHERE` both halves of `detailed()` use — one clause list, one
      * parameter list.
      *
@@ -938,6 +1054,130 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
                 ? (int) $row[U::EXPONENT]
                 : null
         );
+    }
+
+    /**
+     * A window of recorded lines, with only the columns reconciliation needs.
+     *
+     * Keyset by `id` rather than `OFFSET`, so a window is stable while rows
+     * are being written — the same reason every cursor in this plugin is a
+     * keyset (`alpha.32`).
+     *
+     * ⛔ **COUNTED SEPARATELY.** `getResults()` answers `[]` both for «no
+     * more rows» and for «the statement failed», and a reconciliation that
+     * read a failure as «nothing left to check» would report a clean bill
+     * off a broken query — the one direction this control must never be
+     * wrong in (`alpha.8`, `alpha.97`). `readable` is `false` then.
+     *
+     * @return array{readable:bool, rows:list<array<string,mixed>>}
+     */
+    public function linesToReconcile(int $afterId, int $limit, ?int $vendorUserId = null): array
+    {
+        $where = 'WHERE id > %d';
+        $params = [$afterId];
+        if ($vendorUserId !== null) {
+            $where .= ' AND vendor_user_id = %d';
+            $params[] = $vendorUserId;
+        }
+        $counted = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->table() . '` ' . $where,
+            $params
+        );
+        if ($counted === null) {
+            return ['readable' => false, 'rows' => []];
+        }
+        $rows = $this->db->getResults(
+            'SELECT id, wc_order_id, wc_order_item_id, product_id, vendor_user_id,
+                    status, ledger_event, vendor_share_minor, commission_minor, title
+             FROM `' . $this->table() . '` ' . $where . ' ORDER BY id ASC LIMIT %d',
+            [...$params, max(1, $limit)]
+        );
+        return [
+            'readable' => true,
+            'rows' => array_map(static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'wc_order_id' => (int) $row['wc_order_id'],
+                'wc_order_item_id' => (int) $row['wc_order_item_id'],
+                'product_id' => (int) $row['product_id'],
+                'vendor_user_id' => (int) $row['vendor_user_id'],
+                'status' => (string) $row['status'],
+                'ledger_event' => (string) $row['ledger_event'],
+                'share_recorded' => ($row['vendor_share_minor'] ?? null) !== null,
+                'commission_recorded' => ($row['commission_minor'] ?? null) !== null,
+                'title' => (string) $row['title'],
+            ], $rows),
+        ];
+    }
+
+    /**
+     * Which of these accrual keys more than one line claims — one query.
+     *
+     * A financial document belongs to exactly one line. Two lines naming one
+     * key means one sale was counted twice, which is the shape `alpha.98`
+     * closed on the Dokan side and the shape a duplicated callback would make
+     * here.
+     *
+     * @param list<string> $eventKeys
+     * @return list<string>
+     */
+    public function eventsOnSeveralLines(array $eventKeys): array
+    {
+        $keys = [];
+        foreach ($eventKeys as $key) {
+            $key = trim((string) $key);
+            if ($key !== '') {
+                $keys[$key] = true;
+            }
+        }
+        if ($keys === []) {
+            return [];
+        }
+        $keys = array_keys($keys);
+        $rows = $this->db->getResults(
+            'SELECT ledger_event FROM `' . $this->table() . '` WHERE ledger_event IN ('
+            . implode(',', array_fill(0, count($keys), '%s'))
+            . ') GROUP BY ledger_event HAVING COUNT(*) > 1',
+            $keys
+        );
+        return array_map(static fn (array $row): string => (string) $row['ledger_event'], $rows);
+    }
+
+    /**
+     * Which of these lines name a vendor the product row does not — one query.
+     *
+     * The line carries `vendor_user_id` as a snapshot of who sold it, and the
+     * product row carries who owns it. They are allowed to be read separately
+     * and must not be allowed to differ silently: a share paid to the wrong
+     * shop is the worst outcome in this module, and it looks like nothing.
+     *
+     * A line whose product row has GONE is not reported here — that is a
+     * different fact, with a different answer, and inventing «mismatch» for
+     * it would send a manager looking for a shop that is not the problem.
+     *
+     * @param list<int> $lineIds
+     * @return list<int>
+     */
+    public function vendorMismatchedLines(array $lineIds): array
+    {
+        $ids = [];
+        foreach ($lineIds as $id) {
+            if ((int) $id > 0) {
+                $ids[(int) $id] = true;
+            }
+        }
+        if ($ids === []) {
+            return [];
+        }
+        $ids = array_keys($ids);
+        $products = P::table($this->db, P::PRODUCTS);
+        $rows = $this->db->getResults(
+            'SELECT i.id FROM `' . $this->table() . '` i
+              INNER JOIN `' . $products . '` p ON p.id = i.product_id
+              WHERE i.id IN (' . implode(',', array_fill(0, count($ids), '%d')) . ')
+                AND p.vendor_user_id <> i.vendor_user_id',
+            $ids
+        );
+        return array_map(static fn (array $row): int => (int) $row['id'], $rows);
     }
 
     private function table(): string

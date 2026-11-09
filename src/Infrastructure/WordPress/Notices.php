@@ -66,8 +66,15 @@ final class Notices
             if (!current_user_can('activate_plugins')) {
                 return;
             }
-            $stuck = $container->get(StorefrontSwitch::class)->stuck();
-            if ($stuck['products'] === [] && $stuck['orders'] === []) {
+            $switch = $container->get(StorefrontSwitch::class);
+            $stuck = $switch->stuck();
+            // ⛔ The third shape of «the stop did not finish», and the one
+            // that used to be silent: products the scan never reached. They
+            // are not in `stuck` — that list holds the ones it TRIED — so
+            // without this line a shop with more owned products than the
+            // scan's cap was told nothing at all.
+            $unseen = $switch->unseen();
+            if ($stuck['products'] === [] && $stuck['orders'] === [] && $unseen === 0) {
                 return;
             }
             $fa = static fn (array $ids): string => PersianDigits::toPersian(
@@ -86,6 +93,13 @@ final class Notices
                     /* translators: %s: WooCommerce order numbers */
                     __('لینک پرداخت سفارش(های) %s هنوز کار می‌کند.', 'tecteb-marketplace-core'),
                     $fa($stuck['orders'])
+                );
+            }
+            if ($unseen > 0) {
+                $lines[] = sprintf(
+                    /* translators: %s: how many products were never examined */
+                    __('و %s محصول دیگر اصلاً بررسی نشدند، چون پویش به سقف خودش رسید؛ شناسه‌هایشان خوانده نشده است.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $unseen)
                 );
             }
             echo '<div class="notice notice-error tmc-notice"><p><strong>'

@@ -81,6 +81,46 @@ interface OrderItemRepositoryInterface
     public function detailed(OrderLedgerFilter $filter): array;
 
     /**
+     * The same filter, aggregated over the WHOLE set — no `LIMIT`.
+     *
+     * Grouped by currency and exponent and never combined across them, so
+     * either there is one group and the figures are exact, or there are
+     * several and the reader says there is no single total. `readable` is
+     * `false` when the set could not be counted at all, which is not the
+     * same answer as a set of nought rows (`alpha.8`).
+     *
+     * @return array{readable:bool, groups:list<array<string,mixed>>}
+     */
+    public function detailedTotals(OrderLedgerFilter $filter): array;
+
+    /**
+     * A keyset window of recorded lines, for reconciliation.
+     *
+     * `readable` is `false` when the window could not be counted — which is
+     * NOT «no rows left», and a control that confused the two would report a
+     * clean bill off a broken query.
+     *
+     * @return array{readable:bool, rows:list<array<string,mixed>>}
+     */
+    public function linesToReconcile(int $afterId, int $limit, ?int $vendorUserId = null): array;
+
+    /**
+     * Which of these accrual keys more than one line claims.
+     *
+     * @param list<string> $eventKeys
+     * @return list<string>
+     */
+    public function eventsOnSeveralLines(array $eventKeys): array;
+
+    /**
+     * Which of these lines name a vendor their product row does not.
+     *
+     * @param list<int> $lineIds
+     * @return list<int>
+     */
+    public function vendorMismatchedLines(array $lineIds): array;
+
+    /**
      * What this vendor has earned and owes — all three figures in ONE unit,
      * which the answer names.
      *

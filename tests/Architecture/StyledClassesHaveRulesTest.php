@@ -53,6 +53,18 @@ final class StyledClassesHaveRulesTest extends TestCase
                 // groups; every class that markup writes is checked here for
                 // the same reason the filters were.
                 'src/Modules/Admin/Presentation/Components.php',
+                // ⛔ ADDED BY alpha.100, AND THE REASON IS THE DEFECT ITSELF.
+                // The owner opened «سفارش‌ها ردیف به ردیف» on staging and
+                // found thirteen filters in a vertical column: the view wrote
+                // `.tmc-filter-form` and NOTHING in either stylesheet matched
+                // it — the `alpha.32` root cause again, two releases after
+                // this test was written to catch exactly that. It did not
+                // catch it because the list above is opt-in and this page was
+                // never added. Both report screens and the audit page are on
+                // it now.
+                'src/Modules/Order/Presentation/Admin/OrderLedgerPage.php',
+                'src/Modules/Order/Presentation/Admin/OrderAuditPage.php',
+                'src/Modules/Operations/Presentation/Admin/AuditPage.php',
             ],
         ],
         'assets/vendor/tmc-vendor.css' => [

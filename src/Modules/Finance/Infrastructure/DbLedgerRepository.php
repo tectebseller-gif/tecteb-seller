@@ -101,6 +101,70 @@ final class DbLedgerRepository implements LedgerRepositoryInterface
         return $present;
     }
 
+    /**
+     * Whether each named event's rows balance — one query for the whole set.
+     *
+     * ⛔ **BATCHED, because the alternative is a query per row.** The
+     * reconciliation audit asks this about a page of lines, and `forEvent()`
+     * per line is the shape that made a per-line report unusable at volume
+     * (`alpha.96`). One `GROUP BY` answers for all of them.
+     *
+     * «balanced» is a sum of nought, which is what every accrual and every
+     * reversal this plugin writes must come to. «single_unit» is asked
+     * separately and is the reason the sum can be trusted at all: rows in two
+     * units summed together are a number in no unit (`alpha.68` §2), so an
+     * event mixing units is reported as unbalanced whatever its total says.
+     *
+     * A key with no rows is ABSENT from the answer rather than present with
+     * zeros — «there is no such document» and «the document sums to nought»
+     * are different facts and only one of them is a defect.
+     *
+     * @param list<string> $eventKeys
+     * @return array<string,array{rows:int, units:int, balanced:bool, single_unit:bool, total:?int}>
+     */
+    public function eventBalances(array $eventKeys): array
+    {
+        $keys = [];
+        foreach ($eventKeys as $key) {
+            $key = trim((string) $key);
+            if ($key !== '') {
+                $keys[$key] = true;
+            }
+        }
+        if ($keys === []) {
+            return [];
+        }
+        $keys = array_keys($keys);
+        $rows = $this->db->getResults(
+            'SELECT event_key, COUNT(*) AS rows_count,
+                    COUNT(DISTINCT CONCAT(currency, %s, exponent)) AS units,
+                    CAST(COALESCE(SUM(amount_minor), 0) AS CHAR) AS total
+             FROM `' . $this->table() . '` WHERE event_key IN ('
+            . implode(',', array_fill(0, count($keys), '%s')) . ') GROUP BY event_key',
+            [':', ...$keys]
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            // ⛔ Read as TEXT. `SUM()` is a `DECIMAL` wider than a PHP integer
+            // and `(int)` saturates silently, so a sum past the range would
+            // come back as `PHP_INT_MAX` — which is not nought and would be
+            // reported as «unbalanced» for the wrong reason. `null` means
+            // «could not be read as an integer», and that is reported as
+            // unbalanced too, by name, because it is not proof of balance.
+            $raw = trim((string) ($row['total'] ?? ''));
+            $total = $raw === '' ? null : DecimalAmount::toMinor($raw, 0);
+            $units = (int) $row['units'];
+            $out[(string) $row['event_key']] = [
+                'rows' => (int) $row['rows_count'],
+                'units' => $units,
+                'balanced' => $total === 0,
+                'single_unit' => $units <= 1,
+                'total' => $total,
+            ];
+        }
+        return $out;
+    }
+
     public function unitsFor(int $vendorUserId): array
     {
         $rows = $this->db->getResults(

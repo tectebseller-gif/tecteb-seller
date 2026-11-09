@@ -48,11 +48,16 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress\PrivateUploadStor
 use Tecteb\Marketplace\Modules\Finance\FinanceModule;
 use Tecteb\Marketplace\Modules\Finance\Application\LedgerRepositoryInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
+use Tecteb\Marketplace\Modules\Order\Application\OrderAdminUrlInterface;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcOrderLineReader;
+use Tecteb\Marketplace\Modules\Order\Application\ReconcileOrders;
+use Tecteb\Marketplace\Modules\Order\Application\OrderLineReaderInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderLedgerReport;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\DokanPresenceInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcOrderAdminUrl;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress\WpDokanPresence;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
@@ -435,6 +440,22 @@ final class Bootstrap
             $c->get(LedgerRepositoryInterface::class),
             $c->get(StaffAccess::class),
             $c->get(CapabilityCheckerInterface::class)
+        ));
+        // Where one order can be opened. Bound here beside the report that
+        // is its only caller, and for the same reason: a manager reading what
+        // was recorded must not depend on the order module having loaded.
+        $c->bind(OrderAdminUrlInterface::class, static fn () => new WcOrderAdminUrl());
+        $c->bind(OrderLineReaderInterface::class, static fn () => new WcOrderLineReader());
+        // The reconciliation audit. Bound here for the reason the report is:
+        // asking whether what was recorded hangs together is reading, and it
+        // must work on a marketplace whose order gate is shut — which is
+        // exactly the marketplace this release ships as.
+        $c->bind(ReconcileOrders::class, static fn (ContainerInterface $c) => new ReconcileOrders(
+            $c->get(OrderItemRepositoryInterface::class),
+            $c->get(LedgerRepositoryInterface::class),
+            $c->get(CapabilityCheckerInterface::class),
+            $c->get(OrderLineReaderInterface::class),
+            $c->get(ProductRepositoryInterface::class)
         ));
         // The parcels and the returns, bound here for the same reason: a
         // manager reviewing a return, and a vendor reading what was sent,

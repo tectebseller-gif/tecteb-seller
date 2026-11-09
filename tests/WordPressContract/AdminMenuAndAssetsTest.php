@@ -67,6 +67,10 @@ final class AdminMenuAndAssetsTest extends ContractTestCase
             // this reason, and pinning it here is what stops the next edit
             // quietly widening who may read a shop's money.
             ['tmc-order-ledger', 'tmc_view_vendor_finance', 'سفارش‌ها ردیف به ردیف'],
+            // The reconciliation audit — the same capability as the report,
+            // because it prints which shop is owed what and which document is
+            // missing behind it (`alpha.86`'s separation).
+            ['tmc-order-audit', 'tmc_view_vendor_finance', 'تطبیق سفارش و سند'],
             ['tmc-commission-rules', 'tmc_manage_settings', 'قواعد کمیسیون'],
             ['tmc-withdrawals', 'tmc_review_withdrawals', 'تسویه و برداشت'],
             // `alpha.57`: a RECORD of money already paid to a supplier, on the

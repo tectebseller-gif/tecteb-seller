@@ -40,6 +40,19 @@ interface LedgerRepositoryInterface
     public function eventsPresent(array $eventKeys): array;
 
     /**
+     * Whether each named event's rows balance — one query for the whole set.
+     *
+     * A key with no rows is absent from the answer rather than present with
+     * zeros: «no such document» and «the document sums to nought» are
+     * different facts and only one is a defect. `total` is `null` when the
+     * sum could not be read as an integer, and that is NOT proof of balance.
+     *
+     * @param list<string> $eventKeys
+     * @return array<string,array{rows:int, units:int, balanced:bool, single_unit:bool, total:?int}>
+     */
+    public function eventBalances(array $eventKeys): array;
+
+    /**
      * Every distinct unit of money this vendor's ledger already holds.
      *
      * Exists because `balances()` sums `amount_minor` grouped by ACCOUNT and

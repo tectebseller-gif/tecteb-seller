@@ -950,4 +950,17 @@ interface ProductRepositoryInterface
 
     /** @return list<Product> products that are live and projected */
     public function projected(int $limit = 500): array;
+
+    /**
+     * HOW MANY rows `projected()` would return if nothing capped it.
+     *
+     * ⛔ Asked SEPARATELY and on purpose. `projected()` carries a `LIMIT`, so
+     * its length answers «how many did I get» and never «how many are there»
+     * — and the one caller that matters is the deactivation stop, where the
+     * difference between those two is «products left on sale that nothing
+     * reported». `alpha.8`, on the one path a silent truncation is worst.
+     *
+     * `null` means the count could not be read, which is not nought.
+     */
+    public function countProjected(): ?int;
 }

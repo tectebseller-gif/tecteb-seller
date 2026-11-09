@@ -96,6 +96,11 @@ final class OrderGateRefusesWhileDokanRunsTest extends TestCase
                 ));
             }
 
+            public function eventBalances(array $eventKeys): array
+            {
+                return [];
+            }
+
             public function record(LedgerTransaction $transaction): bool
             {
                 throw new \LogicException('the gate WROTE to the ledger while Dokan was running');
@@ -178,6 +183,11 @@ class FakeLedgerForGate implements LedgerRepositoryInterface
             array_map(static fn ($k): string => (string) $k, $eventKeys),
             fn (string $key): bool => $this->hasEvent($key)
         ));
+    }
+
+    public function eventBalances(array $eventKeys): array
+    {
+        return [];
     }
 
     /** @return array{currency:string, exponent:int, resolved:bool} */

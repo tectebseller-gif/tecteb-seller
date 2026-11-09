@@ -111,6 +111,7 @@ final class AdminNavigation
         self::ORDERS => [
             'tmc-storefront',
             'tmc-order-ledger',
+            'tmc-order-audit',
             'tmc-returns',
         ],
         // 5 — کمیسیون و تسویه

@@ -2177,6 +2177,17 @@ final class DbProductRepository implements ProductRepositoryInterface
         ));
     }
 
+    public function countProjected(): ?int
+    {
+        $count = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE wc_product_id IS NOT NULL AND '
+            . self::OWNED
+        );
+        // The same `WHERE` as the list above, word for word, because a count
+        // that asks a different question is worse than no count at all.
+        return $count === null ? null : (int) $count;
+    }
+
     /**
      * The detail columns, their placeholders and their values, in one place.
      *

@@ -738,6 +738,11 @@ final class RefusingLedger implements LedgerRepositoryInterface
         ));
     }
 
+    public function eventBalances(array $eventKeys): array
+    {
+        return [];
+    }
+
     public function unitsFor(int $vendorUserId): array
     {
         return [];

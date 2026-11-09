@@ -392,6 +392,30 @@
 .tmc-admin .tmc-button--secondary { background: #fff; color: var(--tmc-primary); }
 .tmc-admin .tmc-button--secondary:hover { background: var(--tmc-neutral); }
 
+/* ⛔ `--quiet` HAD NO RULE AT ALL, and seventeen call sites in seven views
+   write it: «پاک‌کردن فیلترها», «دریافت CSV», «صفحهٔ قبل/بعد» and the rest.
+   A bare `.tmc-button` is a transparent box with a two-pixel primary border,
+   so every secondary action on those screens carried the same visual weight
+   as the primary one — and where it was written on a link it was underlined
+   as well. Found by extending `StyledClassesHaveRulesTest` to the report
+   pages, NOT by looking: this is the `alpha.32` root cause a third time, and
+   the test is the only thing in this repository that can see it.
+
+   Quieter than `--secondary`: the surface, a muted border, no underline. */
+.tmc-admin .tmc-button--quiet {
+  background: var(--tmc-surface);
+  color: var(--tmc-primary);
+  border-color: var(--tmc-border);
+  border-width: 1px;
+  font-weight: 400;
+  text-decoration: none;
+}
+.tmc-admin .tmc-button--quiet:hover {
+  background: var(--tmc-neutral);
+  border-color: var(--tmc-primary);
+  text-decoration: none;
+}
+
 /* tables: card-shaped rows by default, a real table when the card is wide --- */
 .tmc-table { inline-size: 100%; border-collapse: collapse; background: var(--tmc-surface); }
 .tmc-table, .tmc-table thead, .tmc-table tbody, .tmc-table tr, .tmc-table th, .tmc-table td { display: block; }
@@ -1238,3 +1262,113 @@
    technical facts above, with the paragraphs breathing inside it. */
 .tmc-more > p:last-child { margin-block-end: 0; }
 .tmc-more[open] > p { margin-block-start: var(--tmc-space-2); }
+
+/* reports: filters, the per-line table, and the one sub-navigation ----------
+ *
+ * ⛔ WHY THIS BLOCK EXISTS. The owner opened «سفارش‌ها ردیف به ردیف» on
+ * staging and found thirteen filters stacked vertically and a thirteen-column
+ * table rendered as very tall cards. Neither was a missing class in the
+ * markup: `.tmc-filter-form` was written by two views and matched by ZERO
+ * rules in this file, and `.tmc-table` is `display:block` until
+ * `@container tmccard` says there is room — a query that never matched on
+ * that page because its `.tmc-scroll` wrapper sat outside every card. The
+ * `alpha.32` root cause, twice, one screen later; `StyledClassesHaveRulesTest`
+ * did not catch it because its view list is opt-in and that page was not on
+ * it. It is now, and so is the audit page.
+ */
+.tmc-filter-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--tmc-space-1) var(--tmc-space-4);
+  align-items: end;
+}
+/* A filter is a control in a row of controls, not a paragraph of its own:
+   the prose width and the big bottom margin are what stacked them. */
+.tmc-filter-form .tmc-field { margin-block-end: var(--tmc-space-3); max-inline-size: none; }
+.tmc-filter-form .tmc-input, .tmc-filter-form .tmc-select { inline-size: 100%; min-inline-size: 0; }
+.tmc-filter-form__actions {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; gap: var(--tmc-space-2);
+  align-items: center;
+  margin-block-start: var(--tmc-space-2);
+}
+/* The advanced half, folded. `<details>` is a grid item, so it spans. */
+.tmc-filter-form__more { grid-column: 1 / -1; }
+.tmc-filter-form__more > summary {
+  cursor: pointer; font-weight: 700; padding-block: var(--tmc-space-2);
+  min-block-size: var(--tmc-touch); display: flex; align-items: center;
+  gap: var(--tmc-space-2); color: var(--tmc-primary);
+}
+/* A bare bold line reads as a HEADING, and nobody opens a heading. The
+   marker is drawn rather than relied upon, because a `summary`'s own
+   triangle sits at the inline start and several admin themes hide it. */
+.tmc-filter-form__more > summary::after {
+  content: "\25BE"; font-size: 0.8em; line-height: 1;
+  transition: transform 120ms ease-in-out;
+}
+.tmc-filter-form__more[open] > summary::after { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .tmc-filter-form__more > summary::after { transition: none; }
+}
+.tmc-filter-form__more[open] > summary { margin-block-end: var(--tmc-space-2); }
+.tmc-filter-form__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--tmc-space-1) var(--tmc-space-4);
+  align-items: end;
+}
+
+@container tmccard (min-width: 30rem) {
+  .tmc-filter-form, .tmc-filter-form__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* ⛔ THREE, not four — measured, not chosen. There are six primary filters,
+   so four columns leave two holes on the second row and a wide pale gap
+   beside the dates; three fill two rows exactly. Seen at 1440 and 1280 in
+   `docs/evidence/alpha100-reports/`, which is the only place this could be
+   seen at all: a column count is not visible from PHP. */
+@container tmccard (min-width: 52rem) {
+  .tmc-filter-form, .tmc-filter-form__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* The per-line table. Thirteen columns of mostly numbers: the figures keep
+   their own line so a column cannot wrap into two, and the head sticks so a
+   manager scrolled to row forty still knows which column is which. */
+.tmc-ledger__num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tmc-ledger__cell--wrap { min-inline-size: 11rem; }
+
+@container tmccard (min-width: 44rem) {
+  .tmc-ledger thead th {
+    position: sticky; inset-block-start: 0; z-index: 1;
+    box-shadow: inset 0 -1px 0 var(--tmc-border);
+  }
+  .tmc-ledger th, .tmc-ledger td { padding: var(--tmc-space-2) var(--tmc-space-3); }
+}
+
+/* One way in. Both report screens print the same strip, so «گزارش‌ها» is a
+   place rather than two addresses somebody has to know. */
+/* ⛔ A SECTION SWITCHER, AND IT HAD TO STOP LOOKING LIKE ONE MORE TOP BAR.
+   Rendered, this strip was a third row of large pills under two rows of
+   large pills — and three of its entries are already in the group row above
+   it, so the screen offered the same five places twice in different shapes.
+   §3 asks for «رابط ساده، فشرده», so this takes wp-admin's own idiom for
+   «sections of THIS screen» (`ul.subsubsub`): small inline links, divided,
+   the current one plain and bold. The entries did not change; their weight
+   did. Seen at 1440 in `docs/evidence/alpha100-reports/`. */
+.tmc-reportnav { margin-block: 0 var(--tmc-space-3); }
+.tmc-reportnav__list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: var(--tmc-space-1) var(--tmc-space-3);
+  font-size: 0.9375rem;
+}
+/* The divider belongs to the item, so it never trails the last one. */
+.tmc-reportnav__list > li + li { border-inline-start: 1px solid var(--tmc-border); padding-inline-start: var(--tmc-space-3); }
+.tmc-admin .tmc-reportnav__link {
+  display: inline-flex; align-items: center; min-block-size: var(--tmc-touch);
+  color: var(--tmc-primary); text-decoration: underline;
+}
+.tmc-admin .tmc-reportnav__link:hover { text-decoration: none; }
+/* The current section is not a link any more — it is where you are. */
+.tmc-admin .tmc-reportnav__link.is-current {
+  font-weight: 700; color: var(--tmc-text); text-decoration: none; cursor: default;
+}

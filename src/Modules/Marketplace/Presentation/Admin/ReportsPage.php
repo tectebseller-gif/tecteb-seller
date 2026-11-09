@@ -51,15 +51,23 @@ final class ReportsPage
         }
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
-        echo '<div class="wrap tmc-admin"><h1>'
-            . esc_html__('گزارش‌ها و اطلاعیه‌ها', 'tecteb-marketplace-core') . '</h1>';
+        // ⛔ THE SHARED SHELL, and that is the owner's §3-د. This page wrote
+        // its own `<div class="wrap">` and so had NO header navigation at all
+        // — which is why «گزارش‌ها» was two addresses a manager had to know
+        // separately rather than a place. The strip below is printed by every
+        // report screen, so arriving at one shows the way to the rest.
+        echo Components::shellOpen(
+            __('گزارش‌ها و اطلاعیه‌ها', 'tecteb-marketplace-core'),
+            self::SLUG
+        );
+        echo Components::reportNav(self::SLUG);
         echo '<p class="tmc-field__desc">'
             . esc_html__('هر عدد این صفحه همین لحظه از روی دفترکل و رکوردهای سفارش حساب می‌شود. هیچ عددی ذخیره و بازخوانی نمی‌شود، پس این ارقام هیچ‌وقت با صفحهٔ تسویه اختلاف پیدا نمی‌کنند.', 'tecteb-marketplace-core')
             . '</p>';
 
         $this->renderReports();
         $this->renderInbox($fa);
-        echo '</div>';
+        echo Components::shellClose();
     }
 
     private function renderReports(): void

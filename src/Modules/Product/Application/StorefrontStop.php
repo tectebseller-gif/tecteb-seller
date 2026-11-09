@@ -43,6 +43,24 @@ final class StorefrontStop
     public const REFUSED_INCOMPLETE = 'incomplete';
     public const REFUSED_STOREFRONT = 'storefront_failed';
 
+    /**
+     * How many owned products one stop or resume looks at.
+     *
+     * ⛔ **STATED, AND THE OVERFLOW IS REPORTED.** This was the default
+     * argument of `projected()` and nothing compared it with the real count,
+     * so on a shop with more owned products than this the stop withdrew the
+     * first five hundred, left the rest ON SALE, and named none of them —
+     * not even in `stuck`, which only holds products the stop TRIED and
+     * failed. Silence on this path is the worst outcome there is: after
+     * deactivation nothing guards those products and nothing records the
+     * money when they sell.
+     *
+     * The cap itself is kept rather than raised. Deactivation cannot be
+     * refused and cannot be resumed; a loop long enough to time out inside it
+     * would leave a WORSE half-done state than a loop that stops and says so.
+     */
+    public const SCAN_LIMIT = 500;
+
     public function __construct(
         private readonly ProductRepositoryInterface $products,
         private readonly SyncCatalog $catalog,
@@ -108,7 +126,8 @@ final class StorefrontStop
     {
         $withdrawn = 0;
         $stuck = [];
-        $projected = $this->products->projected();
+        $projected = $this->products->projected(self::SCAN_LIMIT);
+        $unseen = $this->unseen(count($projected));
         foreach ($projected as $product) {
             if ($this->catalog->withdraw($product->id, $reason)->ok) {
                 $withdrawn++;
@@ -125,10 +144,12 @@ final class StorefrontStop
         // gives a plugin no veto — so what it could not close is written down
         // in a place that outlives the run and is read on the next admin page.
         $this->switch->markStuck($stuck, $orders['stuck']);
+        $this->switch->markUnseen($unseen);
         $this->audit->log(AuditEventCatalog::STOREFRONT_STOPPED, $actorId, 'storefront', 'marketplace', [
             'reason' => $reason,
             'withdrawn' => $withdrawn,
             'failed' => count($stuck),
+            'unseen' => $unseen,
             'total' => count($projected),
             'orders_held' => $orders['held'],
             'orders_stuck' => count($orders['stuck']),
@@ -136,6 +157,7 @@ final class StorefrontStop
         return [
             'withdrawn' => $withdrawn,
             'failed' => count($stuck) + count($orders['stuck']),
+            'unseen' => $unseen,
             'total' => count($projected),
             'stuck' => $stuck,
             'orders_held' => $orders['held'],
@@ -147,14 +169,15 @@ final class StorefrontStop
     /**
      * Back on sale — but only what still qualifies, one product at a time.
      *
-     * @return array{published:int, refused:array<int,string>, total:int,
+     * @return array{published:int, refused:array<int,string>, unseen:int, total:int,
      *               orders_released:int, orders_stuck:list<int>}
      */
     public function resume(int $actorId = 0): array
     {
         $published = 0;
         $refused = [];
-        $projected = $this->products->projected();
+        $projected = $this->products->projected(self::SCAN_LIMIT);
+        $unseen = $this->unseen(count($projected));
         foreach ($projected as $product) {
             $reason = $this->refusalFor($product->id);
             if ($reason !== null) {
@@ -173,9 +196,15 @@ final class StorefrontStop
         // The flag lifts even when some products were refused: the
         // marketplace may sell again, and the ones that may not are named.
         $this->switch->markResumed();
+        // ⛔ The unseen count SURVIVES a resume rather than being cleared with
+        // the stop flag: those products were never looked at on the way out
+        // and are not looked at on the way back either, so the manager's
+        // question — «کدام‌ها را ندیدی؟» — is still unanswered.
+        $this->switch->markUnseen($unseen);
         $this->audit->log(AuditEventCatalog::STOREFRONT_RESUMED, $actorId, 'storefront', 'marketplace', [
             'published' => $published,
             'refused' => count($refused),
+            'unseen' => $unseen,
             'total' => count($projected),
             'orders_released' => $orders['released'],
             'orders_reconcile' => count($orders['reconcile']),
@@ -183,10 +212,29 @@ final class StorefrontStop
         return [
             'published' => $published,
             'refused' => $refused,
+            'unseen' => $unseen,
             'total' => count($projected),
             'orders_released' => $orders['released'],
             'orders_stuck' => $orders['stuck'],
         ];
+    }
+
+    /**
+     * How many owned products this scan never reached.
+     *
+     * Three answers, not two. A count that could not be read is `null`
+     * (`alpha.8`), and reading it as nought would say «I saw everything» on
+     * exactly the failure where that is least likely to be true — so an
+     * unreadable count is reported as a scan that filled its cap, which is
+     * the conservative direction: it tells the manager to look.
+     */
+    private function unseen(int $seen): int
+    {
+        $total = $this->products->countProjected();
+        if ($total === null) {
+            return $seen >= self::SCAN_LIMIT ? 1 : 0;
+        }
+        return max(0, $total - $seen);
     }
 
     /**

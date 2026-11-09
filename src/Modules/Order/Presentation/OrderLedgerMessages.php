@@ -24,11 +24,15 @@ final class OrderLedgerMessages
     /** What WooCommerce says about the order this line is on. */
     public static function payment(?string $wcStatus, bool $readable): string
     {
-        if (!$readable) {
-            return __('نامعلوم — ساختار دادهٔ این نصب هنوز این ستون را ندارد', 'tecteb-marketplace-core');
-        }
-        if ($wcStatus === null || trim($wcStatus) === '') {
-            return __('نامعلوم — از زمان نصب، وضعیتی برای این سفارش اعلام نشده', 'tecteb-marketplace-core');
+        // ⛔ A WORD, NOT A SENTENCE — and the sentence is not lost, it moved.
+        // Rendered at 1440 these two branches printed a full explanation
+        // inside a narrow column, wrapping to ONE WORD PER LINE and making
+        // every such row four hundred pixels tall; twenty-five of them are
+        // ten thousand. The explanation belongs in the row's own accounting
+        // detail, which is what `paymentNote()` is for, and a reader who only
+        // needs «کدام‌ها نامعلوم‌اند» can now see twenty-five of them at once.
+        if (!$readable || $wcStatus === null || trim($wcStatus) === '') {
+            return __('نامعلوم', 'tecteb-marketplace-core');
         }
         $disposition = WcOrderLifecycle::of($wcStatus);
         return match ($disposition) {
@@ -45,6 +49,29 @@ final class OrderLedgerMessages
                 $wcStatus
             ),
         };
+    }
+
+    /**
+     * WHY the payment state is unknown — the half that does not fit a column.
+     *
+     * Two different facts, and keeping them apart matters: «this installation
+     * has no mirror column» is about the SOFTWARE and is the same for every
+     * row, while «nobody has told us this order's status» is about THIS
+     * order and migration 39 deliberately back-filled nothing, so `NULL`
+     * means exactly that. Writing `pending` into those rows would have been
+     * inventing a fact about a hundred and eighty-four orders.
+     *
+     * Empty when the state speaks for itself.
+     */
+    public static function paymentNote(?string $wcStatus, bool $readable): string
+    {
+        if (!$readable) {
+            return __('وضعیت پرداخت نامعلوم است: ساختار دادهٔ این نصب هنوز ستون آینهٔ وضعیت را ندارد.', 'tecteb-marketplace-core');
+        }
+        if ($wcStatus === null || trim($wcStatus) === '') {
+            return __('وضعیت پرداخت نامعلوم است: از زمان نصب، وضعیتی برای این سفارش اعلام نشده است.', 'tecteb-marketplace-core');
+        }
+        return '';
     }
 
     /** Where the vendor's own part of the order has got to. */
