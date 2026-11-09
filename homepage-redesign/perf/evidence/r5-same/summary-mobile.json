@@ -1,0 +1,14 @@
+{
+ "label": "r5-same",
+ "mode": "mobile",
+ "runs": 5,
+ "score": 89,
+ "fcp": 2000,
+ "lcp": 3608,
+ "tbt": 61,
+ "lcp_range": [
+  3383,
+  3763
+ ],
+ "bad_requests": 0
+}

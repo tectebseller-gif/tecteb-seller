@@ -1,0 +1,53 @@
+{
+ "mode": "mobile",
+ "runs": 3,
+ "score": {
+  "median": 89,
+  "min": 88,
+  "max": 90
+ },
+ "fcp": {
+  "median": 2019.801,
+  "min": 2014.966,
+  "max": 2030.139
+ },
+ "lcp": {
+  "median": 3535.966,
+  "min": 3319.924,
+  "max": 3614.801
+ },
+ "cls": {
+  "median": 0,
+  "min": 0,
+  "max": 0
+ },
+ "tbt": {
+  "median": 89.726,
+  "min": 81,
+  "max": 96
+ },
+ "si": {
+  "median": 2019.801,
+  "min": 2014.966,
+  "max": 2030.139
+ },
+ "requests": {
+  "median": 54,
+  "min": 54,
+  "max": 54
+ },
+ "kb": {
+  "median": 396.612,
+  "min": 396.612,
+  "max": 396.612
+ },
+ "render_blocking_ms": {
+  "median": 1200,
+  "min": 1150,
+  "max": 1200
+ },
+ "lcp_element": [
+  "div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"
+ ],
+ "bad_requests": []
+}

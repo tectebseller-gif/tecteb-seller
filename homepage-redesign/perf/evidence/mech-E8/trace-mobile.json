@@ -1,0 +1,359 @@
+{
+ "url": "http://127.0.0.1:8099/",
+ "warm": false,
+ "mode": "mobile",
+ "reduce": false,
+ "runs": [
+  {
+   "lcp": [
+    {
+     "t": 3160,
+     "render": 3160,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 3444,
+     "render": 3444,
+     "load": 0,
+     "size": 58870,
+     "el": "h1#th-hero-title.th-hero__title.th-in",
+     "url": ""
+    }
+   ],
+   "cls": [],
+   "fcp": 3160,
+   "dataJs": 3048,
+   "ttfb": 8,
+   "dcl": 5123,
+   "load": 6444,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout-rtl.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1299
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen-rtl.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1259
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-rtl.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1402
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1291
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1315
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1848
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/frontend.min.css?ver=4.2.3",
+     "kb": 7.4,
+     "end": 1960
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-11.css?ver=1794231685",
+     "kb": 0.8,
+     "end": 1880
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-heading-rtl.min.css?ver=4.2.3",
+     "kb": 0.4,
+     "end": 1904
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-icon-list-rtl.min.css?ver=4.2.3",
+     "kb": 1.3,
+     "end": 1975
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-divider-rtl.min.css?ver=4.2.3",
+     "kb": 1,
+     "end": 2420
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-desktop.css?ver=6af1cd858bcf8",
+     "kb": 1.5,
+     "end": 2452
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-mobile.css?ver=6af1cd858bcf8",
+     "kb": 0.4,
+     "end": 2476
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-2974.css?ver=1794231685",
+     "kb": 0.9,
+     "end": 2531
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.6",
+     "kb": 5.5,
+     "end": 2571
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2745
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 3015
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 47,
+   "kb": 367.9
+  },
+  {
+   "lcp": [
+    {
+     "t": 3124,
+     "render": 3124,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 3344,
+     "render": 3344,
+     "load": 0,
+     "size": 58870,
+     "el": "h1#th-hero-title.th-hero__title.th-in",
+     "url": ""
+    }
+   ],
+   "cls": [],
+   "fcp": 3124,
+   "dataJs": 3028,
+   "ttfb": 7,
+   "dcl": 5101,
+   "load": 6413,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout-rtl.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1280
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen-rtl.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1240
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-rtl.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1375
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1256
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1304
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1828
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/frontend.min.css?ver=4.2.3",
+     "kb": 7.4,
+     "end": 1931
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-11.css?ver=1794231685",
+     "kb": 0.8,
+     "end": 1860
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-heading-rtl.min.css?ver=4.2.3",
+     "kb": 0.4,
+     "end": 1884
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-icon-list-rtl.min.css?ver=4.2.3",
+     "kb": 1.3,
+     "end": 1948
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-divider-rtl.min.css?ver=4.2.3",
+     "kb": 1,
+     "end": 2400
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-desktop.css?ver=6af1cd858bcf8",
+     "kb": 1.5,
+     "end": 2425
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-mobile.css?ver=6af1cd858bcf8",
+     "kb": 0.4,
+     "end": 2456
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-2974.css?ver=1794231685",
+     "kb": 0.9,
+     "end": 2504
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.6",
+     "kb": 5.5,
+     "end": 2543
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2725
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 3004
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 47,
+   "kb": 367.9
+  },
+  {
+   "lcp": [
+    {
+     "t": 3100,
+     "render": 3100,
+     "load": 0,
+     "size": 2240,
+     "el": "span.tth-logo__word",
+     "url": ""
+    },
+    {
+     "t": 3216,
+     "render": 3216,
+     "load": 0,
+     "size": 58870,
+     "el": "h1#th-hero-title.th-hero__title.th-in",
+     "url": ""
+    }
+   ],
+   "cls": [],
+   "fcp": 3100,
+   "dataJs": 3026,
+   "ttfb": 5,
+   "dcl": 5120,
+   "load": 6437,
+   "blocking": [
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-layout-rtl.css?ver=11.0.1",
+     "kb": 3.7,
+     "end": 1275
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-smallscreen-rtl.css?ver=11.0.1",
+     "kb": 1.7,
+     "end": 1236
+    },
+    {
+     "url": "/wp-content/plugins/woocommerce/assets/css/woocommerce-rtl.css?ver=11.0.1",
+     "kb": 11.2,
+     "end": 1378
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/reset.css?ver=3.5.1",
+     "kb": 2.1,
+     "end": 1260
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/theme.css?ver=3.5.1",
+     "kb": 1.7,
+     "end": 1299
+    },
+    {
+     "url": "/wp-content/themes/hello-elementor/assets/css/header-footer.css?ver=3.5.1",
+     "kb": 1.8,
+     "end": 1832
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-11.css?ver=1794231685",
+     "kb": 0.8,
+     "end": 1856
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/frontend.min.css?ver=4.2.3",
+     "kb": 7.4,
+     "end": 1935
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-heading-rtl.min.css?ver=4.2.3",
+     "kb": 0.4,
+     "end": 1879
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-icon-list-rtl.min.css?ver=4.2.3",
+     "kb": 1.3,
+     "end": 1951
+    },
+    {
+     "url": "/wp-content/plugins/elementor/assets/css/widget-divider-rtl.min.css?ver=4.2.3",
+     "kb": 1,
+     "end": 2404
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-desktop.css?ver=6af1cd858bcf8",
+     "kb": 1.5,
+     "end": 2428
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/base-mobile.css?ver=6af1cd858bcf8",
+     "kb": 0.4,
+     "end": 2452
+    },
+    {
+     "url": "/wp-content/uploads/elementor/css/post-2974.css?ver=1794231685",
+     "kb": 0.9,
+     "end": 2508
+    },
+    {
+     "url": "/wp-content/plugins/tecteb-header/assets/css/header.css?ver=0.2.6",
+     "kb": 5.5,
+     "end": 2546
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery.min.js?ver=3.7.1",
+     "kb": 30,
+     "end": 2722
+    },
+    {
+     "url": "/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1",
+     "kb": 5,
+     "end": 3008
+    }
+   ],
+   "header": 67,
+   "cls_total": 0,
+   "requests": 47,
+   "kb": 367.9
+  }
+ ]
+}

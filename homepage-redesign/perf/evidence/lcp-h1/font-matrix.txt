@@ -1,0 +1,9 @@
+== P1 site-font=auto home=site header=inherit
+{"mode": "mobile", "runs": 3, "score": 88, "fcp": 2563.977, "lcp": 3314.748, "cls": 0, "tbt": 28, "si": 2563.977, "requests": 54, "kb": 396.571, "render_blocking_ms": 1700, "lcp_element": ["div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"], "bad_requests": []}
+== P3 site-font=swap home=site header=inherit
+{"mode": "mobile", "runs": 3, "score": 87, "fcp": 2563.048, "lcp": 3538.048, "cls": 0, "tbt": 11.0, "si": 2563.048, "requests": 54, "kb": 396.572, "render_blocking_ms": 1750, "lcp_element": ["div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"], "bad_requests": []}
+== P4 site-font=auto-preload home=site header=inherit
+{"mode": "mobile", "runs": 3, "score": 89, "fcp": 2019.801, "lcp": 3535.966, "cls": 0, "tbt": 89.726, "si": 2019.801, "requests": 54, "kb": 396.612, "render_blocking_ms": 1200, "lcp_element": ["div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"], "bad_requests": []}
+== P5 site-font=auto home=bundled header=inherit
+{"mode": "mobile", "runs": 3, "score": 84, "fcp": 2561.692, "lcp": 3915.933, "cls": 0, "tbt": 47, "si": 2561.692, "requests": 55, "kb": 505.418, "render_blocking_ms": 1700, "lcp_element": ["div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"], "bad_requests": []}
+MATRIXDONE

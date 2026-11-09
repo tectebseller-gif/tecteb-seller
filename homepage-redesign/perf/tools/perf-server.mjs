@@ -7,6 +7,8 @@
  *   سرور داخلی PHP ایستا را بی فشرده‌سازی می‌دهد و اندازهٔ انتقال را بیش از واقعیت نشان می‌دهد.
  * - «/» بی پارامتر: اگر snapshot داده شده، همان HTML (مثل کش صفحهٔ WP Rocket: TTFB کوتاه، بی اجرای PHP).
  * - هر چیز دیگر به وردپرس (backend) فرستاده می‌شود.
+ * - DELAY="substring=ms,…" (اختیاری، فقط برای آزمایش زمان‌بندی): هر فایل ایستایی که نشانی‌اش آن زیررشته را دارد با آن
+ *   تأخیر فرستاده می‌شود — مثلاً برای اینکه فونتی دیرتر از پایان انیمیشن ورود برسد، مثل شبکهٔ واقعی Production.
  * هیچ چیزی در وردپرس یا دیتابیس نمی‌نویسد.
  */
 import http from 'node:http';
@@ -20,6 +22,8 @@ const ROOT = process.argv[4] || '/home/user/wp/core';
 const SNAPSHOT = process.argv[5] || '';
 const TYPES = { '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.gif': 'image/gif', '.ico': 'image/x-icon' };
 const COMPRESS = new Set(['.css', '.js', '.svg', '.ttf']);
+const DELAYS = (process.env.DELAY || '').split(',').filter(Boolean).map((d) => { const i = d.lastIndexOf('='); return [d.slice(0, i), Number(d.slice(i + 1))]; });
+const delayFor = (url) => (DELAYS.find(([s]) => url.includes(s)) || [null, 0])[1];
 
 function send(req, res, status, type, body, extra = {}) {
   const gz = /\bgzip\b/.test(req.headers['accept-encoding'] || '') && (type.startsWith('text/') || type.includes('svg') || type === 'font/ttf');
@@ -36,7 +40,9 @@ http.createServer((req, res) => {
   }
   const ext = path.extname(u.pathname).toLowerCase();
   if (file.startsWith(ROOT) && TYPES[ext] && ext !== '.php' && fs.existsSync(file) && fs.statSync(file).isFile()) {
-    return send(req, res, 200, TYPES[ext], fs.readFileSync(file), { 'Cache-Control': 'public, max-age=31536000' });
+    const body = fs.readFileSync(file), ms = delayFor(req.url);
+    if (ms > 0) return void setTimeout(() => send(req, res, 200, TYPES[ext], body, { 'Cache-Control': 'public, max-age=31536000' }), ms);
+    return send(req, res, 200, TYPES[ext], body, { 'Cache-Control': 'public, max-age=31536000' });
   }
   // به وردپرس؛ پاسخ بی تغییر، فقط با gzip برای HTML.
   const chunks = [];

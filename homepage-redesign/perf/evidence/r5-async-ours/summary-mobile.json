@@ -1,0 +1,14 @@
+{
+ "label": "r5-async-ours",
+ "mode": "mobile",
+ "runs": 5,
+ "score": 62,
+ "fcp": 1856,
+ "lcp": 3837,
+ "tbt": 123,
+ "lcp_range": [
+  3763,
+  3844
+ ],
+ "bad_requests": 0
+}

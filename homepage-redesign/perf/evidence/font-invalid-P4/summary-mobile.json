@@ -1,0 +1,55 @@
+{
+ "mode": "mobile",
+ "runs": 3,
+ "score": {
+  "median": 89,
+  "min": 88,
+  "max": 90
+ },
+ "fcp": {
+  "median": 2004.966,
+  "min": 1967.235,
+  "max": 2012.736
+ },
+ "lcp": {
+  "median": 3609.966,
+  "min": 3462.736,
+  "max": 3617.235
+ },
+ "cls": {
+  "median": 0,
+  "min": 0,
+  "max": 0
+ },
+ "tbt": {
+  "median": 13,
+  "min": 1,
+  "max": 71
+ },
+ "si": {
+  "median": 2004.966,
+  "min": 1967.235,
+  "max": 2012.736
+ },
+ "requests": {
+  "median": 55,
+  "min": 55,
+  "max": 55
+ },
+ "kb": {
+  "median": 396.649,
+  "min": 396.649,
+  "max": 396.649
+ },
+ "render_blocking_ms": {
+  "median": 1200,
+  "min": 1100,
+  "max": 1200
+ },
+ "lcp_element": [
+  "div.tth-bar > div.tth-wrap > a.tth-logo > span.tth-logo__word"
+ ],
+ "bad_requests": [
+  "-1 http://127.0.0.1:8092/wp-content/uploads/tthp-fonts/SiteFontTest.woff2"
+ ]
+}

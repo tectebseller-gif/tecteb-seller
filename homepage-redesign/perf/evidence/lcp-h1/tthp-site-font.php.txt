@@ -1,0 +1,20 @@
+<?php
+/**
+ * فقط بستر آزمایشی محلی (tth_perf): شبیه‌سازی «فونت سایت» ِ Production (مثل IRANYekan از fonts.css ِ قالب/افزونهٔ
+ * فونت) برای نسبت‌دادن LCP. فایل فونت جایگزین است (رونوشت Vazirmatn با نام دیگر)، نه IRANYekan.
+ * option tthp_site_font: off | auto | swap | auto-preload
+ */
+if ( 'tth_perf' !== DB_NAME ) { return; }
+add_action( 'wp_enqueue_scripts', function () {
+	$mode = get_option( 'tthp_site_font', 'off' );
+	if ( 'off' === $mode ) { return; }
+	$display = 'swap' === $mode ? 'swap' : 'auto';
+	$css = "@font-face{font-family:SiteFontTest;src:url('SiteFontTest.woff2') format('woff2');font-weight:100 900;font-display:$display}body,h1,h2,h3,h4,h5,h6,p,a,span,input,button{font-family:SiteFontTest,Tahoma,sans-serif}";
+	file_put_contents( WP_CONTENT_DIR . "/uploads/tthp-fonts/fonts-$display.css", $css );
+	wp_enqueue_style( 'tthp-site-fonts', content_url( "uploads/tthp-fonts/fonts-$display.css" ), array(), $display );
+}, 1 );
+add_action( 'wp_head', function () {
+	if ( 'auto-preload' === get_option( 'tthp_site_font', 'off' ) ) {
+		echo '<link rel="preload" href="' . esc_url( content_url( 'uploads/tthp-fonts/SiteFontTest.woff2' ) ) . '" as="font" type="font/woff2" crossorigin>' . "\n";
+	}
+}, 1 );
