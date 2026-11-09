@@ -1,0 +1,21 @@
+### upgrade-025: bash tests/upgrade-025.sh dist/tecteb-header-0.2.5.zip dist/tecteb-header-0.2.6.zip
+PASS 0.2.5 installed and active from its ZIP
+PASS 0.2.5 prints Header B with header.css?ver=0.2.5
+PASS 0.2.6 installed over 0.2.5 from its ZIP (--force)
+PASS still active, version 0.2.6
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration, no write on read)
+PASS header HTML byte-identical to 0.2.5 (apart from ?ver=): logo, search, account, cart, categories + mega menu, menu, drawer
+PASS header.css?ver=0.2.6 — page caches fetch the new stylesheet URL
+PASS served header.css is the shipped file
+NOT RUN  asset checks: no real Elementor Pro on this site (emulator) — run with WP_PATH=/home/user/wp2/core SITE=http://127.0.0.1:8092
+PASS page / answers 200 with 0.2.6
+PASS page /shop/ answers 200 with 0.2.6
+PASS page /cart/ answers 200 with 0.2.6
+PASS rollback: 0.2.5 reinstalled from its ZIP
+PASS rollback: same header HTML, header.css?ver=0.2.5
+PASS rollback: settings untouched
+PASS 0.2.6: ?tth_original=1 (admin) shows the old Elementor header — instant way back kept
+
+16 passed, 0 failed
+exit=0

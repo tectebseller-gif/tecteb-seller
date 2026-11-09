@@ -1,0 +1,10 @@
+این اجرا نامعتبر است و در هیچ مقایسه‌ای به کار نمی‌رود.
+
+روی بستر Elementor ِ واقعی (tth_perf، 127.0.0.1:8092) دو فایل روی دیسک نبود:
+  - wp-content/uploads/elementor/css/post-11.css (CSS ِ Kit؛ متای Elementor «فایل» می‌گفت ولی فایل پاک شده بود)
+  - wp-content/themes/hello-elementor/assets/js/hello-frontend.js (کپی قالب از سورس بی build)
+هر دو با 301 به صفحهٔ نخست می‌رفتند، پس مرورگر یک صفحهٔ کامل را به‌عنوان «stylesheet مسدودکننده»
+بارگذاری می‌کرد (۶۶۹ تا ۱۴۷۹ ms در اجرای ۱) — همان چیزی که LCP موبایل را روی ۳٫۷ ثانیه نگه داشت.
+این نقص بستر است، نه افزونه‌ها و نه Production. اصلاح: `wp elementor flush-css` و رونوشت
+dev/js/frontend/hello-frontend.js. از این پس lh-runs.sh هر درخواست غیر-۲۰۰ را در bad_requests
+گزارش و روی stderr هشدار می‌دهد.

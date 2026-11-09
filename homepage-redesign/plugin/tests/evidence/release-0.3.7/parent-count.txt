@@ -1,0 +1,5 @@
+تجهیزات پزشکی (#21998): settings search shows 2 · direct term->count 2 · published with subcategories 2 · has_products yes
+دندانپزشکی (#21979): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+قلب و عروق (#21973): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+ملزومات بیمارستانی (#21994): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes
+هتلینگ (#21983): settings search shows 1 · direct term->count 1 · published with subcategories 1 · has_products yes

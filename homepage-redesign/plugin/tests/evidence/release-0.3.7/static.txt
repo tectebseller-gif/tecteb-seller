@@ -1,0 +1,127 @@
+PASS no dependency on دکان
+PASS no dependency on پیشوند Tecteb Marketplace (tmc_)
+PASS no dependency on namespace بازارگاه
+PASS no dependency on slug بازارگاه
+PASS no dependency on کلاس‌های Elementor
+PASS Elementor is only read via the _elementor_data meta key
+PASS no write: update_post_meta
+PASS no write: add_post_meta
+PASS no write: delete_post_meta
+PASS no write: wp_insert_post
+PASS no write: wp_update_post
+PASS no write: wp_delete_post
+PASS no write: wp_trash_post(
+PASS no write: wp_insert_term
+PASS no write: wp_update_term
+PASS no write: wp_delete_term
+PASS no write: update_term_meta
+PASS no write: add_term_meta
+PASS no write: delete_term_meta
+PASS no write: wp_set_object_terms
+PASS no write: wp_set_post_terms
+PASS no write: set_featured
+PASS no write: set_catalog_visibility
+PASS no write: ->save(
+PASS no write: $wpdb
+PASS no write: update_option(
+PASS no write: add_option(
+PASS no write: update_user_meta
+PASS no write: wp_insert_user
+PASS no write: wp_update_user
+PASS no write: set_transient
+PASS no write: update_site_option
+PASS no write: wp_schedule_event
+PASS no write: flush_rewrite_rules
+PASS no write: add_rewrite_rule
+PASS delete_option only in uninstall.php
+PASS no business logic / network: WC()->cart
+PASS no business logic / network: add_to_cart
+PASS no business logic / network: wc_create_order
+PASS no business logic / network: WC_Order
+PASS no business logic / network: wp_mail
+PASS no business logic / network: wp_remote_
+PASS no business logic / network: wp_safe_remote_
+PASS no business logic / network: curl_
+PASS no business logic / network: fsockopen
+PASS no business logic / network: file_get_contents( 'http
+PASS no business logic / network: register_rest_route
+PASS no business logic / network: wp_ajax_
+PASS no business logic / network: admin_post_
+PASS no WooCommerce loop: wc_get_template
+PASS no WooCommerce loop: woocommerce_template_loop
+PASS no WooCommerce loop: do_action( 'woocommerce
+PASS no WooCommerce loop: do_action( "woocommerce
+PASS no WooCommerce loop: woocommerce_shop_loop
+PASS no WooCommerce loop: wc_setup_loop
+PASS hero search: no category select (0.3.2)
+PASS no hard-coded currency in code (WooCommerce settings decide)
+PASS product cards never print raw get_price_html() (screen-reader text)
+PASS hero: the «بازار B2B تجهیزات پزشکی» label is not generated anywhere
+PASS hero labels: names and icons only — no hard-coded term ID or slug
+PASS price: no global WooCommerce price filter (format applied per call on the homepage only)
+PASS price: thousands separator / format passed as wc_price() arguments
+PASS brands carousel: no third-party library or remote asset
+PASS brands carousel: no autoplay (no setInterval / setTimeout in the front script)
+PASS admin: media library loaded only on this plugin's own page, behind the capability
+PASS brands: saved through the plugin option only (settings_fields nonce + option_page_capability)
+PASS hero labels 0.3.4: title, category, order and active stored in the plugin option (hero_items), four fixed rows
+PASS hero labels 0.3.4: a 0.3.3 option (no hero_items) is read, never rewritten on read (no update_option in Settings)
+PASS hero labels 0.3.4: hero_labels (0.3.3) is derived from the rows so a downgrade sees the same categories
+PASS hero labels 0.3.4: no WooCommerce term is ever written
+PASS hero labels 0.3.4: the label text is a span that can be shortened with an ellipsis
+PASS brands 0.3.4: logo size from the image's own ratio (no fixed width/height that could stretch it)
+PASS 0.3.4: no change to the header plugin, the theme or the footer from this plugin (no tth- selectors, no header/footer hooks)
+PASS templates: no inline <script>
+PASS css: every selector scoped under .tecteb-home-v1 (293 selectors)
+PASS css: no @font-face in the main stylesheet (font is its own file)
+PASS css: font file has exactly one @font-face with a unique family
+PASS css: font file exists
+PASS css: no external url()
+PASS css: !important only where the approved design has it (reduced motion, audience separator)
+PASS css: hardening adds no !important
+PASS css: shipped stylesheet ends with the hardening rules (boosted)
+PASS css: isolation layer (all: revert) precedes the design rules
+PASS css: every root selector carries the ID-weight boost
+PASS css: no element on the page needs id=th-boost
+PASS assets: shared header font only via TECTEB_HEADER_* constants, read-only
+PASS css: no physical left/right properties
+PASS css: every animation is under prefers-reduced-motion: no-preference
+PASS js: no network, no storage, scoped to .tecteb-home-v1
+PASS js: honours reduced motion and fine pointer only
+PASS products: no featured-flag selection left in code
+PASS retired in 0.2.0: «درخواست تأمین» not in shipped files
+PASS retired in 0.2.0: «استعلام» not in shipped files
+PASS retired in 0.2.0: «پیش‌فاکتور» not in shipped files
+PASS retired in 0.2.0: «th-product__quote» not in shipped files
+PASS retired in 0.2.0: «th-services» not in shipped files
+PASS retired in 0.2.0: «th-service» not in shipped files
+PASS retired in 0.2.0: «th-route--buyer» not in shipped files
+PASS retired in 0.2.0: «TECTEB_HOME_QUOTE_URL» not in shipped files
+PASS services template removed
+PASS hero: three routes shop → repair → supplier
+PASS routes: each printed only with a destination (plan['routes'][...]['show'])
+PASS sprite: wrench icon for the repair route
+PASS shop: from wc_get_page_permalink('shop'), guarded
+PASS admin: product search is GET on the settings page, not AJAX/REST
+PASS no preview marker «th-sample» in shipped files
+PASS no preview marker «th-imgnote» in shipped files
+PASS no preview marker «th-hero__note» in shipped files
+PASS no preview marker «proto-» in shipped files
+PASS no preview marker «data-th-route» in shipped files
+PASS no preview marker «#th-route» in shipped files
+PASS no preview marker «تصویر نمایشی» in shipped files
+PASS no preview marker «نمونه» in shipped files
+PASS no preview marker «sample-» in shipped files
+PASS plugin header/markup has «tecteb-home-v1»
+PASS plugin header/markup has «Requires Plugins:  woocommerce»
+PASS plugin header/markup has «Requires PHP:      8.1»
+PASS plugin header/markup has «Text Domain:       tecteb-homepage»
+PASS 0.3.6: supplier eyebrow logo is the lossless WebP, lazy and async (below the fold)
+PASS 0.3.6: shipped tecteb-home.css carries no comments except the provenance header
+PASS 0.3.7: the current post is hidden only around Elementor's post-asset block (last on after_enqueue_styles, restored first on after_enqueue_post_styles, safety restore on wp_enqueue_scripts)
+PASS 0.3.7: only when this plugin takes over the front page (not in the editor, preview, ?tecteb_home_original=1 or with the option off)
+PASS 0.3.7: restore puts back exactly the stashed post and clears the stash
+PASS 0.3.7: nothing is dequeued or deregistered by handle, no Elementor data written
+PASS 0.3.6: no lazy-loading on the Hero image (above the fold, fetchpriority=high kept)
+
+125 passed, 0 failed

@@ -1,13 +1,13 @@
-tecteb-header 0.2.5
+tecteb-header 0.2.6
 
-normal 320: {"fcp":2972,"dataJs":2752.5,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
-normal 390: {"fcp":3324,"dataJs":3209.899999999441,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
-normal 768: {"fcp":3196,"dataJs":3063.5999999996275,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
-normal 1024: {"fcp":2784,"dataJs":2580.5999999996275,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
-normal 1440: {"fcp":3016,"dataJs":2730,"shifts":[0.0003],"firstPaintHeight":122,"dataJsAtFcp":true,"js":true,"ready":true,"height":122,"burger":false,"nav":true,"catsLink":false,"catsButton":true,"accountLink":true,"search":true}
-header.js blocked 390: {"fcp":3120,"dataJs":2992.699999999255,"shifts":[0.046],"firstPaintHeight":127,"dataJsAtFcp":true,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
-header.js blocked 1440: {"fcp":3392,"dataJs":3184.9000000003725,"shifts":[0.0007],"firstPaintHeight":122,"dataJsAtFcp":true,"js":false,"ready":false,"height":122,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
-delayed by an optimizer 390: {"fcp":2948,"dataJs":null,"shifts":[0.0237],"firstPaintHeight":320,"dataJsAtFcp":false,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+normal 320: {"fcp":2864,"dataJs":2726.100000000093,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 390: {"fcp":2944,"dataJs":2797.899999999907,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 768: {"fcp":2856,"dataJs":2715.5,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 1024: {"fcp":2800,"dataJs":2670.100000000093,"shifts":[0],"firstPaintHeight":127,"dataJsAtFcp":true,"js":true,"ready":true,"height":127,"burger":true,"nav":false,"catsLink":false,"catsButton":false,"accountLink":true,"search":true}
+normal 1440: {"fcp":2916,"dataJs":2709.6999999997206,"shifts":[0.0003],"firstPaintHeight":122,"dataJsAtFcp":true,"js":true,"ready":true,"height":122,"burger":false,"nav":true,"catsLink":false,"catsButton":true,"accountLink":true,"search":true}
+header.js blocked 390: {"fcp":2728,"dataJs":2570.8000000002794,"shifts":[0.046],"firstPaintHeight":127,"dataJsAtFcp":true,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+header.js blocked 1440: {"fcp":2740,"dataJs":2588.399999999907,"shifts":[0.0007],"firstPaintHeight":122,"dataJsAtFcp":true,"js":false,"ready":false,"height":122,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
+delayed by an optimizer 390: {"fcp":2792,"dataJs":null,"shifts":[0.0237],"firstPaintHeight":320,"dataJsAtFcp":false,"js":false,"ready":false,"height":321,"burger":false,"nav":true,"catsLink":true,"catsButton":false,"accountLink":true,"search":true}
 
 PASS 320: header in JS mode before the first paint (data-js at FCP)
 PASS 320: no layout shift from the header switching to JS (CLS 0)

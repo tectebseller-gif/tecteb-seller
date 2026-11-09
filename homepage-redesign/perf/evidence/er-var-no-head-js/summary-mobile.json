@@ -1,0 +1,14 @@
+{
+ "label": "er-var-no-head-js",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 78,
+ "fcp": 1512,
+ "lcp": 3159,
+ "tbt": 38,
+ "lcp_range": [
+  3158,
+  3161
+ ],
+ "bad_requests": 0
+}

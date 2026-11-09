@@ -1,0 +1,18 @@
+PASS 0.3.6 installed and active from its ZIP
+PASS 0.3.6: front page replaced by the Tecteb homepage
+PASS 0.3.6: the replaced Elementor front page's post-2753.css, swiper, carousel, testimonial, counter and grow still load in <head> (the cost 0.3.7 removes)
+PASS 0.3.7 installed over 0.3.6 from its ZIP (--force)
+PASS still active, version 0.3.7
+PASS installed files are byte-identical to the source
+PASS the printed front page (<main>) is byte-identical to 0.3.6 apart from ?ver=
+PASS 0.3.7: none of the replaced front page's assets load
+PASS 0.3.7: <head> CSS is a strict subset of 0.3.6's (23 → 16)
+PASS settings unchanged byte for byte (no migration)
+PASS / answers 200 with 0.3.7
+PASS /shop/ answers 200 with 0.3.7
+PASS /cart/ answers 200 with 0.3.7
+PASS rollback: 0.3.6 reinstalled from its ZIP
+PASS rollback: front page and <head> CSS exactly as 0.3.6 again
+PASS rollback: settings untouched
+
+16 passed, 0 failed

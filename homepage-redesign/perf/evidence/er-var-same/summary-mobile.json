@@ -1,0 +1,14 @@
+{
+ "label": "er-var-same",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 91,
+ "fcp": 2001,
+ "lcp": 3307,
+ "tbt": 63,
+ "lcp_range": [
+  3300,
+  3760
+ ],
+ "bad_requests": 0
+}

@@ -1,0 +1,97 @@
+### hero-brands: node tests/browser/hero-brands.mjs
+PASS 1440 hero: no «بازار B2B تجهیزات پزشکی» label in the page
+PASS 1440 hero: the title is the first thing in the hero text, with no gap left by the label
+PASS 1440 labels: exactly the four, in order
+PASS 1440 labels: no overlap with each other, the hero text/search or the route cards
+PASS 1440 labels: off the monitor and the oximeter (estimated zones of the render)
+PASS 1440 labels: inside the viewport, no horizontal page overflow
+PASS 1440 labels: layout around the image
+PASS 1440 price: every amount has comma thousands and a space before «تومان»
+PASS 1440 price: no unformatted number, no English text
+PASS 1440 brands: section «برندهای همکار» right after the supplier section, last in the homepage, before the footer
+PASS 1440 brands: 7 active brands (1 of 8 is inactive), all logos loaded
+PASS 1440 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)
+PASS 1440 brands: prev/next shown only when the list overflows
+PASS 1440 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)
+PASS 1440 brands: at the end «بعدی» is disabled
+PASS 1440 brands: keyboard — Enter on «قبلی» moves back
+PASS 1440 brands: keyboard — the list itself is focusable and scrolls with the arrow keys
+PASS 1440 axe on the whole page — 0 violations
+PASS 1024 hero: no «بازار B2B تجهیزات پزشکی» label in the page
+PASS 1024 hero: the title is the first thing in the hero text, with no gap left by the label
+PASS 1024 labels: exactly the four, in order
+PASS 1024 labels: no overlap with each other, the hero text/search or the route cards
+PASS 1024 labels: inside the viewport, no horizontal page overflow
+PASS 1024 price: every amount has comma thousands and a space before «تومان»
+PASS 1024 price: no unformatted number, no English text
+PASS 1024 brands: section «برندهای همکار» right after the supplier section, last in the homepage, before the footer
+PASS 1024 brands: 7 active brands (1 of 8 is inactive), all logos loaded
+PASS 1024 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)
+PASS 1024 brands: prev/next shown only when the list overflows
+PASS 1024 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)
+PASS 1024 brands: at the end «بعدی» is disabled
+PASS 1024 brands: keyboard — Enter on «قبلی» moves back
+PASS 1024 brands: keyboard — the list itself is focusable and scrolls with the arrow keys
+PASS 1024 axe on the whole page — 0 violations
+PASS 768 hero: no «بازار B2B تجهیزات پزشکی» label in the page
+PASS 768 hero: the title is the first thing in the hero text, with no gap left by the label
+PASS 768 labels: exactly the four, in order
+PASS 768 labels: no overlap with each other, the hero text/search or the route cards
+PASS 768 labels: off the monitor and the oximeter (estimated zones of the render)
+PASS 768 labels: inside the viewport, no horizontal page overflow
+PASS 768 price: every amount has comma thousands and a space before «تومان»
+PASS 768 price: no unformatted number, no English text
+PASS 768 brands: section «برندهای همکار» right after the supplier section, last in the homepage, before the footer
+PASS 768 brands: 7 active brands (1 of 8 is inactive), all logos loaded
+PASS 768 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)
+PASS 768 brands: prev/next shown only when the list overflows
+PASS 768 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)
+PASS 768 brands: at the end «بعدی» is disabled
+PASS 768 brands: keyboard — Enter on «قبلی» moves back
+PASS 768 brands: keyboard — the list itself is focusable and scrolls with the arrow keys
+PASS 768 axe on the whole page — 0 violations
+PASS 390 hero: no «بازار B2B تجهیزات پزشکی» label in the page
+PASS 390 hero: the title is the first thing in the hero text, with no gap left by the label
+PASS 390 labels: exactly the four, in order
+PASS 390 labels: no overlap with each other, the hero text/search or the route cards
+PASS 390 labels: inside the viewport, no horizontal page overflow
+PASS 390 labels: layout compact row under the image
+PASS 390 price: every amount has comma thousands and a space before «تومان»
+PASS 390 price: no unformatted number, no English text
+PASS 390 brands: section «برندهای همکار» right after the supplier section, last in the homepage, before the footer
+PASS 390 brands: 7 active brands (1 of 8 is inactive), all logos loaded
+PASS 390 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)
+PASS 390 brands: prev/next shown only when the list overflows
+PASS 390 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)
+PASS 390 brands: at the end «بعدی» is disabled
+PASS 390 brands: keyboard — Enter on «قبلی» moves back
+PASS 390 brands: keyboard — the list itself is focusable and scrolls with the arrow keys
+PASS 390 axe on the whole page — 0 violations
+PASS 320 hero: no «بازار B2B تجهیزات پزشکی» label in the page
+PASS 320 hero: the title is the first thing in the hero text, with no gap left by the label
+PASS 320 labels: exactly the four, in order
+PASS 320 labels: no overlap with each other, the hero text/search or the route cards
+PASS 320 labels: inside the viewport, no horizontal page overflow
+PASS 320 price: every amount has comma thousands and a space before «تومان»
+PASS 320 price: no unformatted number, no English text
+PASS 320 brands: section «برندهای همکار» right after the supplier section, last in the homepage, before the footer
+PASS 320 brands: 7 active brands (1 of 8 is inactive), all logos loaded
+PASS 320 brands: no logo stretched (aspect within 2%) or cropped (inside its frame)
+PASS 320 brands: prev/next shown only when the list overflows
+PASS 320 brands: at the start «قبلی» is disabled; «بعدی» moves the list forward (RTL: leftwards)
+PASS 320 brands: at the end «بعدی» is disabled
+PASS 320 brands: keyboard — Enter on «قبلی» moves back
+PASS 320 brands: keyboard — the list itself is focusable and scrolls with the arrow keys
+PASS 320 axe on the whole page — 0 violations
+PASS 390 brands: touch — dragging a finger across the list scrolls it (and the prev button wakes up)
+PASS 768 brands: touch — dragging a finger across the list scrolls it (and the prev button wakes up)
+PASS label «پزشکی جنرال» ⇒ its WooCommerce category archive (200)
+PASS label «بیهوشی و تنفسی» ⇒ its WooCommerce category archive (200)
+PASS label «آزمایشگاه» ⇒ its WooCommerce category archive (200)
+PASS label «جراحی» ⇒ its WooCommerce category archive (200)
+PASS product page keeps the site's own price format (not changed globally)
+PASS no JavaScript: no dead buttons, the list still scrolls natively
+PASS no active brand ⇒ the whole section is gone (no heading, no empty space)
+
+93 passed, 0 failed
+exit=0

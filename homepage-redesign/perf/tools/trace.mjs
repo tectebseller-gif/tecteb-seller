@@ -3,6 +3,7 @@
  * زمان FCP، و لحظه‌ای که هدر به حالت JS می‌رود (data-js). فقط می‌خواند.
  *
  *   NODE_PATH=… node perf/tools/trace.mjs <url> <out.json> [mobile|desktop] [runs=3] [reduce]
+ *   WARM=1 …  کش گرم: در همان context یک بار صفحه بارگذاری می‌شود (کش HTTP ِ مرورگر روشن) و بار دوم اندازه گرفته می‌شود.
  *
  * موبایل: ۴۱۲×۸۲۳، DPR 1.75، UA موبایل، CPU ×۴، شبکهٔ «Slow 4G» ِ Lighthouse (۱۵۰ms RTT ×۳٫۷۵،
  * ۱٫۶ Mbps ×۰٫۹) — همان مقادیر DevTools-throttling ِ Lighthouse. دسکتاپ: ۱۳۵۰×۹۴۰، بی throttle ِ CPU، ۴۰ms RTT.
@@ -38,13 +39,14 @@ try {
     const page = await ctx.newPage();
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Network.enable');
-    await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+    await cdp.send('Network.setCacheDisabled', { cacheDisabled: !process.env.WARM });
     await cdp.send('Network.emulateNetworkConditions', MOBILE
       ? { offline: false, latency: 562.5, downloadThroughput: 1474.56 * 1024 / 8, uploadThroughput: 675 * 1024 / 8 }
       : { offline: false, latency: 40, downloadThroughput: 10240 * 1024 / 8, uploadThroughput: 10240 * 1024 / 8 });
     if (MOBILE) await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
     await page.addInitScript(INIT);
     if (i === 0) await browser.startTracing(page, { path: out.replace(/\.json$/, '') + '.trace.json', screenshots: true, categories: ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'loading', 'blink.user_timing', 'disabled-by-default-devtools.screenshot'] });
+    if (process.env.WARM) { await page.goto(url, { waitUntil: 'load', timeout: 180000 }); await page.waitForTimeout(1500); await page.goto('about:blank'); }
     const reqs = [];
     page.on('requestfinished', async (r) => { try { const s = await r.sizes(); const t = r.timing(); reqs.push({ url: r.url().replace(/^https?:\/\/[^/]+/, ''), type: r.resourceType(), bytes: s.responseBodySize + s.responseHeadersSize, end: Math.round(t.responseEnd), start: Math.round(t.startTime) }); } catch { /* */ } });
     await page.goto(url, { waitUntil: 'load', timeout: 180000 });
@@ -64,7 +66,7 @@ try {
 } finally {
   await browser.close();
 }
-fs.writeFileSync(out, JSON.stringify({ url, mode, reduce: !!reduce, runs: results }, null, 1));
+fs.writeFileSync(out, JSON.stringify({ url, warm: !!process.env.WARM, mode, reduce: !!reduce, runs: results }, null, 1));
 const med = (k) => { const v = results.map((r) => (typeof k === 'function' ? k(r) : r[k])).filter((x) => x != null).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const last = (r) => r.lcp[r.lcp.length - 1] || {};
-console.log(JSON.stringify({ mode, reduce: !!reduce, fcp: med('fcp'), lcp: med((r) => last(r).t), lcp_el: last(results[0]).el, lcp_candidates: results[0].lcp.map((c) => `${c.t}ms ${c.el} ${c.size}`), cls: med('cls_total'), dataJs: med('dataJs'), ttfb: med('ttfb'), header_h: results[0].header, requests: med('requests'), kb: med('kb') }, null, 1));
+console.log(JSON.stringify({ warm: !!process.env.WARM, mode, reduce: !!reduce, fcp: med('fcp'), lcp: med((r) => last(r).t), lcp_el: last(results[0]).el, lcp_candidates: results[0].lcp.map((c) => `${c.t}ms ${c.el} ${c.size}`), cls: med('cls_total'), dataJs: med('dataJs'), ttfb: med('ttfb'), header_h: results[0].header, requests: med('requests'), kb: med('kb') }, null, 1));

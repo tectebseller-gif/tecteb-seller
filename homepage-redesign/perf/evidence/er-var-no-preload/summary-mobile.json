@@ -1,0 +1,14 @@
+{
+ "label": "er-var-no-preload",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 87,
+ "fcp": 2560,
+ "lcp": 3460,
+ "tbt": 9,
+ "lcp_range": [
+  3310,
+  3533
+ ],
+ "bad_requests": 0
+}

@@ -1,0 +1,21 @@
+### mega-setup: node tests/mega-setup.mjs
+tecteb-header 0.2.6
+
+PASS 1. no categories in the plugin settings: «دسته‌بندی کالاها» is a plain link to the shop, no chevron, no mega menu
+PASS 1. …while JS runs (header has data-js, «حساب من» shows its dropdown chevron) — same as the production screenshot
+PASS 2. baseline applied: 12 categories found by name and saved with this site's real term IDs, in order
+PASS 2. …template selection and switch untouched
+PASS 3. a real subcategory ticked in «دسته‌بندی‌ها» is saved under its parent
+PASS 4. «دسته‌بندی کالاها» is now the mega-menu button (chevron), no shop link
+PASS 4. mega menu lists exactly the saved real categories, in order
+PASS 4. …with the ticked real subcategory as a link
+PASS 4. desktop hover opens it
+PASS 4. click opens it, without leaving the page
+PASS 4. Escape closes it and focus returns to the button
+PASS 4. keyboard: Enter on the focused button opens it, aria-expanded=true
+PASS 5. mobile: the burger opens the drawer with the same real categories
+PASS 6. visitor: old Elementor header, no Header B (switch off)
+
+14 passed, 0 failed
+
+exit=0

@@ -1,0 +1,31 @@
+Elementor 4.2.3 · PRO Elements 4.2.2 · tecteb-header 0.2.6
+
+[default /] with replaced header: 38 assets · reference (header unpublished): 38
+PASS [default] /: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [default] /: same result after republishing (the reference step left no trace)
+PASS [default] /: Tecteb header CSS and JS present
+[default /shop/] with replaced header: 37 assets · reference (header unpublished): 37
+PASS [default] /shop/: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [default] /shop/: same result after republishing (the reference step left no trace)
+PASS [default] /shop/: Tecteb header CSS and JS present
+PASS [default] control: with replacement off, header 2652's own assets load (and are what 0.2.6 removes): body:js:smartmenus head:css:e-animation-buzz-out head:css:e-apple-webkit head:css:elementor-post-2652 head:css:widget-icon-box head:css:widget-image head:css:widget-nav-menu head:css:widget-search head:css:widget-social-icons 
+[internal /] with replaced header: 37 assets · reference (header unpublished): 37
+PASS [internal] /: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [internal] /: same result after republishing (the reference step left no trace)
+PASS [internal] /: Tecteb header CSS and JS present
+[internal /shop/] with replaced header: 36 assets · reference (header unpublished): 36
+PASS [internal] /shop/: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [internal] /shop/: same result after republishing (the reference step left no trace)
+PASS [internal] /shop/: Tecteb header CSS and JS present
+PASS [internal] control: with replacement off, header 2652's own assets load (and are what 0.2.6 removes): body:js:smartmenus head:css:e-animation-buzz-out head:css:e-apple-webkit head:css:widget-icon-box head:css:widget-image head:css:widget-nav-menu head:css:widget-search head:css:widget-social-icons head:rules:elementor-2652 
+[font-icons /] with replaced header: 41 assets · reference (header unpublished): 41
+PASS [font-icons] /: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [font-icons] /: same result after republishing (the reference step left no trace)
+PASS [font-icons] /: Tecteb header CSS and JS present
+[font-icons /shop/] with replaced header: 40 assets · reference (header unpublished): 40
+PASS [font-icons] /shop/: with header 2652 replaced, every CSS/JS (files and inline post CSS) is exactly what Elementor loads when that header does not exist — nothing missing, nothing extra
+PASS [font-icons] /shop/: same result after republishing (the reference step left no trace)
+PASS [font-icons] /shop/: Tecteb header CSS and JS present
+PASS [font-icons] control: with replacement off, header 2652's own assets load (and are what 0.2.6 removes): body:js:smartmenus head:css:e-animation-buzz-out head:css:e-apple-webkit head:css:elementor-icons-fa-brands head:css:elementor-icons-fa-regular head:css:elementor-post-2652 head:css:widget-icon-box head:css:widget-image head:css:widget-nav-menu head:css:widget-search head:css:widget-social-icons 
+
+21 passed, 0 failed

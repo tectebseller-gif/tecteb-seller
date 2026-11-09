@@ -1,0 +1,30 @@
+### front-page: node tests/browser/front-page.mjs
+PASS visitor, switch off: the Reading page as today (no Concept C)
+PASS admin: «نمایش روی صفحهٔ نخست سایت» section with the Reading page name
+PASS admin: status says the front page does not show the design yet
+PASS admin page: axe wcag2a/aa — 0 violations
+PASS admin preview (?tecteb_home_preview=1): Concept C on the front page while the switch is off
+PASS visitor with the preview parameter: still the Reading page
+PASS admin: saved; status now says the front page shows Concept C
+PASS settings kept after saving the switch (products, categories, links)
+PASS visitor 1440: Concept C on the front page, one header, one h1, no page content, no overflow
+PASS visitor 1440: axe on the whole page — 0 violations
+PASS visitor 768: Concept C on the front page, one header, one h1, no page content, no overflow
+PASS visitor 768: axe on the whole page — 0 violations
+PASS visitor 390: Concept C on the front page, one header, one h1, no page content, no overflow
+PASS visitor 390: no duplicated search (header folded, Hero visible)
+PASS visitor 390: axe on the whole page — 0 violations
+PASS visitor 320: Concept C on the front page, one header, one h1, no page content, no overflow
+PASS visitor 320: no duplicated search (header folded, Hero visible)
+PASS visitor 320: axe on the whole page — 0 violations
+PASS admin ?tecteb_home_original=1: the Reading page even with the switch on
+PASS visitor with the original parameter: Concept C (parameter is admin-only)
+PASS other pages untouched: /shop/ is the WooCommerce shop
+PASS route /shop/ from the front page: 200
+PASS route /https-tecteb-com-repair-request/ from the front page: 200
+PASS route /landing-seller/ from the front page: 200
+PASS rollback: untick + save ⇒ visitor sees the Reading page again (4.5s)
+PASS the Reading page itself never changed (content + meta), Reading settings unchanged, no new page
+
+26 passed, 0 failed
+exit=0

@@ -1,0 +1,149 @@
+tecteb-header 0.2.6
+
+6 links @1080: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":603,"contentWidth":603,"overflowX":0}
+6 links @1180: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":627,"contentWidth":627,"overflowX":0}
+6 links @1280: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":633,"contentWidth":633,"overflowX":0}
+6 links @1366: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1440: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1600: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1760: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+6 links @1920: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+8 links @1080: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":603,"contentWidth":603,"overflowX":0}
+8 links @1180: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":703,"contentWidth":703,"overflowX":0}
+8 links @1280: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+8 links @1366: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+8 links @1440: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+8 links @1600: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+8 links @1760: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+8 links @1920: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1080: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":132,"lines":3,"menuWidth":603,"contentWidth":603,"overflowX":0}
+10 links @1180: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":703,"contentWidth":703,"overflowX":0}
+10 links @1280: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1366: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1440: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1600: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1760: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+10 links @1920: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 6 links @1080: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":603,"contentWidth":603,"overflowX":0}
+hostile 6 links @1180: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":627,"contentWidth":627,"overflowX":0}
+hostile 6 links @1280: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":633,"contentWidth":633,"overflowX":0}
+hostile 6 links @1366: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1440: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1600: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1760: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 6 links @1920: {"count":6,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":46,"lines":1,"menuWidth":636,"contentWidth":636,"overflowX":0}
+hostile 8 links @1080: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":603,"contentWidth":603,"overflowX":0}
+hostile 8 links @1180: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":703,"contentWidth":703,"overflowX":0}
+hostile 8 links @1280: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 8 links @1366: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 8 links @1440: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 8 links @1600: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 8 links @1760: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 8 links @1920: {"count":8,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1080: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":132,"lines":3,"menuWidth":603,"contentWidth":603,"overflowX":0}
+hostile 10 links @1180: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":703,"contentWidth":703,"overflowX":0}
+hostile 10 links @1280: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1366: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1440: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1600: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1760: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+hostile 10 links @1920: {"count":10,"overlaps":[],"outside":[],"beyondRow":[],"rowHeight":88,"lines":2,"menuWidth":763,"contentWidth":763,"overflowX":0}
+
+PASS 6 links @1080: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1180: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1280: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1366: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1440: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1600: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1760: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 6 links @1920: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 6 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1080: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1180: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1280: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1366: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1440: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1600: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1760: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 8 links @1920: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 8 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1080: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1180: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1280: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1366: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1440: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1600: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1760: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS 10 links @1920: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS 10 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1080: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1180: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1280: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1366: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1440: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1600: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1760: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 6 links @1920: no two of «دسته‌بندی کالاها», the 6 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 6 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1080: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1180: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1280: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1366: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1440: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1600: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1760: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 8 links @1920: no two of «دسته‌بندی کالاها», the 8 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 8 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1080: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1080: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1180: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1180: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1280: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1280: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1366: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1366: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1440: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1440: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1600: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1600: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1760: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1760: every menu link inside the menu box and the row; no horizontal page scroll
+PASS hostile 10 links @1920: no two of «دسته‌بندی کالاها», the 10 menu links and «همکاری تأمین‌کنندگان» overlap
+PASS hostile 10 links @1920: every menu link inside the menu box and the row; no horizontal page scroll
+
+96 passed, 0 failed

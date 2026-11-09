@@ -1,0 +1,23 @@
+PASS 0.2.5 installed and active from its ZIP
+PASS 0.2.5 prints Header B with header.css?ver=0.2.5
+PASS 0.2.5 on real Elementor Pro: the replaced header's post-2652.css still loads in <head> (the cost 0.2.6 removes)
+PASS 0.2.6 installed over 0.2.5 from its ZIP (--force)
+PASS still active, version 0.2.6
+PASS installed files are byte-identical to the source
+PASS saved settings unchanged byte for byte (no migration, no write on read)
+PASS header HTML byte-identical to 0.2.5 (apart from ?ver=): logo, search, account, cart, categories + mega menu, menu, drawer
+PASS header.css?ver=0.2.6 — page caches fetch the new stylesheet URL
+PASS served header.css is the shipped file
+PASS 0.2.6 on real Elementor Pro: post-2652.css no longer loads; also gone: e-animation-buzz-out e-apple-webkit elementor-post-2652 widget-icon-box widget-image widget-nav-menu widget-search widget-social-icons 
+PASS 0.2.6: <head> CSS is a strict subset of 0.2.5's — nothing new added (24 → 16)
+PASS page / answers 200 with 0.2.6
+PASS page /shop/ answers 200 with 0.2.6
+PASS page /cart/ answers 200 with 0.2.6
+PASS rollback: 0.2.5 reinstalled from its ZIP
+PASS rollback: same header HTML, header.css?ver=0.2.5
+PASS rollback: <head> CSS exactly as 0.2.5 again
+PASS rollback: settings untouched
+PASS 0.2.6: ?tth_original=1 (admin) shows the old Elementor header — instant way back kept
+PASS 0.2.6: …and with ?tth_original=1 its post-2652.css is loaded
+
+21 passed, 0 failed

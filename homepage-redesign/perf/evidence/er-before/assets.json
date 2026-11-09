@@ -71,7 +71,7 @@
    "type": "css",
    "where": "head",
    "handle": "elementor-post-11",
-   "href": "/wp-content/uploads/elementor/css/post-11.css?ver=1794216544",
+   "href": "/wp-content/uploads/elementor/css/post-11.css?ver=1794217731",
    "owner": "uploads:elementor",
    "media": "all"
   },
@@ -207,7 +207,7 @@
    "type": "css",
    "where": "head",
    "handle": "elementor-post-2753",
-   "href": "/wp-content/uploads/elementor/css/post-2753.css?ver=1794216792",
+   "href": "/wp-content/uploads/elementor/css/post-2753.css?ver=1794217739",
    "owner": "uploads:elementor",
    "media": "all"
   },
@@ -215,7 +215,7 @@
    "type": "css",
    "where": "head",
    "handle": "base-desktop",
-   "href": "/wp-content/uploads/elementor/css/base-desktop.css?ver=6af19260773c7",
+   "href": "/wp-content/uploads/elementor/css/base-desktop.css?ver=6af197040c1e9",
    "owner": "uploads:elementor",
    "media": "all"
   },
@@ -223,7 +223,7 @@
    "type": "css",
    "where": "head",
    "handle": "base-mobile",
-   "href": "/wp-content/uploads/elementor/css/base-mobile.css?ver=6af19260773c7",
+   "href": "/wp-content/uploads/elementor/css/base-mobile.css?ver=6af197040c1e9",
    "owner": "uploads:elementor",
    "media": "(max-width:767px)"
   },
@@ -231,7 +231,7 @@
    "type": "css",
    "where": "head",
    "handle": "elementor-post-2652",
-   "href": "/wp-content/uploads/elementor/css/post-2652.css?ver=1794216792",
+   "href": "/wp-content/uploads/elementor/css/post-2652.css?ver=1794217862",
    "owner": "uploads:elementor",
    "media": "all"
   },
@@ -239,7 +239,7 @@
    "type": "css",
    "where": "head",
    "handle": "elementor-post-2770",
-   "href": "/wp-content/uploads/elementor/css/post-2770.css?ver=1794216792",
+   "href": "/wp-content/uploads/elementor/css/post-2770.css?ver=1794217732",
    "owner": "uploads:elementor",
    "media": "all"
   },

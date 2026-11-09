@@ -1,0 +1,26 @@
+### upgrade-036: bash tests/upgrade-036.sh dist/tecteb-homepage-0.3.6.zip dist/tecteb-homepage-0.3.7.zip
+PASS 0.3.6 installed and active from its ZIP
+PASS 0.3.6 on the front page: selected products, category cards, brands and the supplier section
+PASS 0.3.6: tecteb-home.css?ver=0.3.6
+PASS 0.3.7 installed over 0.3.6 from its ZIP (--force)
+PASS still active, version 0.3.7
+PASS installed files are byte-identical to the source
+PASS after the update and a page view: saved settings unchanged byte for byte (no migration, no write on read)
+PASS products section: same title, link, products, order
+PASS Hero labels: same titles, archives and positions
+PASS category cards: same links in the same order
+PASS brands: same names, logos and links
+PASS prices: the same text, letter for letter
+PASS supplier section byte-identical (apart from ?ver=)
+PASS the WebP is served (200 image/webp)
+PASS tecteb-home.css?ver=0.3.7 — browsers and page caches fetch the new stylesheet
+PASS the served stylesheet is the shipped file byte for byte, same size as 0.3.6 (51966 → 51966 bytes; 0.3.7 changes no CSS)
+PASS 0.3.7: the settings page opens (200)
+PASS rollback: 0.3.6 reinstalled from its ZIP
+PASS rollback: products and supplier section exactly as 0.3.6
+PASS rollback: Hero labels, category cards, brands and prices as before
+PASS rollback: tecteb-home.css?ver=0.3.6
+PASS rollback: settings untouched
+
+22 passed, 0 failed
+exit=0

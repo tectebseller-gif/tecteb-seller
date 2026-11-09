@@ -1,0 +1,1 @@
+import sys,re; h=sys.stdin.read(); h=re.sub(r'<link rel="preload"[^>]*as="font"[^>]*>\n?','',h); h2=re.sub(r'@font-face\{font-family:"TTH? Vazirmatn";[^}]*\}','',h); assert h2.count('Vazirmatn-wght')==0, h2.count('Vazirmatn-wght'); sys.stdout.write(h2)

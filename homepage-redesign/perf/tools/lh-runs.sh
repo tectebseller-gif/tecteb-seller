@@ -34,11 +34,15 @@ for i in range(1, runs + 1):
     rows.append({'score': round(d['categories']['performance']['score'] * 100), 'fcp': a['first-contentful-paint']['numericValue'], 'lcp': a['largest-contentful-paint']['numericValue'],
                  'cls': a['cumulative-layout-shift']['numericValue'], 'tbt': a['total-blocking-time']['numericValue'], 'si': a['speed-index']['numericValue'],
                  'requests': len(reqs), 'kb': sum(r.get('transferSize', 0) for r in reqs) / 1024, 'lcp_el': el,
-                 'render_blocking_ms': a.get('render-blocking-insight', {}).get('metricSavings', {}).get('FCP', 0)})
+                 'render_blocking_ms': a.get('render-blocking-insight', {}).get('metricSavings', {}).get('FCP', 0),
+                 # هر درخواستی جز سند که ۲۰۰ نگیرد (فایل غایب ⇒ ریدایرکت به صفحه‌ای کامل) عدد را بی‌صدا خراب می‌کند.
+                 'bad': sorted({f"{r.get('statusCode')} {r['url']}" for r in reqs[1:] if r.get('statusCode') not in (200, 204, 304) and '127.0.0.1' in r['url'] and 'favicon.ico' not in r['url']})})
 def s(k):
     v = [r[k] for r in rows]
     return {'median': round(st.median(v), 3), 'min': round(min(v), 3), 'max': round(max(v), 3)}
-summary = {'mode': mode, 'runs': len(rows), **{k: s(k) for k in ('score', 'fcp', 'lcp', 'cls', 'tbt', 'si', 'requests', 'kb', 'render_blocking_ms')}, 'lcp_element': sorted({r['lcp_el'] for r in rows})}
+summary = {'mode': mode, 'runs': len(rows), **{k: s(k) for k in ('score', 'fcp', 'lcp', 'cls', 'tbt', 'si', 'requests', 'kb', 'render_blocking_ms')}, 'lcp_element': sorted({r['lcp_el'] for r in rows}), 'bad_requests': sorted({b for r in rows for b in r['bad']})}
+if summary['bad_requests']:
+    print('BAD REQUESTS (the numbers below are not valid):', *summary['bad_requests'], sep='\n  ', file=sys.stderr)
 json.dump(summary, open(f"{out}/summary-{mode}.json", 'w'), indent=1, ensure_ascii=False)
 print(json.dumps({k: (v['median'] if isinstance(v, dict) else v) for k, v in summary.items()}, ensure_ascii=False))
 EOF
