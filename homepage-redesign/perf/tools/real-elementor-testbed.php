@@ -147,6 +147,20 @@ switch ( $cmd ) {
 		echo "header=$h footer=$f front=$fp\n";
 		tthp_report();
 		break;
+	case 'second-header':
+		// قالب هدر دوم، فقط برای برگهٔ نخست، که در فهرست جایگزینی Header B نیست (آزمون «قالبِ انتخاب‌نشده»).
+		$id = tthp_create( 'header', 'Header (front only)', array( tthp_container( array( tthp_widget( 'heading', array( 'title' => 'هدر دوم' ) ), tthp_widget( 'image-box', array( 'title_text' => 'نمونه' ) ) ) ) ), array( array( 'type' => 'include', 'name' => 'singular', 'sub_name' => 'front_page' ) ) );
+		update_post_meta( $id, '_tthp_second_header', 1 );
+		\ElementorPro\Modules\ThemeBuilder\Module::instance()->get_conditions_manager()->get_cache()->regenerate();
+		echo $id . "\n";
+		break;
+	case 'drop-second':
+		foreach ( get_posts( array( 'post_type' => 'elementor_library', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_tthp_second_header' ) ) as $id ) {
+			wp_delete_post( $id, true );
+		}
+		\ElementorPro\Modules\ThemeBuilder\Module::instance()->get_conditions_manager()->get_cache()->regenerate();
+		echo "dropped\n";
+		break;
 	case 'purge':
 		tthp_purge();
 		echo "purged\n";

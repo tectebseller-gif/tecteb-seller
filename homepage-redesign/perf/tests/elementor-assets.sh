@@ -17,6 +17,17 @@ TMP="$(mktemp -d)"
 PASS=0; FAIL=0; LOG=()
 check() { if [[ "$2" == "0" ]]; then PASS=$((PASS+1)); LOG+=("PASS $1"); else FAIL=$((FAIL+1)); LOG+=("FAIL $1${3:+  — $3}"); fi; }
 [[ "$($W eval 'echo DB_NAME;' 2>/dev/null)" == "tth_perf" ]] || { echo "refused: not the tth_perf testbed" >&2; exit 1; }
+# تنظیم‌هایی که این آزمون موقتاً عوض می‌کند، هر طور که تمام شود (حتی زیر یک جهش falsify) دقیقاً برمی‌گردند.
+SAVED_HDR="$($W option get tecteb_header_settings --format=json 2>/dev/null)"; SAVED_HOME="$($W option get tecteb_home_settings --format=json 2>/dev/null)"
+FRONT_EDIT_MODE=""
+restore_settings() {
+  [[ -n "$SAVED_HDR" ]] && $W option update tecteb_header_settings "$SAVED_HDR" --format=json >/dev/null 2>&1
+  [[ -n "$SAVED_HOME" ]] && $W option update tecteb_home_settings "$SAVED_HOME" --format=json >/dev/null 2>&1
+  [[ -n "$FRONT_EDIT_MODE" ]] && $W post meta update "$FRONT_EDIT_MODE" _elementor_edit_mode builder >/dev/null 2>&1
+  [[ -n "${SECOND:-}" ]] && $W --user=tthadmin eval-file "$HERE/perf/tools/real-elementor-testbed.php" drop-second >/dev/null 2>&1
+  rm -rf "$TMP"
+}
+trap restore_settings EXIT
 JAR="$TMP/jar"; curl -s -c "$JAR" -b "$JAR" -o /dev/null "$SITE/wp-login.php"; curl -s -c "$JAR" -b "$JAR" -o /dev/null --data-urlencode "log=tthadmin" --data-urlencode "pwd=local-only-2026" --data-urlencode "testcookie=1" "$SITE/wp-login.php"
 # صفحه (مهمان یا مدیر) ← JSON: قالب‌های رندرشده، و handle های css/js در head و body.
 page() { local path="$1" who="${2:-guest}" f="$TMP/p.html"; if [[ "$who" == "admin" ]]; then curl -sL -b "$JAR" "$SITE$path" > "$f"; else curl -sL "$SITE$path" > "$f"; fi
@@ -80,11 +91,18 @@ d="$(page /)"
 has "$d" rendered "$FRONT" && has "$d" head_css "${FRONT_ONLY[@]}"; check "front-page takeover off: old Elementor front page and all its assets in <head>, as without this plugin" $? "$d"
 $W eval '$s = get_option("tecteb_home_settings"); $s["front_page"] = true; update_option("tecteb_home_settings", $s);' >/dev/null 2>&1
 
+# ۴-ب. قالب هدری که در فهرست جایگزینی نیست (هدر دومی فقط برای برگهٔ نخست): Elementor چاپش می‌کند و Header B کنار
+# می‌رود، پس دارایی‌هایش باید از همان اول در <head> باشند — نه پنهان و بعد دیر در body.
+SECOND="$($W --user=tthadmin eval-file "$HERE/perf/tools/real-elementor-testbed.php" second-header 2>/dev/null | tail -1)"
+curl -s -o /dev/null "$SITE/"; d="$(page /)"
+has "$d" rendered "$SECOND" && [[ "$(val "$d" tth)" == "False" ]] && has "$d" head_css "elementor-post-$SECOND"; check "front page with a second Elementor header ($SECOND) that is not in the replacement list: Elementor prints it, Header B stands aside, and its post-$SECOND.css is in <head> from the start" $? "$d"
+$W --user=tthadmin eval-file "$HERE/perf/tools/real-elementor-testbed.php" drop-second >/dev/null 2>&1; SECOND=""
+
 # ۵. برگهٔ نخستِ غیر-Elementor: Homepage هیچ کاری نمی‌کند (و پست جاری هرگز خالی نمی‌ماند).
-$W post meta update "$FRONT" _elementor_edit_mode '' >/dev/null 2>&1
+FRONT_EDIT_MODE="$FRONT"; $W post meta update "$FRONT" _elementor_edit_mode '' >/dev/null 2>&1
 d="$(page /)"
 [[ "$(val "$d" tth)" == "True" ]] && lacks "$d" head_css "${FRONT_ONLY[@]}" && has "$d" head_css "${FOOTER[@]}"; check "front page no longer built with Elementor but with stale page-assets meta (Elementor still loads it): skipped too — no front-page assets, footer intact" $? "$d"
-$W post meta update "$FRONT" _elementor_edit_mode builder >/dev/null 2>&1
+$W post meta update "$FRONT" _elementor_edit_mode builder >/dev/null 2>&1; FRONT_EDIT_MODE=""
 
 # ۶. هیچ خطا یا هشدار PHP از دو افزونه.
 : > /home/user/wp2/core/wp-content/debug.log
@@ -93,5 +111,4 @@ for p in / /shop/ '/?tthp_readd=1' '/?tthp_flip=1'; do curl -s -o /dev/null "$SI
 
 { echo "tecteb-header $($W plugin get tecteb-header --field=version 2>/dev/null) · tecteb-homepage $($W plugin get tecteb-homepage --field=version 2>/dev/null) · Elementor $($W plugin get elementor --field=version 2>/dev/null) · PRO Elements $($W plugin get pro-elements --field=version 2>/dev/null)"; echo; printf '%s\n' "${LOG[@]}"; echo; echo "$PASS passed, $FAIL failed"; } > "$OUT"
 grep -E "^(PASS|FAIL)" "$OUT"; echo; echo "$PASS passed, $FAIL failed"
-rm -rf "$TMP"
 exit $(( FAIL > 0 ? 1 : 0 ))

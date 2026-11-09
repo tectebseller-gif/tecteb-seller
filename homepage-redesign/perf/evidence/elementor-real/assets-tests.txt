@@ -16,7 +16,8 @@ PASS fallback: replacement switched off between <head> and the header (start: of
 PASS admin ?tecteb_home_original=1: old Elementor front page printed WITH its CSS and assets in <head>
 PASS header replacement off: Elementor header 2652 and all its assets in <head>, as without this plugin
 PASS front-page takeover off: old Elementor front page and all its assets in <head>, as without this plugin
+PASS front page with a second Elementor header (2997) that is not in the replacement list: Elementor prints it, Header B stands aside, and its post-2997.css is in <head> from the start
 PASS front page no longer built with Elementor but with stale page-assets meta (Elementor still loads it): skipped too — no front-page assets, footer intact
 PASS no PHP notice, warning or error from either plugin in debug.log
 
-17 passed, 0 failed
+18 passed, 0 failed

@@ -1,0 +1,4 @@
+caught    replace ignores the switch  ← integration
+caught    assets skipped even when the queue holds a template not selected for replacement  ← static, elementor
+
+2/2 caught, 0 survived, 0 not applied

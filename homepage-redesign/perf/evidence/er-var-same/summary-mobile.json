@@ -2,13 +2,13 @@
  "label": "er-var-same",
  "mode": "mobile",
  "runs": 3,
- "score": 91,
- "fcp": 2001,
- "lcp": 3307,
- "tbt": 63,
+ "score": 90,
+ "fcp": 2018,
+ "lcp": 3395,
+ "tbt": 79,
  "lcp_range": [
-  3300,
-  3760
+  3161,
+  3470
  ],
  "bad_requests": 0
 }

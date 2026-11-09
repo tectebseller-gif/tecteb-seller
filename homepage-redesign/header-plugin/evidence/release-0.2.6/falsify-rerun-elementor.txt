@@ -1,0 +1,8 @@
+caught    replaced header's CSS and assets loaded again (filter never hides it)  ← static, elementor
+caught    hiding filter left on after Pro's enqueue step (header vanishes at render)  ← static, elementor
+caught    no restore when the replacement backs out at render (start)  ← static, elementor
+caught    no restore when Elementor prints its header after all (finish)  ← static, elementor
+caught    assets skipped even when the queue holds a template not selected for replacement  ← static, elementor
+caught    assets skipped when the replacement is off  ← static, elementor
+
+6/6 caught, 0 survived, 0 not applied

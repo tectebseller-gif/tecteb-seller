@@ -1,0 +1,14 @@
+{
+ "label": "er-var-no-woo-css",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 88,
+ "fcp": 1855,
+ "lcp": 3683,
+ "tbt": 60,
+ "lcp_range": [
+  3162,
+  3700
+ ],
+ "bad_requests": 0
+}

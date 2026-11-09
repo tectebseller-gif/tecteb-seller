@@ -1,0 +1,6 @@
+76 CAUGHT  [elementor] 3 failing — 0.3.7: front-page Elementor document not hidden (its CSS and widget assets load again)
+     first: FAIL front page: none of the old Elementor front page's assets load (post-2753.css, swiper, image-carousel, testimonial, counter, grow)
+77 CAUGHT  [elementor] 2 failing — 0.3.7: front-page Elementor assets skipped even when the takeover is off
+     first: FAIL admin ?tecteb_home_original=1: old Elementor front page printed WITH its CSS and assets in <head>  — {"rendered": ["2753", "2974"], "tt
+
+2 of 2 mutations caught and restored

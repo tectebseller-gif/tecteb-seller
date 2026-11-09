@@ -1,0 +1,14 @@
+{
+ "label": "er-var-async-3p-css",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 91,
+ "fcp": 1617,
+ "lcp": 3380,
+ "tbt": 21,
+ "lcp_range": [
+  3009,
+  3381
+ ],
+ "bad_requests": 0
+}

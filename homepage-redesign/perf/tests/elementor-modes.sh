@@ -31,7 +31,8 @@ for part,where in ((head,"head"),(body,"body")):
 print("\n".join(sorted(set(out))))'; }
 OURS='^(head|body):(css|js):tecteb-header'
 PRINT_BEFORE="$(q option get elementor_css_print_method)"; ICONS_BEFORE="$(q option get elementor_experiment-e_font_icon_svg)"
-restore() { q option update elementor_css_print_method "${PRINT_BEFORE:-external}" >/dev/null; if [[ -n "$ICONS_BEFORE" ]]; then q option update elementor_experiment-e_font_icon_svg "$ICONS_BEFORE" >/dev/null; else q option delete elementor_experiment-e_font_icon_svg >/dev/null; fi; q post update $HDR --post_status=publish >/dev/null; q elementor flush-css >/dev/null; }
+SAVED_HDR="$(q option get tecteb_header_settings --format=json)"
+restore() { [[ -n "$SAVED_HDR" ]] && q option update tecteb_header_settings "$SAVED_HDR" --format=json >/dev/null; q option update elementor_css_print_method "${PRINT_BEFORE:-external}" >/dev/null; if [[ -n "$ICONS_BEFORE" ]]; then q option update elementor_experiment-e_font_icon_svg "$ICONS_BEFORE" >/dev/null; else q option delete elementor_experiment-e_font_icon_svg >/dev/null; fi; q post update $HDR --post_status=publish >/dev/null; q elementor flush-css >/dev/null; }
 trap restore EXIT
 for mode in default internal font-icons; do
   case $mode in

@@ -1,0 +1,42 @@
+PASS admin: four rows with title, category ID, order and «فعال» fields
+PASS admin: defaults are the four 0.3.3 titles, in order, all active
+PASS front: the four default labels, in order, each to its category archive
+PASS admin → front: a new title shows on the homepage, still linked to the same archive
+PASS admin: the WooCommerce category keeps its own name (the title is independent)
+PASS admin → front: reversed order in the panel ⇒ reversed on the homepage, positions one…four
+PASS admin: after saving, the order fields read 4, 3, 2, 1
+PASS admin → front: unticking «فعال» hides that label and leaves no hole
+PASS admin: the inactive row says so
+PASS admin → front: ticking it again brings it back
+PASS admin: category search lists matches with «برای برچسب ۱…۴» buttons
+PASS admin: «برای برچسب ۴» saves that category in row 4 (and keeps the title typed beside it)
+PASS admin → front: row 4 (first in order) now links to «آزمایشگاه» with its own title
+PASS admin: an ID that is not a product category is refused with a message; the row goes back to «by name»
+PASS front: …so «آزمایشگاه» (row 3) is again its own category, nothing guessed
+PASS admin → front: a chosen category with no displayable products stays hidden (and the panel says why)
+PASS admin: every other homepage setting (brands, links, products, categories…) untouched
+PASS admin: hero_labels (read by 0.3.3) mirrors each row's category
+PASS admin: 40-character titles are saved whole
+FAIL 1440 long titles: none over the text/search/device, none over each other, all inside the image  — [{"text":"ابزار و تجهیزات اتاق عمل و جراحی عمومی ت","href":"http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/","cls":"th-float th-float--one","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"تجهیزات آزمایشگاه تشخیص طبی و پاتولوژی م","href":"http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/","cls":"th-float th-float--two","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"دستگاه‌های بیهوشی، تنفسی و مراقبت ویژه ب","href":"http://127.0.0.1:8090/product-category/%d8%a8%db%8c%d9%87%d9%88%d8%b4%db%8c-%d9%88-%d8%aa%d9%86%d9%81%d8%b3%db%8c/","cls":"th-float th-float--three","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"تجهیزات پزشکی عمومی و مصرفی بیمارستانی و","href":"http://127.0.0.1:8090/product-category/%d9%be%d8%b2%d8%b4%da%a9%db%8c-%d8%ac%d9%86%d8%b1%d8%a7%d9%84/","cls":"th-float th-float--four","over":false,"device":false,"overlap":true,"inside":true,"truncated":false}]
+PASS 1440 long titles: the link text stays whole (what screen readers read)
+FAIL 1440 long titles: shortened on screen with «…» (they would not fit half the image)  — [false,false,false,false]
+PASS 1024 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 1024 long titles: the link text stays whole (what screen readers read)
+PASS 768 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 768 long titles: the link text stays whole (what screen readers read)
+FAIL 600 long titles: none over the text/search/device, none over each other, all inside the image  — [{"text":"ابزار و تجهیزات اتاق عمل و جراحی عمومی ت","href":"http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/","cls":"th-float th-float--one","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"تجهیزات آزمایشگاه تشخیص طبی و پاتولوژی م","href":"http://127.0.0.1:8090/product-category/%d8%a2%d8%b2%d9%85%d8%a7%db%8c%d8%b4%da%af%d8%a7%d9%87/","cls":"th-float th-float--two","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"دستگاه‌های بیهوشی، تنفسی و مراقبت ویژه ب","href":"http://127.0.0.1:8090/product-category/%d8%a8%db%8c%d9%87%d9%88%d8%b4%db%8c-%d9%88-%d8%aa%d9%86%d9%81%d8%b3%db%8c/","cls":"th-float th-float--three","over":false,"device":false,"overlap":true,"inside":true,"truncated":false},{"text":"تجهیزات پزشکی عمومی و مصرفی بیمارستانی و","href":"http://127.0.0.1:8090/product-category/%d9%be%d8%b2%d8%b4%da%a9%db%8c-%d8%ac%d9%86%d8%b1%d8%a7%d9%84/","cls":"th-float th-float--four","over":false,"device":false,"overlap":true,"inside":true,"truncated":false}]
+PASS 600 long titles: the link text stays whole (what screen readers read)
+PASS 390 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 390 long titles: the link text stays whole (what screen readers read)
+PASS 320 long titles: none over the text/search/device, none over each other, all inside the image
+PASS 320 long titles: the link text stays whole (what screen readers read)
+PASS 390: 4 labels, none over the title, the lead, the search or the device
+PASS 320: 4 labels, none over the title, the lead, the search or the device
+PASS 768: 4 labels, none over the title, the lead, the search or the device
+PASS 1024: 4 labels, none over the title, the lead, the search or the device
+PASS 1440: 4 labels, none over the title, the lead, the search or the device
+PASS admin page (with search results): axe wcag2a/aa — 0 violations
+PASS security: a POST with a bad nonce is refused and changes nothing
+PASS security: a user without manage_woocommerce can neither open the page nor save
+
+37 passed, 3 failed

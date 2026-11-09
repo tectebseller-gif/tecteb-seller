@@ -1,0 +1,14 @@
+{
+ "label": "er-var-defer-head-js",
+ "mode": "mobile",
+ "runs": 3,
+ "score": 89,
+ "fcp": 1519,
+ "lcp": 3759,
+ "tbt": 23,
+ "lcp_range": [
+  3389,
+  3764
+ ],
+ "bad_requests": 0
+}

@@ -81,7 +81,7 @@ MUTATIONS = [
     ("hide_empty uses direct count only", "includes/class-menu.php", "return is_numeric( $wc ) ? (int) $wc : (int) $t->count;", "return (int) $t->count;", [I]),
     ("render twice per request", "includes/class-renderer.php", "if ( self::$rendered ) {", "if ( false ) {", [I]),
     ("2652 not removed from the queue", "includes/class-replace.php", "			$manager->remove_doc_from_location( 'header', $id );\n", "", [I]),
-    ("replace ignores the switch", "includes/class-replace.php", "		if ( ! self::active() ) {\n			return;", "		if ( false ) {\n			return;", [I]),
+    ("replace ignores the switch", "includes/class-replace.php", "		self::$decision = 'off';\n		if ( ! self::active() ) {\n			return;", "		self::$decision = 'off';\n		if ( false ) {\n			return;", [I]),
     ("preview for everyone", "includes/class-replace.php", "if ( $admin && isset( $_GET['tth_preview'] ) ) {", "if ( isset( $_GET['tth_preview'] ) ) {", [S, I]),
     ("template allowlist ignored", "includes/class-replace.php", "if ( array() !== array_diff( $ids, $allowed ) ) {", "if ( false ) {", [I]),
     ("emptied-queue verification skipped", "includes/class-replace.php", "if ( array() !== (array) $manager->get_documents_for_location( 'header' ) ) {", "if ( false ) {", [I]),
@@ -140,14 +140,16 @@ MUTATIONS = [
     ("hiding filter left on after Pro's enqueue step (header vanishes at render)", "includes/class-replace.php", "\t\tremove_filter( 'elementor/theme/get_location_templates/template_id', array( self::class, 'hide_from_enqueue' ), PHP_INT_MAX );\n", "", [S, EL]),
     ("no restore when the replacement backs out at render (start)", "includes/class-replace.php", "\t\t\t// Elementor هدر خودش را چاپ می‌کند: آنچه در <head> بارگذاری نشد برگردد (0.2.6).\n\t\t\tself::restore_skipped_assets();", "\t\t\t// Elementor هدر خودش را چاپ می‌کند: آنچه در <head> بارگذاری نشد برگردد (0.2.6).", [S, EL]),
     ("no restore when Elementor prints its header after all (finish)", "includes/class-replace.php", "\t\t\tself::$decision = 'elementor_printed';\n\t\t\tself::restore_skipped_assets();", "\t\t\tself::$decision = 'elementor_printed';", [S, EL]),
-    ("assets skipped even when the queue holds a template not selected for replacement", "includes/class-replace.php", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {", "if ( array() === $ids || in_array( (int) get_the_ID(), $ids, true ) ) {", [S]),
+    ("assets skipped even when the queue holds a template not selected for replacement", "includes/class-replace.php", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {", "if ( array() === $ids || in_array( (int) get_the_ID(), $ids, true ) ) {", [S, EL]),
     ("assets skipped on the header template's own page", "includes/class-replace.php", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) || in_array( (int) get_the_ID(), $ids, true ) ) {", "if ( array() === $ids || array() !== array_diff( $ids, $allowed ) ) {", [S]),
     ("assets skipped when the replacement is off", "includes/class-replace.php", "\t\tself::$assets_skipped = array();\n\t\tif ( ! self::active() ) {\n\t\t\treturn;\n\t\t}\n\t\t$conditions = self::conditions_manager();", "\t\tself::$assets_skipped = array();\n\t\t$conditions = self::conditions_manager();", [S, EL]),
     ("write a term", "includes/class-cache.php", "	public static function bump(): void {\n", "	public static function bump(): void {\n\t\twp_update_term( 1, 'product_cat', array() );\n", [S]),
 ]
 
 survived, broken = [], []
-for name, rel, needle, repl, suites in MUTATIONS:
+# python3 tests/falsify.py [n …] — فقط همان جهش‌ها (شمارهٔ ۱-مبنا)؛ بی آرگومان همه.
+picks = [int(a) for a in sys.argv[1:]] or list(range(1, len(MUTATIONS) + 1))
+for name, rel, needle, repl, suites in [MUTATIONS[i - 1] for i in picks]:
     path = SRC / rel
     orig = path.read_bytes()
     digest = hashlib.sha256(orig).hexdigest()
@@ -169,5 +171,5 @@ for name, rel, needle, repl, suites in MUTATIONS:
         print(f"SURVIVED  {name}")
 
 subprocess.run(WP + ["eval-file", str(HERE / "tests/fixtures/seed.php"), "seed"], capture_output=True)
-print(f"\n{len(MUTATIONS) - len(survived) - len(broken)}/{len(MUTATIONS)} caught, {len(survived)} survived, {len(broken)} not applied")
+print(f"\n{len(picks) - len(survived) - len(broken)}/{len(picks)} caught, {len(survived)} survived, {len(broken)} not applied")
 sys.exit(1 if survived or broken else 0)
