@@ -20,6 +20,11 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
+use Tecteb\Marketplace\Modules\Finance\Application\CommissionLineCheck;
+use Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce\CommissionCartGuard;
+use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
+use Tecteb\Marketplace\Modules\Marketplace\Domain\Coupon;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\DbEngagementRepository;
 use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommission;
 use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Tests\Support\FakeTectebCommissionSource;
@@ -73,6 +78,9 @@ use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Tests\Support\FakeDokanPresence;
 use Tecteb\Marketplace\Tests\Support\FakeTrialUnlock;
 use Tecteb\Marketplace\Tests\Support\FakeWcProduct;
+use TmcWpStubs\FakeWcCart;
+use TmcWpStubs\FakeWooCommerce;
+use TmcWpStubs\State;
 use Tecteb\Marketplace\Tests\Support\RecordingAuditRepository;
 
 /**
@@ -910,23 +918,349 @@ final class OrderFlowTest extends DatabaseTestCase
         self::assertSame(PurchasePolicy::VENDOR_STOPPED, $afterSuspension->decide($wcId)['decision']);
     }
 
+    /**
+     * ⛔ REWRITTEN THIS ROUND, not loosened — and it is now a stronger test.
+     *
+     * It used to reach `ORDERS_BLOCKED` by switching the trial OFF, because
+     * `OPEN_DECISIONS` carried DEC-02 and DEC-04 and an untrialled build could
+     * not sell whatever else was true. The owner has now ANSWERED both, so
+     * that list is empty and a build with no trial and no Dokan is READY —
+     * which is the whole point of FIN-04 and is pinned by
+     * `OrderGateRefusesWhileDokanRunsTest::testWithDokanGoneTheGateIsReadyWithoutATrial`.
+     *
+     * Keeping the old assertion would have pinned a state the owner deliberately
+     * changed. Deleting the test would have dropped two properties that are
+     * still true and still matter: that a blocked gate stops OUR products, and
+     * that it leaves everybody else's catalogue alone. So the refusal is
+     * reached the way it is now reachable — **Dokan running** — which also
+     * measures something the old version could not: that the one unwaivable
+     * guard arrives all the way down here, on the shopper's path, and not just
+     * in the gate's own unit test (`alpha.80`: a guard nothing wires is not a
+     * guard).
+     */
     public function testWhenTheMarketplaceMayNotSellItsOwnProductsStopButNobodyElsesDo(): void
     {
         $a = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
         $wcId = (int) $this->products->find($a)?->wcProductId;
 
-        // The trial switch goes off: the decisions are open again.
+        // Dokan is running, so one sale would be recorded twice — and a trial
+        // switch cannot answer that, which is why it is left ON here.
         $blocked = new PurchasePolicy($this->products, new StaffAccess($this->staff, $this->vendors), new OrderOperationsGate(
             new ResolveCommissionRate($this->rules),
             $this->ledger,
-            new FakeTrialUnlock(false)
+            new FakeTrialUnlock(true),
+            new FakeDokanPresence(true)
         ));
         self::assertSame(PurchasePolicy::ORDERS_BLOCKED, $blocked->decide($wcId)['decision']);
+
+        // The control, and it is the half that says the refusal above was
+        // Dokan's doing rather than anything the owner closed: the same build
+        // with Dokan gone sells, with NO trial.
+        $open = new PurchasePolicy($this->products, new StaffAccess($this->staff, $this->vendors), new OrderOperationsGate(
+            new ResolveCommissionRate($this->rules),
+            $this->ledger,
+            new FakeTrialUnlock(false),
+            new FakeDokanPresence(false)
+        ));
+        self::assertTrue($open->allows($wcId), 'with Dokan gone the order path is open');
 
         // And a product that is not the marketplace's is unaffected — the
         // answer is NOT_OURS, which the guard turns into "change nothing".
         self::assertSame(PurchasePolicy::NOT_OURS, $blocked->decide(999999)['decision']);
         self::assertFalse($blocked->isOurs(999999));
+    }
+
+    /**
+     * ⛔ §1'S SECOND HALF, AND IT IS A P0: a native WooCommerce coupon takes
+     * money off a vendor's line, and the owner's decision says it must not.
+     *
+     * «کوپن سراسری بازارگاه در نسخه اول غیرفعال بماند … هیچ تخفیف سراسری نباید
+     * ناخواسته از سهم فروشندگان کم شود» — and then, explicitly, «مسیر کوپن
+     * بومی WooCommerce نیز بررسی شود تا محدودیت فوق قابل دورزدن نباشد».
+     *
+     * The arithmetic is why it matters, and `VendorFundedDiscountTest`
+     * measures it through the real calculator: the commission base is the
+     * line total AFTER discount, so a discount D on a marketplace line is
+     * split `D × rate` off Tecteb and `D × (1 − rate)` off the vendor. At a
+     * 10% commission a 20,000 discount costs Tecteb 2,000 and the vendor
+     * 18,000 — money taken from somebody who never agreed to the campaign.
+     * Disabling only the marketplace's OWN global coupon left that path wide
+     * open, because `wp-admin → Marketing → Coupons` is a different table.
+     *
+     * ⛔ And this test exists in the DATABASE suite, running the real cart
+     * loop over real repositories, for the reason `alpha.80` names: the
+     * guard's only other coverage is an architecture test that reads its
+     * bytes, and `if (false)` leaves every byte in place (`alpha.79`). The
+     * falsification note for this round records that removing the discount
+     * call from `inspectCart()` turns these five red.
+     */
+    public function testANativeWooCommerceCouponOnAMarketplaceLineIsRefused(): void
+    {
+        $this->cartFixture();
+        $wcId = $this->cartProductId;
+
+        // A real `shop_coupon` post exists for this code — the one test
+        // WooCommerce itself uses, and the one that needs no database read.
+        State::$nativeCoupons['nowruz'] = 7788;
+
+        $this->inspect($wcId, lineSubtotal: '100000', lineTotal: '80000', coupons: ['NOWRUZ']);
+
+        self::assertSame(
+            [CommissionCartGuard::discountMessage('دستکش لاتکس')],
+            $this->noticeMessages(),
+            'the shopper is told, in the marketplace’s own words, exactly once'
+        );
+        // …and the sentence says nothing about the marketplace's affairs.
+        foreach (['DEC-', 'کمیسیون', 'دفترکل', 'نرخ'] as $internal) {
+            self::assertStringNotContainsString($internal, $this->noticeMessages()[0], $internal);
+        }
+    }
+
+    /**
+     * THE CONTROL THAT KEEPS THE GUARD FROM BEING A WALL: the vendor's own
+     * marketplace coupon still works.
+     *
+     * §1 is explicit — «کوپن اختصاصی فروشنده روی محصولات خودش ادامه یابد» —
+     * and a guard that refused every discount would have closed a feature the
+     * owner asked to keep. The code resolves to a `tmc_coupons` row whose
+     * `vendor_user_id` IS this line's vendor, so the discount is the vendor's
+     * own money and nothing is refused.
+     */
+    public function testTheVendorsOwnMarketplaceCouponIsNotRefused(): void
+    {
+        $this->cartFixture();
+        $this->coupons->createCoupon(new Coupon(0, 'mineonly', self::VENDOR_A, Coupon::PERCENT, 20));
+
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '80000', coupons: ['MINEONLY']);
+
+        self::assertSame([], $this->noticeMessages(), 'the vendor’s own campaign is their own business');
+    }
+
+    /**
+     * And ANOTHER vendor's marketplace coupon on this vendor's line is refused
+     * — the same answer as the native one, because it is the same wrong.
+     *
+     * This is the case a code-ownership check catches and a «is it a native
+     * coupon?» check does not: the row exists in `tmc_coupons`, so the cheap
+     * WooCommerce test says nothing, and only comparing the row's
+     * `vendor_user_id` to the line's vendor finds it.
+     */
+    public function testAnotherVendorsCouponOnThisVendorsLineIsRefused(): void
+    {
+        $this->cartFixture();
+        $this->coupons->createCoupon(new Coupon(0, 'theirs', self::VENDOR_B, Coupon::PERCENT, 20));
+
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '80000', coupons: ['THEIRS']);
+
+        self::assertSame([CommissionCartGuard::discountMessage('دستکش لاتکس')], $this->noticeMessages());
+    }
+
+    /**
+     * A discount with NO code at all is refused under its own name.
+     *
+     * Something reduced this line and the basket cannot say what. Every
+     * programmatic route — a fee filter, another plugin's campaign, a
+     * hand-edited line — lands here, and the honest answer is that a
+     * reduction nobody can attribute cannot be charged to a vendor.
+     * `VendorFundedDiscountTest` pins the reason string
+     * (`discount_unexplained`); what this test adds is that the loop reaches
+     * it and the shopper hears about it.
+     */
+    public function testADiscountWithNoCouponAtAllIsRefused(): void
+    {
+        $this->cartFixture();
+
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '80000', coupons: []);
+
+        self::assertSame([CommissionCartGuard::discountMessage('دستکش لاتکس')], $this->noticeMessages());
+    }
+
+    /**
+     * …and the two controls that say the guard is about DISCOUNTS, not about
+     * baskets: an undiscounted line sells, and somebody else's catalogue is
+     * never mentioned whatever its coupons do.
+     *
+     * The second half is the rule this file has followed since `alpha.8`: the
+     * host shop's own products and Dokan's are not ours to refuse, and a
+     * marketplace that printed a notice about them would have broken a shop
+     * it does not own.
+     */
+    public function testAnUndiscountedLineSellsAndSomebodyElsesProductIsNeverMentioned(): void
+    {
+        $this->cartFixture();
+        State::$nativeCoupons['nowruz'] = 7788;
+
+        // Our line, at full price, in a basket that HAS the native coupon
+        // applied: the coupon took nothing off this line, so there is nothing
+        // funded by the vendor and nothing to refuse.
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '100000', coupons: ['NOWRUZ']);
+        self::assertSame([], $this->noticeMessages(), 'a coupon that took nothing off us is not ours to refuse');
+
+        // And a product that is not the marketplace's, discounted to the
+        // bone, with the same coupon: silence.
+        State::$notices = [];
+        $this->inspect(999999, lineSubtotal: '100000', lineTotal: '1', coupons: ['NOWRUZ']);
+        self::assertSame([], $this->noticeMessages(), 'not ours; say nothing about it, ever');
+    }
+
+    /**
+     * An amount the basket cannot state exactly refuses rather than selling.
+     *
+     * The opposite posture to `CommissionLineCheck`, which abstains on an
+     * unreadable figure — and the difference is deliberate: that one is asked
+     * «is this commission bigger than the line?», where silence changes
+     * nothing, and this one is asked «was money moved off a vendor?», where
+     * silence moves it. `alpha.67`'s rule holds: a fractional minor amount is
+     * not rounded into one that looks exact.
+     */
+    public function testAnAmountTheBasketCannotStateExactlyIsRefused(): void
+    {
+        $this->cartFixture();
+        $this->coupons->createCoupon(new Coupon(0, 'mineonly', self::VENDOR_A, Coupon::PERCENT, 20));
+
+        // IRT has no minor unit in this fixture (exponent 0), so a fraction of
+        // a toman is not representable.
+        $this->inspect($this->cartProductId, lineSubtotal: '100000.5', lineTotal: '80000', coupons: ['MINEONLY']);
+
+        self::assertSame([CommissionCartGuard::discountMessage('دستکش لاتکس')], $this->noticeMessages());
+    }
+
+    /**
+     * ⛔ A CODE NEITHER TABLE KNOWS IS FOREIGN — and this test exists because
+     * falsification found that nothing measured it.
+     *
+     * The guard's docblock has claimed since it was written that «a code
+     * nothing can resolve is foreign — the direction that refuses rather than
+     * the one that sells». Inverting that condition left all six cart tests
+     * green: in every one of them the code either resolved in `tmc_coupons`
+     * or existed as a `shop_coupon` post, so the branch where BOTH answers
+     * are «no» was never reached. A claim in a docblock that no test can
+     * break is the shape `alpha.80` warns about, one layer down.
+     *
+     * The state is reachable and not exotic: another plugin applying a code
+     * programmatically, or a coupon post deleted after the basket was filled
+     * — WooCommerce keeps the code on the cart either way. Nothing can say
+     * whose campaign took the money, so nothing may charge it to a vendor.
+     */
+    public function testACodeNeitherTableKnowsIsTreatedAsForeign(): void
+    {
+        $this->cartFixture();
+        // Nothing is created: no `tmc_coupons` row, no `shop_coupon` post.
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '80000', coupons: ['GHOST']);
+
+        self::assertSame(
+            [CommissionCartGuard::discountMessage('دستکش لاتکس')],
+            $this->noticeMessages(),
+            'a discount nobody can attribute is not the vendor’s to fund'
+        );
+    }
+
+    /**
+     * ⛔ THE SHARPEST VERSION OF THE BYPASS, and the only fixture in which the
+     * native-coupon test is the thing being measured.
+     *
+     * An admin creates a WooCommerce coupon in `wp-admin → Marketing →
+     * Coupons` using a code a vendor already has in `tmc_coupons`. Both rows
+     * exist; the code resolves to a marketplace coupon owned by THIS line's
+     * vendor, so an ownership check alone answers «the vendor’s own money»
+     * and allows it — while the discount actually came off a campaign the
+     * vendor never ran.
+     *
+     * ⛔ And this is what makes the native test more than a cheap shortcut.
+     * Everywhere else it is a DOUBLE GUARD whose other half is «a code
+     * nothing can resolve is foreign» (`alpha.82`, `alpha.91`): removing it
+     * leaves the refusal standing because an unknown code is refused anyway.
+     * Only here do the two halves disagree, so only here is removing it
+     * measurable — and the falsification note for this round records that
+     * dropping the `wc_get_coupon_id_by_code()` branch turns THIS test red
+     * and no other.
+     *
+     * WooCommerce applies at most one coupon per code, so the two rows cannot
+     * both have discounted the line; what can be said is which system owns
+     * the code, and `wc_get_coupon_id_by_code()` is WooCommerce's own answer.
+     */
+    public function testANativeCouponSharingAVendorsCodeIsStillRefused(): void
+    {
+        $this->cartFixture();
+        // The vendor's row…
+        $this->coupons->createCoupon(new Coupon(0, 'nowruz', self::VENDOR_A, Coupon::PERCENT, 20));
+        // …and the admin's `shop_coupon` post with the same code.
+        State::$nativeCoupons['nowruz'] = 7788;
+
+        $this->inspect($this->cartProductId, lineSubtotal: '100000', lineTotal: '80000', coupons: ['NOWRUZ']);
+
+        self::assertSame(
+            [CommissionCartGuard::discountMessage('دستکش لاتکس')],
+            $this->noticeMessages(),
+            'WooCommerce owns the code, so the discount is not the vendor’s'
+        );
+    }
+
+    /** The product id the cart fixture published, so each test reads one name. */
+    private int $cartProductId = 0;
+
+    private DbEngagementRepository $coupons;
+
+    /**
+     * One live marketplace product of VENDOR_A, and the container the cart
+     * guard resolves through.
+     *
+     * The gate is left READY (Dokan off, trial on) on purpose: a basket whose
+     * every line is already refused by the ORDER gate would never reach the
+     * discount question, so this fixture has to be a basket that otherwise
+     * sells.
+     */
+    private function cartFixture(): void
+    {
+        $id = $this->publish(self::VENDOR_A, 'دستکش لاتکس', 'A-1');
+        $this->cartProductId = (int) $this->products->find($id)?->wcProductId;
+        $this->coupons = new DbEngagementRepository(new WpDatabase($this->wpdb), new SystemClock());
+
+        $container = new Container();
+        $container->bind(PurchasePolicy::class, fn () => $this->purchase);
+        $container->bind(CommissionLineCheck::class, fn () => new CommissionLineCheck(
+            new FakeTectebCommissionSource(),
+            new TectebCommissionCalculator()
+        ));
+        $container->bind(EngagementRepositoryInterface::class, fn () => $this->coupons);
+        // ⛔ `WC()` arrives HERE rather than from the bootstrap, so that «no
+        // WooCommerce» stays expressible everywhere else — see
+        // `tools/wp-stubs/woocommerce-runtime.php` for what this costs.
+        require_once __DIR__ . '/../../tools/wp-stubs/woocommerce-runtime.php';
+        State::$notices = [];
+        State::$currency = 'IRT';
+        State::$priceDecimals = 0;
+        CommissionCartGuard::register($container);
+    }
+
+    /**
+     * Runs the real `woocommerce_check_cart_items` action over a one-line
+     * basket — the hook WooCommerce fires on the cart page, the checkout page,
+     * `WC_Checkout::process_checkout()` and inside the Store API's
+     * `validate_cart()`, which is why ONE registration covers five pay paths.
+     *
+     * @param list<string> $coupons
+     */
+    private function inspect(int $wcProductId, string $lineSubtotal, string $lineTotal, array $coupons): void
+    {
+        State::$woocommerce = new FakeWooCommerce(new FakeWcCart([[
+            'data' => new FakeWcProduct($wcProductId, 0, 'دستکش لاتکس'),
+            'product_id' => $wcProductId,
+            'variation_id' => 0,
+            'quantity' => 1,
+            'line_subtotal' => $lineSubtotal,
+            'line_total' => $lineTotal,
+        ]], $coupons));
+        do_action('woocommerce_check_cart_items');
+    }
+
+    /** @return list<string> */
+    private function noticeMessages(): array
+    {
+        return array_map(
+            static fn (array $n): string => $n['message'],
+            array_values(array_filter(State::$notices, static fn (array $n): bool => $n['type'] === 'error'))
+        );
     }
 
     /**
@@ -948,7 +1282,16 @@ final class OrderFlowTest extends DatabaseTestCase
         $container->bind(PurchasePolicy::class, fn () => new PurchasePolicy(
             $this->products,
             new StaffAccess($this->staff, $this->vendors),
-            new OrderOperationsGate(new ResolveCommissionRate($this->rules), $this->ledger, new FakeTrialUnlock(false))
+            // Blocked through the one unwaivable guard, for the reason given on
+            // the test above: with DEC-02 and DEC-04 answered, an untrialled
+            // build is READY, so the refusal has to be reached the way a real
+            // site would reach it today.
+            new OrderOperationsGate(
+                new ResolveCommissionRate($this->rules),
+                $this->ledger,
+                new FakeTrialUnlock(true),
+                new FakeDokanPresence(true)
+            )
         ));
         $container->bind(AuditLogger::class, fn () => new AuditLogger(new RecordingAuditRepository(), new SystemClock()));
         PurchaseGuard::register($container);
@@ -1407,6 +1750,90 @@ final class OrderFlowTest extends DatabaseTestCase
         $again = $this->orderItems->forVendor(self::VENDOR_A)[0];
         self::assertSame(600000000, $again->commissionMinor);
         self::assertSame(2400000000, $again->vendorShareMinor);
+    }
+
+    /**
+     * ⛔ §1'S VARIATION RULE, END TO END — and until this round the capture
+     * path had no test for it at all.
+     *
+     * The owner's answer on DEC-04 keeps the per-product model, and the
+     * variable-product half of it is «تنظیم محصول والد مبناست و snapshot باید
+     * بگوید از کجا آمده». `TectebCommissionSourceInterface::forItem()` has
+     * answered `variation`/`product`/`none` since `alpha.57` and the pure
+     * suites measure the choosing; what nothing measured is that `CaptureOrder`
+     * PASSES the variation id, charges by the variation's own rule, and writes
+     * `variation` into the stored line and the ledger snapshot.
+     *
+     * The gap mattered because the ids are easy to pass the wrong way round:
+     * WooCommerce puts the PARENT in `product_id` and the variation in
+     * `variation_id`, so a capture that passed the parent twice would charge
+     * the parent's rule and look right on every single-variation fixture.
+     * Here the two rules are DIFFERENT, so the figure says which was used.
+     */
+    public function testAVariationIsChargedByItsOwnRuleAndTheLineSaysSo(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'دستکش معاینه', 'SKU-VAR-1');
+        $wcId = (int) $this->products->find($product)?->wcProductId;
+        $variationId = $wcId + 7000;
+
+        $rules = new FakeTectebCommissionSource();
+        $rules->set($wcId, TectebCommission::percent(1000));              // the parent: 10%
+        $rules->setVariation($variationId, TectebCommission::percent(2500)); // this size: 25%
+
+        $report = $this->captureWithCommission($rules)->capture(
+            6301,
+            [$this->variationLine(631, $product, $variationId, 2, 400000)]
+        );
+        self::assertSame(1, $report['captured']);
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(4000000000, $line->baseMinor);
+        // 25% of the line, not 10% — which is the whole measurement.
+        self::assertSame(1000000000, $line->commissionMinor, 'the variation’s own rate, not the parent’s');
+        self::assertSame(3000000000, $line->vendorShareMinor);
+        self::assertSame(2500, $line->rateBasisPoints);
+        self::assertSame('variation', $line->rateSource, 'and the line records where the rule came from');
+
+        // ⛔ WHICH variation is on the LINE, not in the ledger snapshot — and
+        // that is measured here rather than assumed, because the first version
+        // of this test asserted a `variation` key in the snapshot and found
+        // none. `CommissionSnapshot::toArray()` carries the rule and the
+        // figures («از کجا آمده» = `rate_source`), and the order line carries
+        // the ids. Asserting it on the line is asserting it where it is; adding
+        // a key to a payload twenty releases of ledger rows do not have, to
+        // satisfy a test, would be the wrong direction entirely.
+        self::assertSame($variationId, $line->variationId, 'the line names the variation that sold');
+        $snapshot = $this->snapshotFor(CaptureOrder::eventKey(6301, 631));
+        self::assertSame('variation', $snapshot['rate_source'] ?? null);
+        self::assertArrayNotHasKey('variation', $snapshot, 'the ledger snapshot carries the rule, not the ids');
+    }
+
+    /**
+     * …and a variation with NO rule of its own inherits the parent's, which is
+     * the sentence of the owner's decision this half enforces.
+     *
+     * The control for the test above: same shape, same ids, parent rule only.
+     * Without it, «charged by the variation» and «charged by whichever rule
+     * exists» would be indistinguishable — and a capture that ignored
+     * variations entirely would pass the pair.
+     */
+    public function testAVariationWithNoRuleOfItsOwnInheritsTheParents(): void
+    {
+        $product = $this->publish(self::VENDOR_A, 'باند کشی', 'SKU-VAR-2');
+        $wcId = (int) $this->products->find($product)?->wcProductId;
+        $rules = new FakeTectebCommissionSource();
+        $rules->set($wcId, TectebCommission::percent(1000));
+
+        $this->captureWithCommission($rules)->capture(
+            6302,
+            [$this->variationLine(632, $product, $wcId + 7001, 1, 300000)]
+        );
+
+        $line = $this->orderItems->forVendor(self::VENDOR_A)[0];
+        self::assertSame(300000000, $line->commissionMinor, 'ten percent — the parent’s rule');
+        self::assertSame(1000, $line->rateBasisPoints);
+        self::assertSame('product', $line->rateSource, '«تنظیم محصول والد مبناست»');
+        self::assertSame('product', $this->snapshotFor(CaptureOrder::eventKey(6302, 632))['rate_source'] ?? null);
     }
 
     /**
@@ -2340,6 +2767,19 @@ final class OrderFlowTest extends DatabaseTestCase
             'line_total_minor' => $totalMinor,
             'line_tax_minor' => 0,
         ];
+    }
+
+    /**
+     * The same line, sold as a VARIATION of a variable product.
+     *
+     * `variation_id` is what WooCommerce puts on the order item when a variable
+     * product is bought, and it is the id the commission rule is read off
+     * first. The `wc_product_id` stays the PARENT's, which is how WooCommerce
+     * writes it and why the parent fallback has anything to fall back to.
+     */
+    private function variationLine(int $orderItemId, int $productId, int $variationId, int $quantity, int $totalMinor): array
+    {
+        return ['variation_id' => $variationId] + $this->line($orderItemId, $productId, $quantity, $totalMinor);
     }
 
     private function publish(int $vendorUserId, string $title, string $sku): int

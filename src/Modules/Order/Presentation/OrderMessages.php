@@ -165,16 +165,46 @@ final class OrderMessages
             'order_item_cancelled_return' => __('روی قلمی که لغو شده، ارسال ثبت نمی‌شود.', 'tecteb-marketplace-core'),
             'order_item_delivered' => __('تحویل ثبت شد.', 'tecteb-marketplace-core'),
             'order_item_cancelled' => __('این قلم لغو شد. سهم مالی ثبت‌شده در دفترکل پاک نمی‌شود و تسویه‌اش جداگانه تعیین تکلیف می‌شود.', 'tecteb-marketplace-core'),
+            // The four refusals of `SettlementEligibility`, each naming what a
+            // manager would do next. The distinction they carry is the whole
+            // point: «پولش نرسیده» is a fact about the order and waits, while
+            // «وضعیتش را کسی نگفته» is a fact about THIS plugin's knowledge
+            // and is fixed by opening the order once in WooCommerce.
+            'order_payment_not_received' => sprintf(
+                /* translators: 1: order id, 2: woocommerce disposition */
+                __('وجه سفارش #%1$s دریافت نشده (%2$s)، پس این قلم «تکمیل برای تسویه» نمی‌گیرد. وقتی پرداخت در ووکامرس به وضعیت پرداخت‌شده برسد دوباره تلاش کنید؛ برای کارت‌به‌کارت، همان تغییر وضعیت دستی مدیر همین تأیید دریافت است.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['order_id'] ?? 0)),
+                (string) ($context['disposition'] ?? '')
+            ),
+            'order_refund_needs_decision' => sprintf(
+                /* translators: 1: order id */
+                __('سفارش #%1$s در ووکامرس «استرداد‌شده» است. پول جایی حرکت کرده که این افزونه نمی‌بیندش، پس تکمیل برای تسویه خودکار ثبت نمی‌شود؛ تعیین تکلیفش از مسیر مرجوعی و با تصمیم مدیر است.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['order_id'] ?? 0))
+            ),
+            'order_status_unknown' => sprintf(
+                /* translators: 1: order id */
+                __('وضعیت سفارش #%1$s وضعیتی است که این نسخه معنایش را نمی‌داند، پس دربارهٔ دریافت وجه حدس زده نمی‌شود و چیزی ثبت نشد.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['order_id'] ?? 0))
+            ),
+            'order_status_unrecorded' => sprintf(
+                /* translators: 1: order id */
+                __('وضعیت سفارش #%1$s خوانده نشد — نه «پرداخت نشده»، بلکه «کسی به ما نگفته». چیزی ثبت نشد. سفارش را یک بار در ووکامرس باز کنید یا وضعیتش را تغییر دهید تا ثبت شود، بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+                $fa((int) ($context['order_id'] ?? 0))
+            ),
             'carrier_required' => __('برای ثبت ارسال، انتخاب شرکت حمل لازم است.', 'tecteb-marketplace-core'),
             'invalid_transition' => __('این تغییر وضعیت از وضعیت فعلی ممکن نیست.', 'tecteb-marketplace-core'),
-            // The commission rate is NOT in this sentence any more. It was
-            // until `alpha.57`, and it was true then: an unset rate closed the
-            // order gate. The owner has decided otherwise — a product with no
-            // commission sells — so naming it here would send a manager to
-            // set a number that changes nothing. What still closes the gate is
-            // the owner's own open decisions, and the sentence says that and
-            // only that.
-            'orders_blocked' => __('ماژول سفارش بازارگاه هنوز عملیاتی نیست. تا بسته‌شدن تصمیم‌های مالی مالک، محصولات بازارگاه فروخته نمی‌شوند.', 'tecteb-marketplace-core'),
+            // ⛔ Neither the commission rate NOR the open decisions are in
+            // this sentence any more, and both were once.
+            //
+            // The rate went in `alpha.57` when the owner decided a product
+            // with no commission sells. The decisions went in this release
+            // when the owner answered DEC-02 and DEC-04: a sentence that
+            // sends a manager to «close the owner's financial decisions»
+            // names work that is finished, and the reason the gate is shut is
+            // now one of two real things — Dokan is running, or the ledger
+            // refused a write. The gate computes WHICH and the storefront
+            // screen prints it; this sentence stops guessing.
+            'orders_blocked' => __('ماژول سفارش بازارگاه عملیاتی نیست. دلیلش روی صفحهٔ «وضعیت فروش بازارگاه» با نام گفته می‌شود — معمولاً اجرای دکان یا نوشتنی‌نبودن دفترکل.', 'tecteb-marketplace-core'),
             'order_trial_mode' => sprintf(
                 __('حالت آزمایشی سفارش روشن است (محیط: %s). قواعد مالی نمونه‌اند و این حالت روی سایت اصلی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
                 (string) ($context['environment'] ?? '')

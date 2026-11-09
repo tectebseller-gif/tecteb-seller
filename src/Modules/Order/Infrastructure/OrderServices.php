@@ -13,6 +13,8 @@ use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorMoneyUnitRegistryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\CaptureOrder;
 use Tecteb\Marketplace\Modules\Order\Application\ManageOrderItems;
+use Tecteb\Marketplace\Modules\Order\Application\OrderPaymentStatusInterface;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcOrderPaymentStatus;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Application\SyncOrderLifecycle;
@@ -66,6 +68,10 @@ final class OrderServices
             // than neither.
             $c->get(DatabaseInterface::class)
         ));
+        $c->bind(
+            OrderPaymentStatusInterface::class,
+            static fn (ContainerInterface $c) => new WcOrderPaymentStatus()
+        );
         $c->bind(ManageOrderItems::class, static fn (ContainerInterface $c) => new ManageOrderItems(
             $c->get(OrderItemRepositoryInterface::class),
             $c->get(StaffAccess::class),
@@ -75,7 +81,15 @@ final class OrderServices
             // The manager's capability checker, for the one action on this
             // service that is a manager's and not a vendor's: recording that
             // a sale is complete for settlement (ORDER-01).
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            // And the order's live payment status, for the same action. Wired
+            // here rather than left to the fallback because the fallback is
+            // the mirrored column, and the mirror says nothing about an order
+            // whose status has not changed since checkout — which would refuse
+            // a paid sale by name. `OwnerDecisionsAreEnforcedTest` pins that
+            // this argument is actually passed, because a guard nothing wires
+            // is not a guard (`alpha.80`).
+            $c->get(OrderPaymentStatusInterface::class)
         ));
     }
 }

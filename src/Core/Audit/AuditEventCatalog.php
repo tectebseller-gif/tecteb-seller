@@ -295,6 +295,24 @@ final class AuditEventCatalog
     public const DOKAN_RECORDS_CONFIRMATION_REVOKED = 'migration.dokan_records_confirmation_revoked';
 
     /**
+     * A manager declaring the migration finished, which hides the temporary
+     * tools from the everyday menu — and the same declaration withdrawn.
+     *
+     * Two events rather than one with a flag, for the reason the pair above
+     * is two: «پنهان شد» and «برگشت» are different acts with different
+     * consequences, and a trail that recorded them under one name could not
+     * answer «who hid them, and who brought them back».
+     *
+     * ⛔ Neither event deletes anything. The migration code, the finance
+     * archive, the rollback path and every document stay exactly where they
+     * are; what changes is one option and what the sidebar prints.
+     */
+    public const MIGRATION_CONCLUDED = 'migration.tools_concluded';
+
+    /** The same declaration withdrawn, which shows the tools again. */
+    public const MIGRATION_REOPENED = 'migration.tools_reopened';
+
+    /**
      * Two acts about categories, and they are deliberately two events.
      *
      * Saving the mapping decides what a source category MEANS and moves no
@@ -495,6 +513,8 @@ final class AuditEventCatalog
             ],
             self::DOKAN_RECORDS_CONFIRMED => ['vendor_id', 'actor_id', 'records_version', 'reconciliation'],
             self::DOKAN_RECORDS_CONFIRMATION_REVOKED => ['vendor_id', 'actor_id', 'records_version'],
+            self::MIGRATION_CONCLUDED => ['concluded_at', 'shops'],
+            self::MIGRATION_REOPENED => ['was_concluded_at'],
             self::DOKAN_CATEGORY_MAP_SAVED => ['source_key', 'target', 'entries', 'removed'],
             self::DOKAN_CATEGORY_APPLIED => ['products', 'requested'],
             self::PRODUCT_CATEGORY_LINKED => ['wc_product_id', 'category_key', 'path', 'source', 'products', 'requested'],

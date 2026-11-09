@@ -127,11 +127,15 @@ final class SecurityRulesTest extends TestCase
                 // called twice because the answer does not depend on the health
                 // module being up; `$staleGrants()` is the same shape, for
                 // the Min Max grant warning; `$rollbackGate()` is the same
-                // shape again, for the money-scale rollback count. Each
-                // exemption is named, with its reason, rather than the rule
-                // being loosened.
+                // shape again, for the money-scale rollback count;
+                // `$migrationTools()` is the same shape once more, for the
+                // state of the temporary migration section and the one form
+                // that brings it back — every string in it goes through
+                // `esc_html__()`, `esc_url()`, `Components::*` or
+                // `wp_nonce_field()`. Each exemption is named, with its
+                // reason, rather than the rule being loosened.
                 $residue = str_replace(
-                    ['$badge', '$invalid', '$accountHooks', '$staleGrants', '$rollbackGate'],
+                    ['$badge', '$invalid', '$accountHooks', '$staleGrants', '$rollbackGate', '$migrationTools'],
                     'SAFE',
                     $residue
                 );

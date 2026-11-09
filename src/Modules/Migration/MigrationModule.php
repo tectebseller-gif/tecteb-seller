@@ -48,7 +48,9 @@ use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordRepositoryInterfa
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyRefreshSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileStorefrontStatus;
+use Tecteb\Marketplace\Modules\Migration\Application\ConcludeMigration;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanSnapshot;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationToolsVisibility;
 use Tecteb\Marketplace\Modules\Migration\Application\ApplyOwnershipTransfer;
 use Tecteb\Marketplace\Modules\Migration\Application\ConfirmShopRecords;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipTransferPlan;
@@ -305,6 +307,21 @@ final class MigrationModule implements ModuleInterface
             $c->get(TransferOwnership::class),
             $c->get(CapabilityCheckerInterface::class),
             $c->get(AuditLogger::class)
+        ));
+
+        // One option read, and the menu asks it on every wp-admin request —
+        // which is why the expensive checklist question lives in
+        // `ConcludeMigration` instead.
+        $c->bind(MigrationToolsVisibility::class, static fn (ContainerInterface $c) => new MigrationToolsVisibility(
+            $c->get(OptionStoreInterface::class)
+        ));
+        $c->bind(ConcludeMigration::class, static fn (ContainerInterface $c) => new ConcludeMigration(
+            $c->get(MigrationToolsVisibility::class),
+            $c->get(MigrationPlanSnapshot::class),
+            $c->get(MigrationCompleteness::class),
+            $c->get(AuditLogger::class),
+            $c->get(ClockInterface::class),
+            $c->get(CapabilityCheckerInterface::class)
         ));
 
         $c->bind(MigrationPlanSnapshot::class, static fn (ContainerInterface $c) => new MigrationPlanSnapshot(

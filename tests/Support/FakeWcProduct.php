@@ -12,8 +12,25 @@ namespace Tecteb\Marketplace\Tests\Support;
  */
 final class FakeWcProduct
 {
-    public function __construct(private readonly int $id, private readonly int $parentId = 0)
+    /**
+     * `$name` is optional so that every construction site written before the
+     * cart guard needed it keeps working — the `alpha.32` rule, which this
+     * repository has paid for three times.
+     *
+     * It matters because the refusal sentence NAMES the product, and a double
+     * with no name would let a test pass on the generic fallback while the
+     * named branch went unmeasured.
+     */
+    public function __construct(
+        private readonly int $id,
+        private readonly int $parentId = 0,
+        private readonly string $name = ''
+    ) {
+    }
+
+    public function get_name(): string
     {
+        return $this->name;
     }
 
     public function get_id(): int

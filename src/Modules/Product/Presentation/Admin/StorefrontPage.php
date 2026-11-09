@@ -12,6 +12,7 @@ use Tecteb\Marketplace\Modules\Finance\Domain\RateScope;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Order\Application\DokanPresenceInterface;
+use Tecteb\Marketplace\Core\Config\OwnerDecisions;
 use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
@@ -298,8 +299,23 @@ final class StorefrontPage
         echo '<tr><th scope="row">' . esc_html__('مدل کمیسیون', 'tecteb-marketplace-core') . '</th><td>'
             . esc_html__('به ازای هر محصول، در زبانهٔ «کمیسیون تک‌طب» روی صفحهٔ ویرایش همان محصول در ووکامرس. تعیین‌نکردنش مانع تأیید، انتشار یا فروش نیست و یعنی آن محصول کمیسیون ندارد. نرخ عمومی در این دروازه نقشی ندارد.', 'tecteb-marketplace-core')
             . '</td></tr>';
-        echo '<tr><th scope="row">' . esc_html__('تصمیم‌های باز', 'tecteb-marketplace-core') . '</th><td>'
-            . esc_html(implode('، ', OrderOperationsGate::OPEN_DECISIONS)) . '</td></tr>';
+        // ⛔ The row that used to list what nobody had decided, now that
+        // every name on it has an answer. An empty `implode` printed an empty
+        // cell beside the label «تصمیم‌های باز» — a manager reading that sees
+        // a blank where a reason should be and cannot tell «همه بسته شد» from
+        // «صفحه خراب است».
+        if (OrderOperationsGate::OPEN_DECISIONS === []) {
+            echo '<tr><th scope="row">' . esc_html__('تصمیم‌های مالک', 'tecteb-marketplace-core') . '</th><td>'
+                . esc_html__('هر سه تصمیم این دروازه پاسخ دارند، پس دروازه برای «تصمیم باز» بسته نمی‌شود.', 'tecteb-marketplace-core')
+                . Components::moreDetails(array_map(
+                    static fn (string $name): string => $name . ' — ' . OwnerDecisions::answerFor($name),
+                    OwnerDecisions::answered()
+                ))
+                . '</td></tr>';
+        } else {
+            echo '<tr><th scope="row">' . esc_html__('تصمیم‌های باز', 'tecteb-marketplace-core') . '</th><td>'
+                . esc_html(implode('، ', OrderOperationsGate::OPEN_DECISIONS)) . '</td></tr>';
+        }
         // ⛔ The one row that is not about a missing decision, and the one the
         // trial switch below cannot waive. Printed whether Dokan is running
         // or not, because «دکان اجرا نمی‌شود» is the answer a manager needs

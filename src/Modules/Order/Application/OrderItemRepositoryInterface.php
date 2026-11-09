@@ -60,6 +60,14 @@ interface OrderItemRepositoryInterface
     public function recordWcOrderStatus(int $wcOrderId, string $status): ?int;
 
     /**
+     * The mirrored WooCommerce status of the order one line belongs to.
+     *
+     * `null` is «I could not find out» — the column is absent, nobody has
+     * announced a status, or the read failed — and never «unpaid».
+     */
+    public function wcOrderStatusOf(int $itemId): ?string;
+
+    /**
      * One page of the per-line report, and how many rows the same filter
      * matches.
      *

@@ -1095,7 +1095,22 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
                     ->add(LedgerAccount::TaxCollected, $base->zero(), 'tax_collected')
             ));
         }
-        return $this->orderItems->record(new VendorOrderItem(
+        // ⛔ AND THE FIXTURE NOW SAYS THE ORDER WAS PAID.
+        //
+        // These tests are about settling a sale, and settling one needs the
+        // buyer's money to have arrived: from this release
+        // `ManageOrderItems::recordSettlementCompletion()` refuses a line
+        // whose order WooCommerce does not call paid
+        // (`SettlementEligibility`). Without this line the fixture described
+        // an order nobody had announced a status for, so every test here
+        // would have been asserting against `order_status_unrecorded` — a
+        // true refusal about a fixture that was never meant to be unpaid.
+        //
+        // Stated rather than worked around: the alternative was to weaken the
+        // guard, and «fixture که یک ضمانت را خرج می‌کند باید آن را پس بدهد»
+        // cuts the other way too — a fixture that needs a precondition has to
+        // state it.
+        $id = $this->orderItems->record(new VendorOrderItem(
             0,
             6000 + $orderItemId,
             $orderItemId,
@@ -1114,5 +1129,7 @@ final class WithdrawalIntegrityTest extends DatabaseTestCase
             $onTheBooks ? 'order:' . $orderItemId : '',
             OrderItemStatus::Delivered
         ));
+        $this->orderItems->recordWcOrderStatus(6000 + $orderItemId, 'processing');
+        return $id;
     }
 }

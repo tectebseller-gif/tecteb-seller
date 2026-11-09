@@ -33,7 +33,7 @@ final class MarketplaceMessages
             'coupon_window_invalid' => __('تاریخ پایان نمی‌تواند پیش از تاریخ شروع باشد.', 'tecteb-marketplace-core'),
             ManageCoupons::GLOBAL_UNDECIDED => sprintf(
                 /* translators: %s: the decision reference */
-                __('کد تخفیف سراسری ساخته نمی‌شود: تأمین هزینهٔ آن در %s تعیین نشده است. تا آن زمان هر فروشگاه فقط برای محصولات خودش کد می‌سازد.', 'tecteb-marketplace-core'),
+                __('کد تخفیف سراسری در این نسخه ساخته و اعمال نمی‌شود — تصمیم مالک در %s. هر فروشگاه برای محصولات خودش کد می‌سازد.', 'tecteb-marketplace-core'),
                 ManageCoupons::GLOBAL_DECISION
             ),
             'coupon_other_vendor' => __('این کد متعلق به فروشگاه دیگری است و روی این اقلام اعمال نمی‌شود.', 'tecteb-marketplace-core'),

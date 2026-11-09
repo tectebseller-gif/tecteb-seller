@@ -1,0 +1,206 @@
+alpha.101 falsification — 21 mutations
+database filter inside the loop: OrderFlowTest|SettlementFlowTest|WithdrawalIntegrityTest|EngagementFlowTest|OrderLedgerSummaryTest|OrderReconciliationTest
+the closing baseline runs the database suite UNFILTERED
+tree: f291330 (plus the uncommitted round)
+
+=== 1/21 the order gate goes back to refusing for DEC-02 and DEC-04
+    file:   src/Modules/Order/Application/OrderOperationsGate.php
+    expect: unit,architecture,database
+applied: the order gate goes back to refusing for DEC-02 and DEC-04
+sha256 after: bb5da49352aeb94469c9d232ad6c235f1594e59733eb5d98d1511e5e613a43f3
+    unit: 4
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/21 automatic settlement opens, against the owner's decision
+    file:   src/Modules/Finance/Application/SettlementGate.php
+    expect: unit,architecture
+applied: automatic settlement opens, against the owner's decision
+sha256 after: deb04d3fb70134d28be24c4cd936ff5165729dcc2d7fbefc7025fc3d666d8496
+    unit: 3
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/21 vendor withdrawal requests open, against the owner's decision
+    file:   src/Modules/Finance/Application/VendorWithdrawalPolicy.php
+    expect: unit,architecture
+applied: vendor withdrawal requests open, against the owner's decision
+sha256 after: 0d1b5269e85b36bc4aa282ee4a29f5dc1017797c8ad995ef26d4e4530735fc26
+    unit: 4
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/21 the cart stops asking whether a discount was the vendor's
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: the cart stops asking whether a discount was the vendor's
+sha256 after: 836e918d77252d7225d572a9cc30ec228370c30828d82718c5759582e70fd816
+    database: 6
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/21 a native shop_coupon is no longer recognised as the host shop's
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: a native shop_coupon is no longer recognised as the host shop's
+sha256 after: 5a027b1065fb877ef2a012e451498c8e254a854b6f3b3e7a12f62e13d90d0c00
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/21 a coupon code nothing can resolve is trusted instead of refused
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: a coupon code nothing can resolve is trusted instead of refused
+sha256 after: f802d2656f0120ccd93d758e96d289050d30165133b03112254247694f14a751
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/21 an unreadable pair of amounts sells instead of refusing
+    file:   src/Modules/Finance/Application/VendorFundedDiscount.php
+    expect: unit
+applied: an unreadable pair of amounts sells instead of refusing
+sha256 after: b8fbfabf41b6615e6a926fc0ce4cee1af4f26055e0f13381ded80eb3a5ec4c70
+    unit: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/21 a marketplace-wide coupon that exists starts applying again
+    file:   src/Modules/Marketplace/Application/ManageCoupons.php
+    expect: database
+applied: a marketplace-wide coupon that exists starts applying again
+sha256 after: 19bed05d081e4f689d1b2205feebb3b104a9895f455e72fa53196631cdaf2c5b
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/21 a manager may settle a line whose order was never paid
+    file:   src/Modules/Order/Application/ManageOrderItems.php
+    expect: database
+applied: a manager may settle a line whose order was never paid
+sha256 after: 59e312f298cb3931b01f57445b807645eb89504000e2ff7c71ec7f14f6c44ebe
+    database: 7
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/21 an order status nobody recorded counts as paid
+    file:   src/Modules/Order/Domain/SettlementEligibility.php
+    expect: unit,database
+applied: an order status nobody recorded counts as paid
+sha256 after: ea0e77404021b90b64ebba208d48a46d9397fbb634bb0c50a5e9d1b2eaba0b13
+    unit: 1
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/21 a refunded order settles instead of asking a person
+    file:   src/Modules/Order/Domain/SettlementEligibility.php
+    expect: unit
+applied: a refunded order settles instead of asking a person
+sha256 after: 5071787c24c89a820f28ff95b9695e7b11de1a7e56706105077ffb71c9402029
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/21 capture reads the commission rule without the variation id
+    file:   src/Modules/Order/Application/CaptureOrder.php
+    expect: database
+applied: capture reads the commission rule without the variation id
+sha256 after: 06e577b2252f1e9fd3c193072836c9bb48b913a71d4d545a4a076f42e4f29b32
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/21 the lifecycle sync starts settling lines on a completed parent
+    file:   src/Modules/Order/Application/SyncOrderLifecycle.php
+    expect: architecture
+applied: the lifecycle sync starts settling lines on a completed parent
+sha256 after: 4a174de7bbcf372905f662897e64144d948eec4df4825d458c95ea7f5b0d21b4
+    architecture: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/21 the settlement view starts carrying the parent's status
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: architecture
+applied: the settlement view starts carrying the parent's status
+sha256 after: 351f1434cb9eb1c523dcf5bb7bab220642078a51dad8c247f122846cbcb99065
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15/21 a plugin list that could not be read reads as «no Dokan»
+    file:   src/Modules/Order/Infrastructure/WordPress/WpDokanPresence.php
+    expect: contract
+applied: a plugin list that could not be read reads as «no Dokan»
+sha256 after: 1c5330b0847b59a0c8c57a05335f6b13b090d0f72e9ded5244d05868c76dbd72
+    contract: 5
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 16/21 the plugin list is believed whatever shape it came back in
+    file:   src/Modules/Order/Infrastructure/WordPress/WpDokanPresence.php
+    expect: contract
+applied: the plugin list is believed whatever shape it came back in
+sha256 after: 8ba957c97df0abfa294d083a78ee64f42b9e9c19a15ff309fbf94876e04d3909
+    contract: 5
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 17/21 an unreadable conclusion option hides the tools instead of showing them
+    file:   src/Modules/Migration/Application/MigrationToolsVisibility.php
+    expect: unit
+applied: an unreadable conclusion option hides the tools instead of showing them
+sha256 after: 112e7a79030b332e9a9d7b32833f36f1d087587d2b92d8a8e4d6dda65de68cb1
+    unit: 4
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 18/21 a stored value that is not a date counts as a conclusion
+    file:   src/Modules/Migration/Application/MigrationToolsVisibility.php
+    expect: unit
+applied: a stored value that is not a date counts as a conclusion
+sha256 after: 0d76d52d5f0e434d6df5fb14fbcbc7c9af5e475cc1ca5017991f147ce77db129
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 19/21 a step that could not be measured counts as finished
+    file:   src/Modules/Migration/Application/ConcludeMigration.php
+    expect: architecture
+applied: a step that could not be measured counts as finished
+sha256 after: e38d79f3bc8063bdbc1515972195e8dc7d8aca9e779cb0556f1292b6cda7a630
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 20/21 concluding checks the capability after it has already read the shops
+    file:   src/Modules/Migration/Application/ConcludeMigration.php
+    expect: architecture
+applied: concluding checks the capability after it has already read the shops
+sha256 after: f3e7fe6698cfb50829333939c6ad50e4ae2dd89e45221ff5f411f5b853e69ec9
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 21/21 the menu hides slugs typed by hand rather than the migration group
+    file:   src/Modules/Admin/Presentation/MenuRegistrar.php
+    expect: architecture
+applied: the menu hides slugs typed by hand rather than the migration group
+sha256 after: 11536ca6c5204310b4bfa94cba995f07e14354783d0898ba8178e7a9c5020331
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 0
+
+problems: 0

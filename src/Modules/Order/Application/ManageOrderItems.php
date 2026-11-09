@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Finance\Application\RecordCommission;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
+use Tecteb\Marketplace\Modules\Order\Domain\SettlementEligibility;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -34,7 +35,18 @@ final class ManageOrderItems
         private readonly AuditLogger $audit,
         private readonly ClockInterface $clock,
         private readonly OrderItemStateMachine $states,
-        private readonly ?CapabilityCheckerInterface $capabilities = null
+        private readonly ?CapabilityCheckerInterface $capabilities = null,
+        /**
+         * The order's own payment status, read live.
+         *
+         * Optional, and the fallback is the mirrored column rather than
+         * «allow» — a build that forgets to wire this must not become a build
+         * where any line can be declared settleable. The `alpha.32` trap is
+         * why it is optional at all: the evidence probes of eight releases
+         * build this service positionally, and a required seventh parameter
+         * would stop them loading.
+         */
+        private readonly ?OrderPaymentStatusInterface $payments = null
     ) {
     }
 
@@ -138,6 +150,28 @@ final class ManageOrderItems
         if ($item->status === OrderItemStatus::Cancelled) {
             return OperationResult::failure('order_item_cancelled');
         }
+        // ⛔ AND WHETHER THE BUYER'S MONEY ARRIVED — only when RECORDING one.
+        //
+        // Clearing a completion is refused by nothing: it takes money out of
+        // `eligible`, so it must stay possible on an order that turned out not
+        // to have been paid. Recording one is the direction that makes a share
+        // payable, and §2-4 is exactly this: «جلوگیری از قابل‌تسویه‌شدن مبلغی
+        // که وصول آن تأیید نشده است».
+        //
+        // The live status first and the mirror second, because the mirror is a
+        // filter with no backfill (schema 39) and the capture does not write
+        // it — so «the column says nothing» is common and is NOT «unpaid».
+        // When neither answers, the rule refuses by name.
+        if ($complete) {
+            $receipt = SettlementEligibility::forCompletion($this->wcOrderStatus($item));
+            if (!$receipt['ok']) {
+                return OperationResult::failure($receipt['reason'], [
+                    'item_id' => $itemId,
+                    'order_id' => $item->orderId,
+                    'disposition' => $receipt['disposition'],
+                ]);
+            }
+        }
         $actorId = $this->capabilities->currentUserId() ?? 0;
         $completedAt = $complete ? $this->clock->now()->format('Y-m-d H:i:s') : null;
         if (!$this->items->recordSettlementCompletion($itemId, $completedAt, $complete ? $actorId : null)) {
@@ -153,6 +187,24 @@ final class ManageOrderItems
             $complete ? 'settlement_recorded' : 'settlement_cleared',
             ['item_id' => $itemId]
         );
+    }
+
+    /**
+     * This line's order status: the live answer, or the mirror, or nothing.
+     *
+     * Two sources and one question. The live reader is authoritative and may
+     * be unwired or unable to answer; the mirrored column is what
+     * `SyncOrderLifecycle` last announced and may never have been written at
+     * all. `null` from both is «I could not find out», which
+     * `SettlementEligibility` refuses rather than reading as a status.
+     */
+    private function wcOrderStatus(VendorOrderItem $item): ?string
+    {
+        $live = $this->payments?->statusOf($item->orderId);
+        if ($live !== null && trim($live) !== '') {
+            return $live;
+        }
+        return $this->items->wcOrderStatusOf($item->id);
     }
 
     /**

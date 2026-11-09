@@ -36,7 +36,24 @@ use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 final class ReportLayoutEvidenceTest extends DatabaseTestCase
 {
     private const VENDOR = 102;
-    private const EVIDENCE = 'docs/evidence/alpha100-reports';
+    /**
+     * ⛔ THIS ROUND'S DIRECTORY, and it has to be changed every round.
+     *
+     * It said `alpha100-reports` until now, so running the database suite in
+     * `alpha.101` REWROTE the HTML this test's own browser run had measured
+     * and delivered for `alpha.100` — found by `git status` on a round that
+     * touched nothing in `docs/evidence/`. Last round's evidence is the record
+     * of what was measured then; a suite that silently regenerates it means
+     * nobody can ever check a delivered measurement again.
+     *
+     * That is `alpha.54`'s rule one layer out: «ابزار شواهدِ هر دور نام خودش
+     * را دارد، و نوشتن روی فایل دورِ قبل هیچ سوییتی را نمی‌شکند». The guard
+     * that exists (`EvidenceToolsAreNotOverwrittenTest`) watches the TOOLS,
+     * not the directories tests write into — so the assertion below ties this
+     * name to the plugin's own version, and the next round fails here instead
+     * of overwriting an old delivery.
+     */
+    private const EVIDENCE = 'docs/evidence/alpha101-reports';
 
     private OrderItemRepositoryInterface $items;
 
@@ -426,5 +443,29 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
                 0
             ));
         }
+    }
+
+    /**
+     * The evidence directory belongs to THIS version — asserted, not trusted.
+     *
+     * Reads the plugin header rather than a constant, because the header is
+     * what the delivered ZIP carries and therefore what a reader comparing an
+     * evidence folder to a release will have in their hand.
+     */
+    public function testTheEvidenceDirectoryIsNamedForThisVersion(): void
+    {
+        $header = (string) file_get_contents(__DIR__ . '/../../tecteb-marketplace-core.php');
+        self::assertSame(
+            1,
+            preg_match('/^\s*\*\s*Version:\s*([^\s]+)/m', $header, $m),
+            'the plugin header declares a version'
+        );
+        $suffix = str_replace('.', '', substr((string) $m[1], strrpos((string) $m[1], '-') + 1));
+
+        self::assertSame(
+            'docs/evidence/' . $suffix . '-reports',
+            self::EVIDENCE,
+            'each round writes its own evidence folder; overwriting a delivered one is never right'
+        );
     }
 }

@@ -96,7 +96,13 @@ final class RequestWithdrawal
         if (!$gate['ready']) {
             return OperationResult::failure('settlement_blocked', [
                 'reason' => $gate['reason'],
-                'decisions' => implode('، ', SettlementGate::OPEN_DECISIONS),
+                // Only when there ARE open decisions. An empty join sent
+                // `decisions => ''` to the screen, which prints a label with
+                // nothing after it; the gate's own reason already says
+                // whether this is an absence or the owner's decision.
+                'decisions' => SettlementGate::OPEN_DECISIONS === []
+                    ? ''
+                    : implode('، ', SettlementGate::OPEN_DECISIONS),
             ]);
         }
         // A double click, or a second tab: the request that already exists is

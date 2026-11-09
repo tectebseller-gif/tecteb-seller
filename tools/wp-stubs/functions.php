@@ -613,6 +613,37 @@ function add_submenu_page(string $parent, string $pageTitle, string $menuTitle, 
     $GLOBALS['submenu'][$parent][] = [$menuTitle, $capability, $slug, $pageTitle];
     return $hook;
 }
+/**
+ * Core's own behaviour, and only that: the row leaves `$GLOBALS['submenu']`
+ * and the registration record stays.
+ *
+ * `add_submenu_page()` above records the page in `State::$menus` (this stub's
+ * stand-in for core's `$_registered_pages`) as well as in `$submenu`, and
+ * core's `remove_submenu_page()` touches only the second. So a test can assert
+ * both halves of what hiding means — gone from the printed menu, still a
+ * registered page with its capability declared.
+ *
+ * ⛔ What this stub does NOT model, and what therefore must not be claimed
+ * from it: whether `user_can_access_admin_page()` lets a capable manager open
+ * a hidden page by its URL. That lives in `wp-admin/includes/menu.php`, no
+ * WordPress checkout exists in this environment, and `alpha.37` is what this
+ * repository paid for asserting core's menu internals from memory. It is a
+ * step on the staging checklist instead.
+ */
+function remove_submenu_page(string $parent, string $slug): array|false
+{
+    if (!isset($GLOBALS['submenu'][$parent]) || !is_array($GLOBALS['submenu'][$parent])) {
+        return false;
+    }
+    foreach ($GLOBALS['submenu'][$parent] as $index => $row) {
+        if (is_array($row) && ($row[2] ?? null) === $slug) {
+            $removed = $GLOBALS['submenu'][$parent][$index];
+            unset($GLOBALS['submenu'][$parent][$index]);
+            return is_array($removed) ? $removed : false;
+        }
+    }
+    return false;
+}
 function register_setting(string $group, string $name, array $args = []): void
 {
     State::$registeredSettings[$name] = ['group' => $group, 'args' => $args];

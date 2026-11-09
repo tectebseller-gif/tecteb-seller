@@ -11,6 +11,73 @@ use Tecteb\Marketplace\Modules\Health\Application\HealthStatus;
 /** @var array<string,mixed> $vm */
 echo Components::shellOpen(__('سلامت بازارگاه', 'tecteb-marketplace-core'), 'tmc-health', __('نسخه آزمایشی', 'tecteb-marketplace-core'));
 
+// The outcome of this page's one POST, printed before anything it may have
+// changed is read again.
+$healthNotice = (string) ($vm['notice'] ?? '');
+if ($healthNotice !== '') {
+    echo Components::notice(
+        str_starts_with($healthNotice, 'ok:') ? 'success' : 'error',
+        substr($healthNotice, strpos($healthNotice, ':') + 1)
+    );
+}
+
+/**
+ * «ابزارهای موقت مهاجرت» — whether they are still in the menu, and the one
+ * control that brings them back.
+ *
+ * Here because this page is the one that survives hiding them. §3-10 and §5
+ * both ask for the temporary tools to leave the everyday menu once the
+ * migration is finished AND for the way back to be kept; a button on a
+ * permanent page is that way back, and it is why nobody has to edit an option
+ * row — the objection `AdminNavigation`'s docblock raised against hiding
+ * anything at all.
+ *
+ * `null` means the Migration module is not loaded. Said in words: neither
+ * «visible» nor «hidden» is true of a module that is not there, and drawing
+ * either would be the silent zero this repository keeps refusing to print.
+ */
+$migrationTools = static function () use ($vm): string {
+    $tools = $vm['migration_tools'] ?? null;
+    $html = '<section class="tmc-card" aria-labelledby="tmc-migration-tools-title">'
+        . '<h2 id="tmc-migration-tools-title" class="tmc-card__title">'
+        . esc_html__('ابزارهای موقت مهاجرت', 'tecteb-marketplace-core') . '</h2>';
+    if (!is_array($tools)) {
+        return $html . '<p>'
+            . esc_html__('ماژول مهاجرت بارگذاری نشده، پس وضعیت این بخش خوانده نشد. این «پنهان است» یا «نمایش داده می‌شود» نیست.', 'tecteb-marketplace-core')
+            . '</p></section>';
+    }
+    $concludedAt = (string) ($tools['concluded_at'] ?? '');
+    if ($concludedAt === '') {
+        // Short on the page, the reasoning in the drawer («تکه کن، بازنویسی
+        // نکن» — `alpha.85`). The actionable half is one clause.
+        return $html
+            . '<p>' . esc_html__('بخش «مهاجرت از دکان (موقت)» در منو هست.', 'tecteb-marketplace-core') . '</p>'
+            . Components::moreDetails([
+                __('مهاجرت تمام‌شده ثبت نشده است. پس از پایان موفق مهاجرت، از صفحهٔ «تحویل مهاجرت» می‌توانید تمام‌شده ثبتش کنید تا این بخش از منوی روزمره برداشته شود.', 'tecteb-marketplace-core'),
+            ])
+            . '</section>';
+    }
+    $links = [];
+    foreach ((array) ($tools['slugs'] ?? []) as $slug => $url) {
+        $links[] = '<li><a href="' . esc_url((string) $url) . '">' . esc_html((string) $slug) . '</a></li>';
+    }
+    return $html
+        . Components::notice('info', sprintf(
+            /* translators: %s: when the migration was recorded finished */
+            __('مهاجرت در %s تمام‌شده ثبت شد، پس ابزارهای موقت از منوی روزمره برداشته شده‌اند. هیچ کد، جدول، سند یا مسیر بازگشتی حذف نشده است.', 'tecteb-marketplace-core'),
+            PersianDigits::toPersian($concludedAt)
+        ))
+        . ($links === [] ? '' : '<p>' . esc_html__('نشانی مستقیم هر کدام:', 'tecteb-marketplace-core') . '</p><ul class="tmc-list">' . implode('', $links) . '</ul>')
+        . '<form method="post">'
+        . wp_nonce_field((string) ($vm['nonce'] ?? ''), 'tmc_health_nonce', true, false)
+        . '<input type="hidden" name="health_action" value="reveal_migration_tools">'
+        . '<button type="submit" class="button">'
+        . esc_html__('نمایش دوبارهٔ ابزارهای مهاجرت در منو', 'tecteb-marketplace-core')
+        . '</button></form>'
+        . '</section>';
+};
+
+
 /**
  * «دکمهٔ بازارگاه در صفحهٔ حساب کاربری» — drawn whether or not the health
  * module is up.
@@ -238,6 +305,7 @@ $jalali = JalaliDate::format($checkedAt);
 
 <?php echo $staleGrants(); ?>
 <?php echo $rollbackGate(); ?>
+<?php echo $migrationTools(); ?>
 
 <section class="tmc-card tmc-card--muted" aria-labelledby="tmc-rest-title">
     <h2 id="tmc-rest-title" class="tmc-card__title"><?php esc_html_e('دسترسی برنامه‌نویسی به همین گزارش', 'tecteb-marketplace-core'); ?></h2>

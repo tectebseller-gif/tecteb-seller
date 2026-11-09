@@ -81,7 +81,46 @@ final class WpDokanPresence implements DokanPresenceInterface
                 return 'active_plugin_' . (string) $file;
             }
         }
+        // ⛔ AND «I COULD NOT FIND OUT» IS NOT «NO DOKAN».
+        //
+        // This matters more from the release that emptied
+        // `OrderOperationsGate::OPEN_DECISIONS`: until then a build could not
+        // sell anyway while those names were listed, so a failed read here
+        // cost nothing. Now this probe is the only thing between a
+        // transferred product and two systems recording one sale, and a
+        // reader that answers «running: no» because it could not read the
+        // option list is the fail-OPEN direction on the one question that
+        // must never fail open (`alpha.97`).
+        //
+        // An empty array is a real answer — a site with no active plugins —
+        // so emptiness is NOT treated as unknown. What is treated as unknown
+        // is a list that could not be obtained at all.
+        if (!$this->pluginListWasReadable()) {
+            return 'active_plugin_list_unreadable';
+        }
         return '';
+    }
+
+    /**
+     * Whether the active-plugin list could be obtained at all.
+     *
+     * Separate from `activePlugins()` because the two questions have
+     * different answers: that method returns `[]` both for «no plugins are
+     * active» and for «the option could not be read», and only the second one
+     * is a reason to refuse. `get_option()` returns the default on a missing
+     * row and `false` on some failure paths, so a non-array answer to a call
+     * that passed `[]` as the default is the signal.
+     */
+    private function pluginListWasReadable(): bool
+    {
+        if (!function_exists('get_option')) {
+            // No WordPress at all: a unit test or a very early hook. The
+            // class-, function- and constant-based signals above are the real
+            // answer in that world, and claiming «unreadable» here would make
+            // every pure test of this class refuse.
+            return true;
+        }
+        return is_array(get_option('active_plugins', []));
     }
 
     /** @return list<string> */

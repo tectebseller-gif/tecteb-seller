@@ -128,7 +128,15 @@ final class EngagementFlowTest extends DatabaseTestCase
         self::assertSame(0, $theirs['discount_minor']);
     }
 
-    /** «تخفیف سراسری فقط با مدیر است» — and who funds it is DEC-04, so: not yet. */
+    /**
+     * «کوپن سراسری بازارگاه در نسخه اول غیرفعال بماند (ایجاد و اعمال)» — the
+     * CREATION half.
+     *
+     * The owner has answered DEC-04 by keeping this off for v1, so the
+     * refusal is a decision rather than a gap. The reason constant keeps its
+     * old spelling (`global_coupon_undecided`) because audit rows carry it;
+     * what the owner's answer changed is the sentence on the screen.
+     */
     public function testAMarketplaceWideCodeIsRefusedAndNamesTheDecision(): void
     {
         $result = $this->coupons->create(self::MANAGER, 0, 'NOWRUZ', Coupon::PERCENT, 1000);
@@ -137,6 +145,41 @@ final class EngagementFlowTest extends DatabaseTestCase
         self::assertSame(ManageCoupons::GLOBAL_DECISION, $result->context['decision']);
         self::assertNull($this->repository->findCouponByCode('NOWRUZ'), 'and nothing was written');
         self::assertFalse($this->coupons->globalCouponsAvailable());
+    }
+
+    /**
+     * ⛔ AND THE «اعمال» HALF, which had no test until this round.
+     *
+     * `create()` refusing is not the same property as `quote()` refusing, and
+     * the owner's instruction names both verbs for that reason. A global row
+     * can exist without this module ever having created one: a hand-written
+     * insert, a migration from another system, a row carried over from before
+     * the creation guard. The guard on the APPLICATION path is what makes the
+     * decision hold over such a row.
+     *
+     * The row is therefore written straight to the repository rather than
+     * through `create()` — which is the only way to express the state at all,
+     * and the same reasoning `alpha.98` used for a guard whose precondition
+     * only a human can produce (`alpha.91`).
+     */
+    public function testAMarketplaceWideCodeThatSomehowEXISTSStillDoesNotApply(): void
+    {
+        $id = $this->repository->createCoupon(new Coupon(0, 'NOWRUZ', 0, Coupon::PERCENT, 1000));
+        self::assertGreaterThan(0, $id, 'the row exists, which is the premise');
+
+        $quote = $this->coupons->quote('NOWRUZ', self::VENDOR, 200000);
+
+        self::assertFalse($quote['ok'], 'a global code does not apply in v1');
+        self::assertSame(ManageCoupons::GLOBAL_UNDECIDED, $quote['reason']);
+        self::assertSame(0, $quote['discount_minor'], 'and it moves no money');
+
+        // The control, on the same call, so «refused» is about GLOBAL rather
+        // than about this basket: the vendor's own code on the same subtotal
+        // still discounts.
+        $this->coupons->create(self::VENDOR, self::VENDOR, 'MINE10', Coupon::PERCENT, 1000);
+        $mine = $this->coupons->quote('MINE10', self::VENDOR, 200000);
+        self::assertTrue($mine['ok'], 'the vendor’s own code is untouched');
+        self::assertSame(20000, $mine['discount_minor']);
     }
 
     public function testACodeIsCountedOncePerOrderHoweverOftenTheCallbackFires(): void

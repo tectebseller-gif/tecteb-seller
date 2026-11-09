@@ -40,8 +40,11 @@ use Tecteb\Marketplace\Modules\Finance\Domain\Money;
  * approvable, publishable and sellable. So `rate_unset` is no longer produced
  * anywhere, which is the one blocker §7 asked to clear.
  *
- * Nothing else moved. DEC-02 and DEC-04 are still the owner's and still close
- * this gate, and the ledger probe still runs.
+ * **And in this release DEC-02 and DEC-04 were ANSWERED**, so
+ * `OPEN_DECISIONS` is empty and this gate no longer closes for a missing
+ * definition. The ledger probe still runs, and the Dokan check below — which
+ * was the belt while the decisions were the braces — is now the only
+ * unwaivable thing in the way.
  *
  * **And one addition that is NOT waivable: Dokan running.** Every other
  * answer here is a definition somebody has not written down, which is what
@@ -91,13 +94,32 @@ final class OrderOperationsGate
     public const TRIAL_REFUSED = 'trial_refused';
 
     /**
-     * Decisions the owner has not made yet. They are listed by name rather
-     * than hidden behind a boolean, so the health page can say WHICH answer
-     * is missing instead of «به دلایلی غیرفعال است».
+     * Decisions the owner has not made yet — **now empty, and that is the one
+     * substantive change in this file.**
+     *
+     * DEC-02 and DEC-04 were listed here for twenty releases because nobody
+     * had answered them. The owner has answered both (`OwnerDecisions::DECIDED`
+     * carries the wording and names the classes that enforce each part), so
+     * this list is empty and the gate no longer refuses for a missing
+     * definition.
+     *
+     * ⛔ **What that promotes, and it has to be said plainly.** Until now the
+     * Dokan check was belt as well as braces: a build could not sell anyway
+     * while this list had names in it. That was never a guard — it was a
+     * sequencing accident, and `OrderGateRefusesWhileDokanRunsTest` says so
+     * in its own docblock. From this release the Dokan check is **the only
+     * thing** standing between a transferred product and two systems
+     * recording one sale, so it is asked first, the trial switch cannot
+     * answer it, and `WpDokanPresence` fails closed on a read it could not
+     * make.
+     *
+     * The list stays as a list rather than becoming a boolean: an answer that
+     * arrives later (a decision reopened, a new one raised) is a name added
+     * here, and every screen that prints «تصمیم‌های باز» keeps working.
      *
      * @var list<string>
      */
-    public const OPEN_DECISIONS = ['DEC-02', 'DEC-04'];
+    public const OPEN_DECISIONS = [];
 
     /** @var array<string, array{ready:bool, reason:string, detail:string}> */
     private array $memo = [];

@@ -62,6 +62,33 @@ final class State
      * currency at all.
      */
     public static int $priceDecimals = 0;
+
+    /** The currency `get_woocommerce_currency()` answers; see woocommerce-cart.php. */
+    public static string $currency = 'IRT';
+
+    /** The basket `WC()` hands out, or null for «no cart on this request». */
+    public static ?\TmcWpStubs\FakeWooCommerce $woocommerce = null;
+
+    /**
+     * Every sentence `wc_add_notice()` was given, in order.
+     *
+     * Recorded rather than counted, because the thing worth asserting is
+     * WHICH sentence reached the shopper — a guard that refuses with the
+     * wrong words has still failed the shopper (`alpha.8`).
+     *
+     * @var list<array{message:string, type:string}>
+     */
+    public static array $notices = [];
+
+    /**
+     * Codes that exist as real `shop_coupon` posts: code (lowercased) => id.
+     *
+     * This is the native-coupon question in one array. A code in here is the
+     * host shop's own and can never be a marketplace code.
+     *
+     * @var array<string,int>
+     */
+    public static array $nativeCoupons = [];
     public static string $environmentType = 'production';
     public static string $homeUrl = 'https://example.test';
     public static string $wpVersion = 'stub';
@@ -312,6 +339,10 @@ final class State
         self::$doingAjax = false;
         self::$failOptionWrites = false;
         self::$priceDecimals = 0;
+        self::$currency = 'IRT';
+        self::$woocommerce = null;
+        self::$notices = [];
+        self::$nativeCoupons = [];
         self::$optionsBackedByWpdb = false;
         self::$environmentType = 'production';
         self::$homeUrl = 'https://example.test';

@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\WordPressContract;
 
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Tecteb\Marketplace\Contracts\ModuleStatus;
+use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Modules\Health\Application\HealthReportBuilder;
 use TmcWpStubs\State;
@@ -63,20 +66,89 @@ final class BootstrapTest extends ContractTestCase
         self::assertTrue($health['dependencies']['hpos']['enabled']);
     }
 
-    public function testWithWooCommerceOrdersStillRefuseToRunAndSayWhy(): void
+    /**
+     * ⛔ REWRITTEN THIS ROUND, not loosened — and what it measures is stronger
+     * than what it used to.
+     *
+     * It used to assert `Blocked` with DEC-02 and DEC-04 in the reason, which
+     * was true for twenty releases and is the exact state the owner's answers
+     * changed: «ثبت سفارش واقعی مجاز است» once the guards pass, and
+     * `OPEN_DECISIONS` is empty (`OwnerDecisions::FIN_04`). Keeping the old
+     * assertion would have pinned a decision the owner has made, and deleting
+     * the test would have dropped the property that still matters most —
+     * that the module gates ITSELF rather than riding on a missing dependency.
+     *
+     * So it now measures both sides of that gate on one boot: active with
+     * WooCommerce present and Dokan absent, and `self_gated` the moment Dokan
+     * is there. The second half is the one that has to hold on the owner's
+     * site, because 184 transferred products are attributed by `post_author`
+     * to a Dokan vendor and by `link_ownership` to the marketplace, so two
+     * systems would record one sale.
+     */
+    public function testWithWooCommerceAndNoDokanTheOrderModuleRuns(): void
     {
         $this->bootPlugin(true);
         $report = Bootstrap::report();
 
-        // Nothing about WooCommerce makes an unrecordable sale safe: the
-        // module blocks itself, and the reason names the open decisions
-        // rather than pretending to be a missing dependency.
-        self::assertSame(ModuleStatus::Blocked, $report?->status('order'));
-        self::assertSame('self_gated', $report?->state('order')?->reasonCode);
-        self::assertStringContainsString('DEC-02', (string) $report?->state('order')?->reasonDetail);
-        self::assertStringContainsString('DEC-04', (string) $report?->state('order')?->reasonDetail);
+        // The owner answered DEC-02 and DEC-04, so a missing definition is no
+        // longer in the way.
+        self::assertSame(ModuleStatus::Active, $report?->status('order'));
+        self::assertSame(
+            [],
+            OrderOperationsGate::OPEN_DECISIONS,
+            'and the list the old assertion read is empty, which is why'
+        );
 
-        // And finance, which CAN be configured today, is active beside it.
+        // And finance is active beside it, as it always was.
+        self::assertSame(ModuleStatus::Active, $report?->status('finance'));
+
+    }
+
+    /**
+     * ⛔ AND THE OTHER SIDE OF THE SAME GATE: with Dokan present the order
+     * module gates ITSELF, so no capture hook is ever registered.
+     *
+     * This is the half that has to hold on the owner's site. Shop 102's 184
+     * transferred products are attributed by `post_author` to a Dokan vendor
+     * — `TransferOwnership` deliberately never changes it — and by
+     * `link_ownership` to the marketplace, so both systems would record one
+     * sale. Until this release a build could not sell anyway because
+     * `OPEN_DECISIONS` had names in it; now that it is empty, this is the only
+     * thing in the way, and the trial switch cannot answer it.
+     *
+     * ⛔ IN ITS OWN PROCESS, because the class has to exist BEFORE the boot.
+     * The first version of this test eval'd `WeDevs_Dokan` and booted again in
+     * the same method, and the module stayed `Active`: `Bootstrap::init()` is
+     * static and the module report is computed once. That is `alpha.37` in
+     * miniature — framework sequencing is measured, not remembered — and the
+     * fix is a process where the detection is true from the first boot rather
+     * than a second boot that was never going to recompute.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWithDokanPresentTheOrderModuleGatesItself(): void
+    {
+        // Before any boot: this is what a site with Dokan installed looks like
+        // to `WpDokanPresence`, whose cheapest signal is this class.
+        eval('class WeDevs_Dokan {}');
+
+        $this->bootPlugin(true);
+        $report = Bootstrap::report();
+
+        self::assertSame(ModuleStatus::Blocked, $report?->status('order'));
+        self::assertSame(
+            'self_gated',
+            $report?->state('order')?->reasonCode,
+            'the module gates itself; it is not a missing dependency'
+        );
+        self::assertStringContainsString(
+            OrderOperationsGate::DOKAN_RUNNING,
+            (string) $report?->state('order')?->reasonDetail,
+            'and the reason names Dokan rather than a decision'
+        );
+
+        // Finance is untouched beside it: the Dokan guard is about RECORDING a
+        // sale, not about the module that keeps the books.
         self::assertSame(ModuleStatus::Active, $report?->status('finance'));
     }
 

@@ -23,10 +23,19 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
  *  - A vendor's coupon carries their user id and `discountFor()` is only ever
  *    handed THEIR subtotal, so it cannot reduce another shop's line even if
  *    the code is typed on a mixed basket.
- *  - A marketplace-wide coupon needs somebody to fund it, and who that is
- *    lives in DEC-04. So creating one is refused with `global_coupon_undecided`
- *    rather than created and quietly charged to the vendors. The manager's
- *    screen shows the refusal and names the decision.
+ *  - A marketplace-wide coupon needs somebody to fund it, and the owner has
+ *    now ANSWERED that — by keeping it off: «کوپن سراسری بازارگاه در نسخه اول
+ *    غیرفعال بماند (ایجاد و اعمال)». So both halves refuse, and the refusal is
+ *    a DECISION rather than a gap: `OwnerDecisions::DEC_04` carries the
+ *    wording, the manager's screen says so, and nothing is created and
+ *    quietly charged to the vendors.
+ *
+ * ⛔ **And the constant keeps its old name on purpose.** `global_coupon_undecided`
+ * is in audit rows and stored results from twenty releases, and renaming it
+ * would turn every one of them into an unknown string — the `alpha.57`
+ * posture for `RATE_UNSET`. What changed is the SENTENCE a person reads, in
+ * `MarketplaceMessages`, because «تعیین نشده» described a decision nobody had
+ * made and this one is made.
  *
  * The permission asked for is the store's PRODUCT one. Master Spec §3.1 fixes
  * exactly five areas — product, inventory, order, report, finance — and a code
@@ -169,8 +178,16 @@ final class ManageCoupons
             return $refuse('coupon_not_found');
         }
         if ($coupon->isGlobal()) {
-            // It can only exist in a database somebody wrote by hand, and it
-            // still does not apply: DEC-04 has not said who pays for it.
+            // ⛔ THE «اعمال» HALF of the owner's decision, and it is the half
+            // that had no test until this round.
+            //
+            // Such a row can only exist in a database somebody wrote by hand
+            // or in one carried over from before the refusal above — and the
+            // decision covers application as well as creation, so it does not
+            // apply whatever put it there. Creation being refused is not a
+            // substitute for this: the row's existence is not under this
+            // module's control, and «ایجاد» and «اعمال» are two sentences in
+            // the owner's instruction for exactly that reason.
             return $refuse(self::GLOBAL_UNDECIDED);
         }
         if (!$coupon->belongsTo($vendorUserId)) {

@@ -68,12 +68,25 @@ final class WithdrawalsPage
                     __('تسویه فعال است. %s', 'tecteb-marketplace-core'),
                     esc_html($gate['detail'])
                 )
-                : sprintf(
-                    /* translators: 1: open decisions, 2: delay setting note */
-                    __('درخواست برداشت تازه پذیرفته نمی‌شود تا این تصمیم‌ها بسته شوند: %1$s. مهلت چهارروزه تصمیم مصوب است و از تنظیمات خوانده می‌شود؛ آنچه تعریف نشده «لحظهٔ تکمیل سفارش» است. %2$s', 'tecteb-marketplace-core'),
-                    esc_html(implode('، ', SettlementGate::OPEN_DECISIONS)),
-                    esc_html($gate['detail'])
-                )
+                // ⛔ Two sentences, because «بسته است» and «منتظر تصمیم است»
+                // are different facts and the manager acts differently on
+                // each. While a decision was genuinely open the remedy was to
+                // decide it; now that FIN-04 is answered the remedy is a NEW
+                // decision, and telling a manager to close a decision they
+                // have already closed is the shape `alpha.97` calls a gate
+                // with no way out.
+                : (SettlementGate::OPEN_DECISIONS === []
+                    ? sprintf(
+                        /* translators: %s: gate detail */
+                        __('تسویهٔ خودکار در این نسخه به تصمیم مالک بسته است، نه منتظر تصمیم. «تکمیل برای تسویه» را مدیر روی هر قلم ثبت می‌کند و مانده‌ها و سوابق دیده می‌شوند. %s', 'tecteb-marketplace-core'),
+                        esc_html($gate['detail'])
+                    )
+                    : sprintf(
+                        /* translators: 1: open decisions, 2: delay setting note */
+                        __('درخواست برداشت تازه پذیرفته نمی‌شود تا این تصمیم‌ها بسته شوند: %1$s. مهلت چهارروزه تصمیم مصوب است و از تنظیمات خوانده می‌شود؛ آنچه تعریف نشده «لحظهٔ تکمیل سفارش» است. %2$s', 'tecteb-marketplace-core'),
+                        esc_html(implode('، ', SettlementGate::OPEN_DECISIONS)),
+                        esc_html($gate['detail'])
+                    ))
         );
         echo '<p class="tmc-field__desc">'
             . esc_html__('تا آن زمان، «تکمیل برای تسویه» را مدیر روی هر قلم سفارش ثبت می‌کند؛ هیچ فرایند خودکاری این را از وضعیت ارسال حدس نمی‌زند.', 'tecteb-marketplace-core')

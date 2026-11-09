@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Admin\Presentation;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationToolsVisibility;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\DashboardPage;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\HealthPage;
@@ -208,7 +209,59 @@ final class MenuRegistrar
             }
         }
 
+        // ⛔ AND THE TEMPORARY SECTION LEAVES THE PRINTED MENU — after every
+        // page has been registered, never instead of registering one.
+        //
+        // The order matters and is the whole design. `add_submenu_page()`
+        // above is what declares each page, its capability and its hook
+        // suffix (which is also what makes the stylesheet load on plugin
+        // screens only). Skipping the call would take all of that away and
+        // turn a tidier menu into four pages that no longer exist. So they are
+        // registered exactly as before and then removed from the menu ARRAY,
+        // which is the one thing core's own `remove_submenu_page()` does.
+        //
+        // What a manager who needs them back does is press a button on the
+        // health page — not type a URL, and certainly not edit an option row,
+        // which is the objection `AdminNavigation`'s docblock raised against
+        // hiding anything, answered rather than ignored.
+        $this->hideConcludedMigrationTools();
+
         $this->hookStyle();
+    }
+
+    /**
+     * Take the temporary migration section out of the sidebar, once a manager
+     * has said the migration is finished.
+     *
+     * Reads ONE option (`MigrationToolsVisibility`), because this runs on
+     * every wp-admin request. The expensive question — «is every imported
+     * shop's checklist really finished?» — is asked by `ConcludeMigration` on
+     * the click, which is the only place it can be asked without putting a
+     * dozen reads on every page load of the panel (`alpha.96` §4).
+     *
+     * ⛔ Fails OPEN in every direction: no binding, a throw, or an unreadable
+     * option all leave the tools visible. A section a manager cannot find is
+     * worse than one extra heading.
+     */
+    private function hideConcludedMigrationTools(): void
+    {
+        if (!function_exists('remove_submenu_page')) {
+            return;
+        }
+        try {
+            if (!$this->container->has(MigrationToolsVisibility::class)) {
+                return;
+            }
+            $visibility = $this->container->get(MigrationToolsVisibility::class);
+            if (!$visibility instanceof MigrationToolsVisibility || $visibility->toolsAreVisible()) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;     // «نمی‌دانم» shows them
+        }
+        foreach (AdminNavigation::GROUPS[AdminNavigation::MIGRATION] as $slug) {
+            remove_submenu_page(DashboardPage::SLUG, (string) $slug);
+        }
     }
 
     /**

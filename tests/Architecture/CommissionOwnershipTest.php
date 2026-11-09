@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Architecture;
 
 use PHPUnit\Framework\TestCase;
+use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorWithdrawalPolicy;
+use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 
 /**
  * WHAT THIS PROVES: «کمیسیون تک‌طب» has exactly ONE writer, and the owner's
@@ -285,11 +288,32 @@ final class CommissionOwnershipTest extends TestCase
             preg_match_all('/RATE_UNSET/', $gate),
             'RATE_UNSET must appear once — its declaration — and never be produced'
         );
-        // …and the decisions and the ledger probe are still there, because
-        // «سایر دروازه‌های مستقل … را خودکار باز نکن».
+        // …and the ledger probe is still there, because «سایر دروازه‌های
+        // مستقل … را خودکار باز نکن».
         self::assertStringContainsString('DECISIONS_OPEN', $gate);
         self::assertStringContainsString('LEDGER_UNWRITABLE', $gate);
-        self::assertStringContainsString("'DEC-02', 'DEC-04'", $gate);
+
+        // ⛔ **Rewritten when the owner answered DEC-02 and DEC-04.**
+        //
+        // This line used to read `assertStringContainsString("'DEC-02',
+        // 'DEC-04'", $gate)` and its point was that clearing ONE blocker in
+        // `alpha.57` had not quietly opened the others. That point is still
+        // the right one; the state it was pinned against is not, because the
+        // owner has now answered both by name.
+        //
+        // So the same idea is asserted where it is still true: the order
+        // gate's list may be empty, and the two gates that are NOT this
+        // decision must stay shut. Loosening it to «contains DEC-02 or not»
+        // would have asserted nothing at all.
+        self::assertSame([], OrderOperationsGate::OPEN_DECISIONS, 'the owner answered these');
+        self::assertFalse(
+            (new SettlementGate())->isReady(),
+            'the order gate opening must not open automatic settlement'
+        );
+        self::assertFalse(
+            (new VendorWithdrawalPolicy())->requestsAreOpen(),
+            'nor the vendor withdrawal path'
+        );
     }
 
     /**

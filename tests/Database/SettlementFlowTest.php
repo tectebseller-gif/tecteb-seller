@@ -17,6 +17,9 @@ use Tecteb\Marketplace\Modules\Finance\Application\RequestWithdrawal;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorWithdrawalPolicy;
 use Tecteb\Marketplace\Modules\Finance\Application\ReviewWithdrawals;
 use Tecteb\Marketplace\Modules\Finance\Application\SettlementGate;
+use Tecteb\Marketplace\Modules\Order\Application\OrderPaymentStatusInterface;
+use Tecteb\Marketplace\Modules\Order\Application\SyncOrderLifecycle;
+use Tecteb\Marketplace\Modules\Order\Domain\SettlementEligibility;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerAccount;
 use Tecteb\Marketplace\Modules\Finance\Domain\LedgerTransaction;
@@ -327,7 +330,19 @@ final class SettlementFlowTest extends DatabaseTestCase
         self::assertFalse($states->canMove(WithdrawalStatus::ReconciliationRequired, WithdrawalStatus::PaymentInProgress));
     }
 
-    public function testWhileTheFinancialDecisionsAreOpenNoWithdrawalIsCreated(): void
+    /**
+     * ⛔ **Renamed and rewritten when the owner answered FIN-04**, because the
+     * old name said something that stopped being true.
+     *
+     * It used to be `testWhileTheFinancialDecisionsAreOpenNoWithdrawalIsCreated`
+     * and asserted `'DEC-02'` inside the refusal's `decisions` context. The
+     * owner has now answered DEC-02 and FIN-04, and FIN-04's answer is «تسویهٔ
+     * خودکار بسته بماند» — so the behaviour is identical and the REASON is
+     * different, which is exactly the distinction worth pinning: nothing is
+     * created, and the refusal no longer sends a manager to close a decision
+     * they have already closed.
+     */
+    public function testWithAutomaticSettlementClosedByDecisionNoWithdrawalIsCreated(): void
     {
         $itemId = $this->sold(self::VENDOR, 109, 1000000, 900000);
         $this->orders->recordSettlementCompletion($itemId, true);
@@ -337,7 +352,16 @@ final class SettlementFlowTest extends DatabaseTestCase
 
         self::assertFalse($blocked->ok);
         self::assertSame('settlement_blocked', $blocked->code);
-        self::assertStringContainsString('DEC-02', (string) $blocked->context['decisions']);
+        self::assertSame(
+            SettlementGate::CLOSED_BY_OWNER,
+            (string) $blocked->context['reason'],
+            'shut by the owner\'s decision, not awaiting one'
+        );
+        self::assertSame(
+            '',
+            (string) $blocked->context['decisions'],
+            'and no decision is named, because none is outstanding'
+        );
         self::assertNull($this->withdrawals->openFor(self::VENDOR), 'nothing was created');
 
         // …and the balance itself is still computable, so the screens can say
@@ -481,8 +505,257 @@ final class SettlementFlowTest extends DatabaseTestCase
         );
     }
 
-    private function sold(int $vendorUserId, int $orderItemId, int $baseMinor, ?int $shareMinor): int
+    /**
+     * ⛔ DEC-02, THE WHOLE OF IT, in one multi-vendor order.
+     *
+     * The owner's answer is three sentences and this test is each of them:
+     * «تکمیل مؤثر هر قلم سفارش با تأیید دستی مدیر ثبت می‌شود» · «در سفارش
+     * چندفروشنده‌ای مستقل برای هر قلم» · «تغییر وضعیت والد تنها، قلم را قابل
+     * تسویه نمی‌کند».
+     *
+     * The third is the one worth a test of its own, because it is the one a
+     * reasonable implementation gets wrong: WooCommerce has a single status
+     * per ORDER, and «completed» on the parent reads exactly like «both
+     * vendors delivered». `SyncOrderLifecycle` is the class that watches those
+     * status changes, and if it wrote a settlement completion the owner's rule
+     * would be broken by the plugin's own hook rather than by anybody's
+     * mistake. So the parent is driven to `completed` HERE, through the real
+     * sync, and the assertion is that nothing became payable.
+     *
+     * Both lines sit on wc order 7000, which is what makes it one order rather
+     * than two — `sold()` otherwise gives every line a parent of its own.
+     */
+    public function testInAMultiVendorOrderEachLineIsCompletedOnItsOwnAndTheParentStatusSettlesNothing(): void
     {
+        $other = 72;
+        $this->vendors->upsertProfile($other, 'داروخانه دو', true, false);
+        $mine = $this->sold(self::VENDOR, 150, 1000000, 900000, 7000);
+        $theirs = $this->sold($other, 151, 500000, 450000, 7000);
+
+        // Nothing is payable yet: a recorded sale is not a settled one.
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+        self::assertSame(0, $this->balance->of($other)['eligible']);
+
+        // ONE line is confirmed. The other is a different vendor's and a
+        // different decision.
+        self::assertTrue($this->orders->recordSettlementCompletion($mine, true)->ok);
+
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible'], 'the confirmed line is payable');
+        self::assertSame(
+            0,
+            $this->balance->of($other)['eligible'],
+            'and the other vendor’s line on the SAME order is not — «مستقل برای هر قلم»'
+        );
+        self::assertSame(450000, $this->balance->of($other)['pending']);
+
+        // ⛔ AND THE PARENT GOES TO `completed`, through the real sync.
+        //
+        // This is «تغییر وضعیت والد تنها، قلم را قابل تسویه نمی‌کند». The sync
+        // mirrors the status onto both rows — which is its job, and what the
+        // report filters read — and settles neither.
+        $lifecycle = new SyncOrderLifecycle(
+            $this->orderItems,
+            $this->ledger,
+            $this->auditLog,
+            new WpDatabase($this->wpdb)
+        );
+        $lifecycle->sync(7000, 'completed');
+
+        self::assertSame(
+            0,
+            $this->balance->of($other)['eligible'],
+            'a parent marked completed did not settle a line no manager confirmed'
+        );
+        self::assertSame(450000, $this->balance->of($other)['pending']);
+        // The one that WAS confirmed is unchanged too: the sync neither gives
+        // nor takes away.
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+        // And the status really did reach the rows, so the assertion above is
+        // about a sync that ran rather than one that did nothing.
+        self::assertSame('completed', $this->orderItems->wcOrderStatusOf($theirs));
+    }
+
+    /**
+     * ⛔ WHAT THIS PROVES: a manager cannot declare a line settleable while
+     * the buyer's money has not arrived — and it proves it by RUNNING the
+     * service.
+     *
+     * This test exists because of a measured hole in the first version of
+     * the fix. `OwnerDecisionsAreEnforcedTest` asserts the pure rule
+     * (`SettlementEligibility`) over every status, and deleting the guard
+     * from `ManageOrderItems` left all seven of its assertions green — the
+     * `alpha.80` trap exactly: a rule nothing calls is not a guard. So the
+     * refusal is asserted here, through the same method the manager's button
+     * reaches, and the share is read back out of `VendorBalance` afterwards
+     * so that «refused» also means «still not payable».
+     *
+     * @dataProvider unpaidStatuses
+     */
+    public function testALineOfAnUnpaidOrderCannotBeDeclaredCompleteForSettlement(
+        string $status,
+        string $expectedReason
+    ): void {
+        $itemId = $this->sold(self::VENDOR, 140, 1000000, 900000);
+        // The fixture says `processing`; this test is about what happens when
+        // the order says something else, so it is overwritten rather than
+        // skipped — a line whose order is on hold is the BACS case.
+        $this->orderItems->recordWcOrderStatus(5140, $status);
+
+        $refused = $this->orders->recordSettlementCompletion($itemId, true);
+
+        self::assertFalse($refused->ok, $status . ' must not be settleable');
+        self::assertSame($expectedReason, $refused->code, $status);
+        // …and the money is where it was: pending, not eligible.
+        $balance = $this->balance->of(self::VENDOR);
+        self::assertSame(0, $balance['eligible'], 'nothing became payable');
+        self::assertSame(900000, $balance['pending']);
+        self::assertSame(1, $balance['awaiting_completion']);
+    }
+
+    /** @return array<string, array{0:string, 1:string}> */
+    public static function unpaidStatuses(): array
+    {
+        return [
+            'pending — nobody has paid' => ['pending', SettlementEligibility::NOT_RECEIVED],
+            'on-hold — the BACS case' => ['on-hold', SettlementEligibility::NOT_RECEIVED],
+            'failed' => ['failed', SettlementEligibility::NOT_RECEIVED],
+            'refunded — a person decides' => ['refunded', SettlementEligibility::REFUND_NEEDS_DECISION],
+            'a status nobody mapped' => ['wc-awaiting-shipment', SettlementEligibility::STATUS_UNKNOWN],
+        ];
+    }
+
+    /**
+     * And a status NOBODY RECORDED refuses under its own name — which is not
+     * the same answer as «not paid».
+     *
+     * The mirrored column has no backfill and the capture does not write it,
+     * so this is the state of every line captured before schema 39 and of
+     * every order that has not changed status since checkout. Reading it as
+     * «unpaid» would be right today and wrong the moment it is not.
+     */
+    public function testALineWhoseOrderStatusWasNeverRecordedIsRefusedUnderItsOwnName(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 141, 1000000, 900000);
+        // Back to «nobody told us», which is what the row carried before the
+        // fixture stated the precondition.
+        $this->orderItems->recordWcOrderStatus(5141, '');
+
+        $refused = $this->orders->recordSettlementCompletion($itemId, true);
+
+        self::assertFalse($refused->ok);
+        self::assertSame(SettlementEligibility::STATUS_UNRECORDED, $refused->code);
+        self::assertNotSame(
+            SettlementEligibility::NOT_RECEIVED,
+            $refused->code,
+            '«nobody told us» is not «not paid»'
+        );
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    /**
+     * ⛔ THE CONTROL, and it is the half that keeps the guard from becoming a
+     * trap: clearing a completion is always allowed.
+     *
+     * A completion recorded while an order looked paid, on an order that then
+     * failed, has to be undoable — and demanding that the order be paid first
+     * would be the gate with no way out `alpha.97` describes. Clearing only
+     * ever removes money from `eligible`, so nothing guards it.
+     */
+    public function testClearingACompletionIsAllowedEvenOnAnUnpaidOrder(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 142, 1000000, 900000);
+        self::assertTrue($this->orders->recordSettlementCompletion($itemId, true)->ok);
+
+        // The order then fails — the money never arrived after all.
+        $this->orderItems->recordWcOrderStatus(5142, 'failed');
+
+        $cleared = $this->orders->recordSettlementCompletion($itemId, false);
+
+        self::assertTrue($cleared->ok, 'taking money back out is never refused');
+        self::assertSame('settlement_cleared', $cleared->code);
+        self::assertSame(0, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    /**
+     * And the live reader beats a stale mirror.
+     *
+     * The mirror is written by `SyncOrderLifecycle`, which runs on a status
+     * CHANGE — so an order paid in a way that did not fire the hook, or one
+     * whose row predates schema 39, carries a stale or absent value while
+     * WooCommerce itself says `processing`. The live answer is asked first for
+     * exactly that case, and a build with no reader wired falls back to the
+     * mirror rather than to «allow».
+     */
+    public function testTheLiveStatusBeatsTheMirror(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 143, 1000000, 900000);
+        $this->orderItems->recordWcOrderStatus(5143, 'pending');   // stale
+
+        $withLive = new ManageOrderItems(
+            $this->orderItems,
+            $this->access,
+            $this->auditLog,
+            new SystemClock(),
+            new OrderItemStateMachine(),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            new class implements OrderPaymentStatusInterface {
+                public function statusOf(int $wcOrderId): ?string
+                {
+                    return 'processing';
+                }
+            }
+        );
+
+        self::assertTrue(
+            $withLive->recordSettlementCompletion($itemId, true)->ok,
+            'the live status is authoritative'
+        );
+        self::assertSame(900000, $this->balance->of(self::VENDOR)['eligible']);
+    }
+
+    /**
+     * ⛔ …and a live reader that cannot answer does NOT become «allow».
+     *
+     * `null` from the port is «the question was asked and no answer came
+     * back», so the mirror is consulted and, when that says nothing either,
+     * the refusal stands. A reader whose failure opened the gate would be the
+     * worst of the three sources.
+     */
+    public function testALiveReaderThatCannotAnswerFallsBackRatherThanAllowing(): void
+    {
+        $itemId = $this->sold(self::VENDOR, 144, 1000000, 900000);
+        $this->orderItems->recordWcOrderStatus(5144, '');
+
+        $silent = new ManageOrderItems(
+            $this->orderItems,
+            $this->access,
+            $this->auditLog,
+            new SystemClock(),
+            new OrderItemStateMachine(),
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            new class implements OrderPaymentStatusInterface {
+                public function statusOf(int $wcOrderId): ?string
+                {
+                    return null;
+                }
+            }
+        );
+
+        $refused = $silent->recordSettlementCompletion($itemId, true);
+        self::assertFalse($refused->ok);
+        self::assertSame(SettlementEligibility::STATUS_UNRECORDED, $refused->code);
+    }
+
+    /**
+     * @param ?int $wcOrderId the WooCommerce order the line belongs to.
+     *        Optional, so every call written before the multi-vendor test
+     *        keeps its one-order-per-line shape; passed when two lines have to
+     *        share a parent, which is the only way to express a multi-vendor
+     *        order at all.
+     */
+    private function sold(int $vendorUserId, int $orderItemId, int $baseMinor, ?int $shareMinor, ?int $wcOrderId = null): int
+    {
+        $wcOrderId ??= 5000 + $orderItemId;
         if ($shareMinor !== null) {
             $base = Money::of($baseMinor);
             $commission = Money::of($baseMinor - $shareMinor);
@@ -495,9 +768,24 @@ final class SettlementFlowTest extends DatabaseTestCase
                     ->add(LedgerAccount::TaxCollected, $base->zero(), 'tax_collected')
             ), 'the sale is on the books before anybody may withdraw it');
         }
-        return $this->orderItems->record(new VendorOrderItem(
+        // ⛔ AND THE FIXTURE NOW SAYS THE ORDER WAS PAID.
+        //
+        // These tests are about settling a sale, and settling one needs the
+        // buyer's money to have arrived: from this release
+        // `ManageOrderItems::recordSettlementCompletion()` refuses a line
+        // whose order WooCommerce does not call paid
+        // (`SettlementEligibility`). Without this line the fixture described
+        // an order nobody had announced a status for, so every test here
+        // would have been asserting against `order_status_unrecorded` — a
+        // true refusal about a fixture that was never meant to be unpaid.
+        //
+        // Stated rather than worked around: the alternative was to weaken the
+        // guard, and «fixture که یک ضمانت را خرج می‌کند باید آن را پس بدهد»
+        // cuts the other way too — a fixture that needs a precondition has to
+        // state it.
+        $id = $this->orderItems->record(new VendorOrderItem(
             0,
-            5000 + $orderItemId,
+            $wcOrderId,
             $orderItemId,
             0,
             $vendorUserId,
@@ -514,5 +802,7 @@ final class SettlementFlowTest extends DatabaseTestCase
             'order:' . $orderItemId,
             OrderItemStatus::Delivered
         ));
+        $this->orderItems->recordWcOrderStatus($wcOrderId, 'processing');
+        return $id;
     }
 }

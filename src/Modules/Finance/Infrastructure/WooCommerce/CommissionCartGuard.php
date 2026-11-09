@@ -5,6 +5,10 @@ namespace Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\CommissionLineCheck;
+use Tecteb\Marketplace\Modules\Finance\Application\VendorFundedDiscount;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
+use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\PurchaseGuard;
 
@@ -121,6 +125,11 @@ final class CommissionCartGuard
 {
     public static function register(ContainerInterface $container): void
     {
+        // Held so the discount half can resolve the coupon rows without a
+        // sixth argument on five hook signatures. Assigned here rather than
+        // read from a global: the hooks below already close over `$container`,
+        // and the static is only for the helpers they call.
+        self::$container = $container;
         $policy = static fn (): PurchasePolicy => $container->get(PurchasePolicy::class);
         $check = static fn (): CommissionLineCheck => $container->get(CommissionLineCheck::class);
 
@@ -138,10 +147,10 @@ final class CommissionCartGuard
             if (!function_exists('wc_add_notice')) {
                 return;
             }
-            $name = self::refusedLineOf($policy(), $check(), $order);
-            if ($name !== '') {
+            $refusal = self::refusalOn($policy(), $check(), $order);
+            if ($refusal !== null) {
                 self::$refused = true;
-                wc_add_notice(self::message($name), 'error');
+                wc_add_notice($refusal['message'], 'error');
             }
         }, 25, 1);
 
@@ -157,10 +166,10 @@ final class CommissionCartGuard
                 return;
             }
             $order = wc_get_order($orderId);
-            $name = $order ? self::refusedLineOf($policy(), $check(), $order) : '';
-            if ($name !== '') {
+            $refusal = $order ? self::refusalOn($policy(), $check(), $order) : null;
+            if ($refusal !== null) {
                 self::$refused = true;
-                wc_print_notice(self::message($name), 'error');
+                wc_print_notice($refusal['message'], 'error');
             }
         }, 25);
 
@@ -177,9 +186,9 @@ final class CommissionCartGuard
         // claim about two call sites in somebody else's code, and the cost of
         // being wrong about it was measured once already.
         add_action('woocommerce_checkout_order_processed', static function (mixed $orderId, mixed $data, mixed $order) use ($policy, $check): void {
-            $name = self::refusedLineOf($policy(), $check(), $order);
-            if ($name !== '') {
-                throw new \Exception(self::message($name));
+            $refusal = self::refusalOn($policy(), $check(), $order);
+            if ($refusal !== null) {
+                throw new \Exception($refusal['message']);
             }
         }, 25, 3);
 
@@ -188,11 +197,11 @@ final class CommissionCartGuard
         // read as «پولی لازم نیست»: the route turns it into a status code and
         // neither `process_payment()` nor `process_without_payment()` runs.
         add_action('woocommerce_store_api_checkout_order_processed', static function (mixed $order) use ($policy, $check): void {
-            $name = self::refusedLineOf($policy(), $check(), $order);
-            if ($name === '') {
+            $refusal = self::refusalOn($policy(), $check(), $order);
+            if ($refusal === null) {
                 return;
             }
-            $message = self::message($name);
+            $message = $refusal['message'];
             $routeException = 'Automattic\\WooCommerce\\StoreApi\\Exceptions\\RouteException';
             if (class_exists($routeException)) {
                 throw new $routeException('woocommerce_rest_tmc_commission_exceeds_line', $message, 409);
@@ -227,7 +236,8 @@ final class CommissionCartGuard
         }
         foreach ($cart->get_cart() as $item) {
             $product = $item['data'] ?? null;
-            if (PurchaseGuard::marketplaceProduct($policy, $product) === null) {
+            $vendor = PurchaseGuard::marketplaceProduct($policy, $product);
+            if ($vendor === null) {
                 continue;       // not ours; say nothing about it, ever
             }
             $productId = (int) ($item['product_id'] ?? 0);
@@ -251,38 +261,200 @@ final class CommissionCartGuard
                 ? (string) wc_format_decimal($item['line_total'] ?? 0)
                 : '';
             $answer = $check->check($productId, $variationId, $total, $quantity, $currency, $exponent);
-            if ($answer['ok']) {
-                continue;
-            }
             $name = is_object($product) && method_exists($product, 'get_name')
                 ? (string) $product->get_name()
                 : '';
-            wc_add_notice(self::message($name), 'error');
+            if (!$answer['ok']) {
+                wc_add_notice(self::message($name), 'error');
+                continue;
+            }
+            // ⛔ AND THE SECOND QUESTION, asked at the same point and in the
+            // same loop: did somebody else's coupon take money off this
+            // vendor's line? See `VendorFundedDiscount` for the arithmetic —
+            // a discount on a marketplace line is split between Tecteb's
+            // commission and the vendor's share, so an admin's site-wide
+            // `shop_coupon` is funded partly by a vendor who never agreed.
+            $discount = self::discountAnswerForCart($cart, $item, $vendor);
+            if ($discount !== null && !$discount['ok']) {
+                wc_add_notice(self::discountMessage($name), 'error');
+            }
         }
     }
 
     /**
-     * The name of the first line of an UNPAID order this rule refuses, or ''.
+     * The discount question for one CART line, or null when it cannot be
+     * asked at all.
+     *
+     * Null rather than a refusal when the cart cannot say what a line cost
+     * before coupons: `VendorFundedDiscount` refuses an unreadable PAIR of
+     * amounts, which is the case where one is known and the other is not;
+     * a basket that exposes neither key is a WooCommerce this release has not
+     * met, and refusing every line of it would break a shop over a shape
+     * rather than over money.
+     *
+     * @param array<string,mixed> $item
+     * @return array{ok:bool, reason:string, discount_minor:int, codes:list<string>}|null
+     */
+    private static function discountAnswerForCart(mixed $cart, array $item, Product $vendor): ?array
+    {
+        if (!array_key_exists('line_subtotal', $item) && !array_key_exists('line_total', $item)) {
+            return null;
+        }
+        ['currency' => $currency, 'exponent' => $exponent] = self::unit();
+        if ($exponent < 0) {
+            return null;
+        }
+        unset($currency);
+        $applied = method_exists($cart, 'get_applied_coupons') ? (array) $cart->get_applied_coupons() : [];
+        return VendorFundedDiscount::check(
+            self::minor($item['line_subtotal'] ?? null, $exponent),
+            self::minor($item['line_total'] ?? null, $exponent),
+            self::foreignCodes($applied, $vendor->vendorUserId),
+            $applied !== []
+        );
+    }
+
+    /**
+     * Exact minor units, or null when the figure is not exactly representable.
+     *
+     * The same posture as everywhere else money is read in this plugin: a
+     * fractional amount is not rounded into one that looks exact
+     * (`alpha.67`). Null travels into the rule, which refuses on it.
+     */
+    private static function minor(mixed $amount, int $exponent): ?int
+    {
+        if ($amount === null) {
+            return null;
+        }
+        $text = function_exists('wc_format_decimal')
+            ? (string) wc_format_decimal($amount)
+            : (is_scalar($amount) ? (string) $amount : '');
+        return $text === '' ? null : DecimalAmount::toMinor($text, $exponent);
+    }
+
+    /**
+     * Applied codes that are NOT this vendor's own marketplace codes.
+     *
+     * Two tests, cheapest first, and the first one is WooCommerce's own:
+     * `wc_get_coupon_id_by_code()` answers above nought for a real
+     * `shop_coupon` post, which is exactly the test
+     * `CartPricing::couponData()` uses to step aside for the host shop's
+     * coupons. Such a code can never be a marketplace one, so it is foreign
+     * without asking the database.
+     *
+     * Anything else may be a marketplace code, and whose it is comes from the
+     * coupon row. **A code nothing can resolve is foreign** — the direction
+     * that refuses rather than the one that sells — and so is every code when
+     * the marketplace module is not even registered, which is right: with no
+     * marketplace coupons in existence, no discount can be one.
+     *
+     * @param list<mixed> $applied
+     * @return list<string>
+     */
+    private static function foreignCodes(array $applied, int $vendorUserId): array
+    {
+        $foreign = [];
+        $repository = self::coupons();
+        foreach ($applied as $raw) {
+            $code = is_scalar($raw) ? trim((string) $raw) : '';
+            if ($code === '') {
+                continue;
+            }
+            if (function_exists('wc_get_coupon_id_by_code') && (int) wc_get_coupon_id_by_code($code) > 0) {
+                $foreign[] = $code;         // the host shop's own coupon post
+                continue;
+            }
+            $coupon = $repository?->findCouponByCode(strtolower($code));
+            if ($coupon === null || $coupon->vendorUserId !== $vendorUserId) {
+                $foreign[] = $code;
+            }
+        }
+        return $foreign;
+    }
+
+    /**
+     * The coupon rows, or null when nothing has bound them.
+     *
+     * Held per request rather than passed through five hook signatures. Null
+     * is a real state — the marketplace module can be switched off — and the
+     * caller reads it as «no code is a marketplace code», which is true.
+     */
+    private static ?ContainerInterface $container = null;
+
+    private static function coupons(): ?EngagementRepositoryInterface
+    {
+        $c = self::$container;
+        if ($c === null || !$c->has(EngagementRepositoryInterface::class)) {
+            return null;
+        }
+        try {
+            $repository = $c->get(EngagementRepositoryInterface::class);
+        } catch (\Throwable) {
+            return null;
+        }
+        return $repository instanceof EngagementRepositoryInterface ? $repository : null;
+    }
+
+    /**
+     * ONE SENTENCE FOR THE DISCOUNT REFUSAL — and it names the one thing the
+     * shopper can do.
+     *
+     * Different from `message()` on purpose. That one is «this item's selling
+     * settings need review», which is true of a commission rule and useless
+     * here: a shopper holding a coupon that cannot be used needs to be told
+     * that it is the coupon, because removing it is a thing they can do.
+     * Neither sentence names a rate, a share or an account.
+     */
+    public static function discountMessage(string $productName): string
+    {
+        return $productName === ''
+            ? __(
+                'کد تخفیفی که وارد کرده‌اید روی یکی از کالاهای سبد قابل استفاده نیست. آن را بردارید یا با پشتیبانی تماس بگیرید.',
+                'tecteb-marketplace-core'
+            )
+            : sprintf(
+                /* translators: %s: product name */
+                __(
+                    'کد تخفیفی که وارد کرده‌اید روی «%s» قابل استفاده نیست. آن را بردارید یا با پشتیبانی تماس بگیرید.',
+                    'tecteb-marketplace-core'
+                ),
+                $productName
+            );
+    }
+
+    /**
+     * The first line of an UNPAID order this rule refuses, and WHICH sentence
+     * to say about it — or null when nothing is refused.
      *
      * Reads the order's own stored totals, which are already exact decimal
      * text, so nothing is re-derived from a float here.
+     *
+     * ⛔ The sentence travels with the refusal rather than being chosen by the
+     * caller. The two refusals need different words — one is «this item's
+     * selling settings need review», the other «your coupon cannot be used
+     * here» — and a caller that picked for itself would hand a shopper
+     * holding a bad coupon a sentence they can do nothing about.
+     *
+     * @return array{name:string, message:string}|null
      */
-    private static function refusedLineOf(PurchasePolicy $policy, CommissionLineCheck $check, mixed $order): string
+    private static function refusalOn(PurchasePolicy $policy, CommissionLineCheck $check, mixed $order): ?array
     {
         if (!is_object($order) || !method_exists($order, 'get_items')) {
-            return '';
+            return null;
         }
         $currency = method_exists($order, 'get_currency') ? (string) $order->get_currency() : '';
         $exponent = function_exists('wc_get_price_decimals') ? (int) wc_get_price_decimals() : -1;
         if ($currency === '' || $exponent < 0) {
-            return '';
+            return null;
         }
+        $applied = method_exists($order, 'get_coupon_codes') ? (array) $order->get_coupon_codes() : [];
         foreach ($order->get_items() as $item) {
             if (!is_object($item) || !method_exists($item, 'get_product_id')) {
                 continue;
             }
             $product = method_exists($item, 'get_product') ? $item->get_product() : null;
-            if (PurchaseGuard::marketplaceProduct($policy, $product) === null) {
+            $vendor = PurchaseGuard::marketplaceProduct($policy, $product);
+            if ($vendor === null) {
                 continue;
             }
             $answer = $check->check(
@@ -294,10 +466,30 @@ final class CommissionCartGuard
                 $exponent
             );
             if (!$answer['ok']) {
-                return (string) $item->get_name();
+                $name = (string) $item->get_name();
+                return ['name' => $name, 'message' => self::message($name)];
+            }
+            // ⛔ The discount question on the ORDER's own stored amounts, and
+            // it is not redundant with the cart's for exactly the reason the
+            // commission half is not: a plugin on
+            // `woocommerce_checkout_create_order_line_item` can change a line
+            // total after the basket was checked, and an order's stored
+            // currency need not be the shop's current one.
+            if (!method_exists($item, 'get_subtotal')) {
+                continue;
+            }
+            $discount = VendorFundedDiscount::check(
+                self::minor($item->get_subtotal(), $exponent),
+                self::minor($item->get_total(), $exponent),
+                self::foreignCodes($applied, $vendor->vendorUserId),
+                $applied !== []
+            );
+            if (!$discount['ok']) {
+                $name = (string) $item->get_name();
+                return ['name' => $name, 'message' => self::discountMessage($name)];
             }
         }
-        return '';
+        return null;
     }
 
     /** @return array{currency:string, exponent:int} */

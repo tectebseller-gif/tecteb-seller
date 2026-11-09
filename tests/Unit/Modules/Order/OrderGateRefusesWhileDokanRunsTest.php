@@ -113,19 +113,52 @@ final class OrderGateRefusesWhileDokanRunsTest extends TestCase
 
     /**
      * The control, and it is the point of the whole change: with Dokan gone,
-     * the gate answers exactly what it answered before — so this guard does
-     * not stand between the owner and the state the migration is for.
+     * this guard does not stand between the owner and the state the migration
+     * is for.
+     *
+     * ⛔ **Rewritten rather than loosened when the owner answered DEC-02 and
+     * DEC-04.** Until then the two halves of this test read `READY_ON_TRIAL`
+     * and `DECISIONS_OPEN`, and both were right: nothing could sell without
+     * the trial switch. Both are now wrong for the same reason — there is no
+     * open decision left to waive — so the assertion says the thing that
+     * matters from this release instead: **with no trial switch at all, the
+     * gate is ready.** That is what emptying the list bought, and it is the
+     * sentence a future change would have to break.
      */
-    public function testWithDokanGoneTheGateAnswersAsItAlwaysDid(): void
+    public function testWithDokanGoneTheGateIsReadyWithoutATrial(): void
     {
-        $gate = $this->gate(dokanRunning: false, trial: true);
-        self::assertTrue($gate->check()['ready']);
-        self::assertSame(OrderOperationsGate::READY_ON_TRIAL, $gate->check()['reason']);
-        self::assertSame([], $gate->blockers());
+        $plain = $this->gate(dokanRunning: false, trial: false);
+        self::assertTrue($plain->check()['ready'], 'the decisions are answered, so no waiver is needed');
+        self::assertSame(OrderOperationsGate::READY, $plain->check()['reason']);
+        self::assertSame([], $plain->blockers());
 
-        $closed = $this->gate(dokanRunning: false, trial: false);
-        self::assertFalse($closed->check()['ready']);
-        self::assertSame(OrderOperationsGate::DECISIONS_OPEN, $closed->check()['reason']);
+        // And the trial switch no longer changes the answer, because it has
+        // nothing left to waive. `READY_ON_TRIAL` is unreachable while
+        // `OPEN_DECISIONS` is empty, which is why the storefront screen stops
+        // drawing the switch at all.
+        $onTrial = $this->gate(dokanRunning: false, trial: true);
+        self::assertSame(OrderOperationsGate::READY, $onTrial->check()['reason']);
+    }
+
+    /**
+     * And the one that must stay true however the decisions move: the Dokan
+     * answer is unchanged by them.
+     *
+     * Before this release the gate refused twice over — once for Dokan, once
+     * for the open decisions — so a mistake in the Dokan branch was invisible.
+     * Now it is the only refusal left, which makes this the load-bearing
+     * assertion of the file rather than one of two.
+     */
+    public function testTheDokanAnswerDoesNotDependOnTheDecisions(): void
+    {
+        self::assertSame([], OrderOperationsGate::OPEN_DECISIONS, 'the premise of this test');
+
+        $running = $this->gate(dokanRunning: true, trial: false);
+        self::assertFalse($running->check()['ready']);
+        self::assertSame(OrderOperationsGate::DOKAN_RUNNING, $running->check()['reason']);
+
+        $gone = $this->gate(dokanRunning: false, trial: false);
+        self::assertTrue($gone->check()['ready']);
     }
 
     /**
@@ -143,7 +176,7 @@ final class OrderGateRefusesWhileDokanRunsTest extends TestCase
             new FakeTrialUnlock(true)
         );
 
-        self::assertSame(OrderOperationsGate::READY_ON_TRIAL, $gate->check()['reason']);
+        self::assertSame(OrderOperationsGate::READY, $gate->check()['reason']);
     }
 
     private function gate(

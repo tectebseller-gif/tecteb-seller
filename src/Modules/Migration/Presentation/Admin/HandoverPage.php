@@ -26,7 +26,10 @@ use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMap;
 use Tecteb\Marketplace\Modules\Migration\Application\CategoryMapping;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanReaderInterface;
+use Tecteb\Marketplace\Modules\Migration\Application\ConcludeMigration;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist;
+use Tecteb\Marketplace\Modules\Migration\Application\MigrationToolsVisibility;
+use Tecteb\Marketplace\Modules\Migration\Presentation\MigrationToolMessages;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanSnapshot;
 use Tecteb\Marketplace\Modules\Migration\Presentation\MigrationWizardText;
 use Tecteb\Marketplace\Modules\Migration\Application\DokanRecordImportJob;
@@ -214,6 +217,17 @@ final class HandoverPage
                 ? __('هر دوازده گام انجام شده است. از این لحظه غیرفعال‌کردن دکان یک تصمیم عملیاتی است، و این افزونه آن را انجام نمی‌دهد.', 'tecteb-marketplace-core')
                 : __('تا وقتی هر دوازده گام انجام نشده، این فروشگاه «آمادهٔ خروج از دکان» خوانده نمی‌شود. گامِ اندازه‌گیری‌نشده هم انجام‌نشده حساب می‌شود.', 'tecteb-marketplace-core')
         );
+
+        // ⛔ AND THE ONE BUTTON THAT RETIRES THIS WHOLE SECTION.
+        //
+        // §5: «این موارد پس از تأیید موفقیت مهاجرت، از منوی معمولی پنهان
+        // شوند». Here, on the screen that shows the twelve steps, because
+        // that is where a manager can see what they are confirming. The
+        // checking is NOT in this button: `ConcludeMigration` re-asks the
+        // checklist for every imported shop and refuses with the unfinished
+        // steps named, so a button pressed on a shop that happens to look
+        // ready cannot hide the tools another shop still needs.
+        $this->renderConcludeControl();
 
         echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
             . esc_attr__('جدول مسیر مهاجرت', 'tecteb-marketplace-core') . '">'
@@ -1132,6 +1146,35 @@ final class HandoverPage
         echo '</section>';
     }
 
+    /**
+     * «مهاجرت تمام شد» — and the sentence that says what it does and does not
+     * do.
+     *
+     * Drawn only while the tools are still visible. Once they are hidden this
+     * page is hidden with them, so the way back lives on the health page
+     * instead — which is the whole reason it lives there rather than here.
+     */
+    private function renderConcludeControl(): void
+    {
+        if (!$this->container->has(MigrationToolsVisibility::class)) {
+            return;
+        }
+        $visibility = $this->container->get(MigrationToolsVisibility::class);
+        if (!$visibility instanceof MigrationToolsVisibility || !$visibility->toolsAreVisible()) {
+            return;
+        }
+        echo '<form method="post" class="tmc-inline">'
+            . wp_nonce_field(self::NONCE, 'tmc_handover_nonce', true, false)
+            . '<button type="submit" class="tmc-button tmc-button--ghost" name="handover_action" value="conclude_migration">'
+            . esc_html__('مهاجرت تمام شد — ابزارهای موقت را از منو بردار', 'tecteb-marketplace-core')
+            . '</button></form>'
+            . Components::moreDetails([
+                __('این کار فقط بخش «مهاجرت از دکان (موقت)» را از منوی روزمره برمی‌دارد. هیچ کد مهاجرت، جدول، تاریخچهٔ مالی، سند یا مسیر بازگشتی حذف نمی‌شود.', 'tecteb-marketplace-core'),
+                __('اگر هر یک از دوازده گام برای هر فروشگاه واردشده‌ای «انجام شد» نباشد، این درخواست رد می‌شود و همان گام‌ها با نام گفته می‌شوند.', 'tecteb-marketplace-core'),
+                __('برگرداندنش یک دکمه است، روی صفحهٔ «سلامت» — که همان‌جا هم نشانی مستقیم هر ابزار پنهان‌شده را فهرست می‌کند.', 'tecteb-marketplace-core'),
+            ]);
+    }
+
     private function handleAction(Request $request): string
     {
         if (!$request->isPost() || !$request->hasPost('handover_action')) {
@@ -1156,6 +1199,12 @@ final class HandoverPage
                 return 'err:' . self::sellingOutcome($result->code);
             }
             return 'ok:' . self::sellingOutcome($result->code);
+        }
+
+        if ($action === 'conclude_migration') {
+            $outcome = $this->container->get(ConcludeMigration::class)->conclude();
+            return ($outcome->ok ? 'ok:' : 'err:')
+                . MigrationToolMessages::of($outcome->code, $outcome->context);
         }
 
         if ($action === 'confirm_records' || $action === 'revoke_records') {

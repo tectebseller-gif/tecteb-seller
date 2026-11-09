@@ -407,6 +407,36 @@ final class DbOrderItemRepository implements OrderItemRepositoryInterface
         return $written;
     }
 
+    /**
+     * The mirrored status of the order this LINE belongs to, or null.
+     *
+     * One row, by the line's own id, so a caller holding an item never has to
+     * learn the order id to ask. `null` carries three cases that are all «I
+     * could not find out» and none of which may be read as a status: the
+     * column is not there yet, nobody has announced one, or the read failed.
+     *
+     * Used by the settlement-completion guard as the SECOND source, after the
+     * live reader. It is not a guard on its own and must not become one: the
+     * capture does not write this column, so a paid order whose status never
+     * changed after checkout carries nothing here.
+     */
+    public function wcOrderStatusOf(int $itemId): ?string
+    {
+        if (!$this->hasWcOrderStatusColumn()) {
+            return null;
+        }
+        $row = $this->db->getRow(
+            'SELECT `' . WcStatus::COLUMN . '` AS wc_order_status
+             FROM `' . $this->table() . '` WHERE id = %d',
+            [$itemId]
+        );
+        if ($row === null || ($row['wc_order_status'] ?? null) === null) {
+            return null;
+        }
+        $status = trim((string) $row['wc_order_status']);
+        return $status === '' ? null : $status;
+    }
+
     public function recordWcOrderStatus(int $wcOrderId, string $status): ?int
     {
         // The column arrived in migration 39, so a build whose structure has
