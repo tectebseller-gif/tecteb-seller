@@ -5,7 +5,7 @@
 | **بسته** | `dist/tecteb-marketplace-core-0.1.0-alpha.100.zip` |
 | **نسخه** | `0.1.0-alpha.100` |
 | **SHA-256** | `51aa1d1cc2ebc2619d2221cee0a343b5b8fad473801d226f1920bcaffd1e8706` |
-| **commit** | `@@COMMIT@@` |
+| **commit** | `da00ae06243e3eb7da87e579f943930a3024afde` |
 | **شاخه** | `claude/new-session-z1vafy` |
 | **تعداد فایل داخل ZIP** | **۶۶۵** فایل، ۲٬۲۶۵٬۹۸۴ بایت · `php -l` روی **۶۵۰** فایل PHP |
 | **ساختار داده** | **۳۹ می‌مانَد، هیچ migration ای** — خوانده‌شده از `SchemaVersion::TARGET` و از **صفر** فایلِ تغییریافته زیر `src/**/Migrations/` نسبت به `b53ae22` |
