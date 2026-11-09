@@ -10,6 +10,7 @@
 | بسته | `dist/tecteb-homepage-0.3.7.zip` (۲۹۷٬۴۹۷ بایت) |
 | SHA-256 | `00da85c50a21d7eb2dfa0eb31dd089c70c66667970468551f4b977318a001fe9` (`dist/SHA256SUMS`) |
 | نسخهٔ قبلی | `0.3.6` — `3e9e4ecc6837dea00a7b4fea4b5984f013ac65b3a22682c9ec9eb3134f9749b9` (دست‌نخورده، برای بازگشت) |
+| commit / شاخه | `3c3f850` (نخستین commit ِ دارای این ZIP؛ سورس از آن پس بی‌تغییر) — `claude/charming-pasteur-a0zjej` |
 | تکرارپذیری | دو ساخت جدا، همان هش؛ فایل‌های ZIP بایت‌به‌بایت برابر سورس؛ CSS = خروجی `tools/port-assets.py` |
 | تفاوت با ZIP ِ 0.3.6 | فقط `includes/class-page-template.php`، و نسخه در `tecteb-homepage.php` و `readme.txt` |
 | داده | هیچ migration، هیچ کلید یا جدول تازه؛ تنظیمات ذخیره‌شده بایت‌به‌بایت می‌مانند |

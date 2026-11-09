@@ -314,8 +314,8 @@ LCP = FCP = ۳٫۱ ثانیه** و عنصر LCP تصویر لوگو است (`img
 ## ۱۱. نصب و بازگشت
 | بسته | SHA-256 | حجم | commit |
 |---|---|---|---|
-| `homepage-redesign/header-plugin/dist/tecteb-header-0.2.6.zip` | `96addcd4e3a897e92434fef99f3873abeab470058638df142ab58880bf23514e` | ۱۹۹٬۹۲۵ بایت | شاخهٔ `claude/charming-pasteur-a0zjej` (شناسهٔ commit ِ نهایی در پیام تحویل) |
-| `homepage-redesign/plugin/dist/tecteb-homepage-0.3.7.zip` | `00da85c50a21d7eb2dfa0eb31dd089c70c66667970468551f4b977318a001fe9` | ۲۹۷٬۴۹۷ بایت | همان |
+| `homepage-redesign/header-plugin/dist/tecteb-header-0.2.6.zip` | `96addcd4e3a897e92434fef99f3873abeab470058638df142ab58880bf23514e` | ۱۹۹٬۹۲۵ بایت | `3c3f850` (نخستین commit ِ دارای ZIP؛ سورس افزونه از آن پس بی‌تغییر)، شاخهٔ `claude/charming-pasteur-a0zjej` |
+| `homepage-redesign/plugin/dist/tecteb-homepage-0.3.7.zip` | `00da85c50a21d7eb2dfa0eb31dd089c70c66667970468551f4b977318a001fe9` | ۲۹۷٬۴۹۷ بایت | `3c3f850`، همان شاخه |
 | بازگشت: `tecteb-header-0.2.5.zip` | `f7e70c3986c7c88205727bf635ba1735f413d93c0e9d1f86bd422beec18473b3` | دست‌نخورده | — |
 | بازگشت: `tecteb-homepage-0.3.6.zip` | `3e9e4ecc6837dea00a7b4fea4b5984f013ac65b3a22682c9ec9eb3134f9749b9` | دست‌نخورده | — |
 

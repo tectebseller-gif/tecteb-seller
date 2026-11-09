@@ -10,6 +10,7 @@
 | بسته | `dist/tecteb-header-0.2.6.zip` (۱۹۹٬۹۲۵ بایت) |
 | SHA-256 | `96addcd4e3a897e92434fef99f3873abeab470058638df142ab58880bf23514e` (`dist/SHA256SUMS`) |
 | نسخهٔ قبلی | `0.2.5` — `f7e70c3986c7c88205727bf635ba1735f413d93c0e9d1f86bd422beec18473b3` (دست‌نخورده، برای بازگشت) |
+| commit / شاخه | `3c3f850` (نخستین commit ِ دارای این ZIP؛ سورس از آن پس بی‌تغییر) — `claude/charming-pasteur-a0zjej` |
 | تکرارپذیری | دو ساخت جدا، همان هش؛ فایل‌های ZIP بایت‌به‌بایت برابر سورس |
 | تفاوت با ZIP ِ 0.2.5 | فقط `includes/class-replace.php`، و نسخه در `tecteb-header.php` و `readme.txt` |
 | داده | هیچ migration، هیچ option، متا یا جدول تازه؛ تنظیمات ذخیره‌شده بایت‌به‌بایت می‌مانند |
