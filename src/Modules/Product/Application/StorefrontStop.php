@@ -230,9 +230,29 @@ final class StorefrontStop
      */
     private function unseen(int $seen): int
     {
-        $total = $this->products->countProjected();
+        return self::unseenFrom($this->products->countProjected(), $seen, self::SCAN_LIMIT);
+    }
+
+    /**
+     * The rule itself, pure — and public so it can be MEASURED.
+     *
+     * ⛔ **WHY THIS IS NOT INLINE ANY MORE.** The branch that matters is «the
+     * count could not be read AND the scan filled its cap», and reaching it
+     * through `stop()` needs five hundred and one real products. A mutation
+     * that turned that branch into `return 0` — the exact silence this round
+     * removed — SURVIVED the whole suite, because every fixture sits far
+     * below the cap and both versions answer nought there. `alpha.77`'s
+     * remedy: make the branch reachable rather than leave it unguarded.
+     *
+     * Nought when the count is known and the scan saw it all; the difference
+     * when it did not; and on an unreadable count, «there is something I did
+     * not see» ONLY when the scan filled up — which is the conservative
+     * direction, because it tells the manager to look.
+     */
+    public static function unseenFrom(?int $total, int $seen, int $limit): int
+    {
         if ($total === null) {
-            return $seen >= self::SCAN_LIMIT ? 1 : 0;
+            return $seen >= $limit ? 1 : 0;
         }
         return max(0, $total - $seen);
     }

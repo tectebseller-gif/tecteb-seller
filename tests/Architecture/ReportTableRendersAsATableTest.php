@@ -76,15 +76,38 @@ final class ReportTableRendersAsATableTest extends TestCase
     {
         foreach ([self::LEDGER, self::AUDIT] as $file) {
             $code = self::code($file);
-            $card = strpos($code, 'tmc-card');
-            $scroll = strpos($code, 'tmc-scroll');
-            self::assertIsInt($card, $file . ' must open a card');
-            self::assertIsInt($scroll, $file . ' must still scroll the table');
-            // Every scroll wrapper has a card opened before it in the same
-            // file. Measured by position rather than by nesting, which is the
-            // most a byte test can claim — the browser evidence in
-            // `docs/evidence/alpha100-reports/` is what shows the nesting.
-            self::assertLessThan($scroll, $card, $file . ': the card must come first');
+            // ⛔ EVERY scroll region, and the card that belongs to IT. The
+            // first version asked whether `tmc-card` appeared anywhere before
+            // the first `tmc-scroll`, and these files open five cards for
+            // other sections — so deleting the table's own card left the test
+            // green (`alpha.88`: a needle the file prints elsewhere answers
+            // about somewhere else). Each scroll wrapper is now measured
+            // against the nearest `<section` before it.
+            $offset = 0;
+            $regions = 0;
+            while (($scroll = strpos($code, 'tmc-scroll', $offset)) !== false) {
+                $offset = $scroll + 1;
+                $regions++;
+                $open = strrpos(substr($code, 0, $scroll), '<section');
+                self::assertIsInt($open, $file . ': a scroll region outside any section');
+                // ⛔ THE SECTION'S OWN OPENING TAG, and the class as a WHOLE
+                // WORD. Measured: the second falsification run took the class
+                // off the section and this test stayed green, because the
+                // `<h2 class="tmc-card__title">` one byte later carries
+                // `tmc-card` as a substring — `alpha.33` inside the very
+                // guard written for `alpha.88`. Only the database suite went
+                // red, so a guard that names the card was answering about a
+                // heading.
+                $tagEnd = strpos($code, '>', $open);
+                self::assertIsInt($tagEnd, $file . ': an unterminated <section');
+                $tag = substr($code, $open, $tagEnd - $open);
+                self::assertMatchesRegularExpression(
+                    '/class="[^"]*\btmc-card\b/',
+                    $tag,
+                    $file . ': the section around a scroll region must be the card'
+                );
+            }
+            self::assertGreaterThan(0, $regions, $file . ' must still scroll a table');
             self::assertStringContainsString('tmc-table', $code, $file);
         }
     }

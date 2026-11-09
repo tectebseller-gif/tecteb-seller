@@ -49,11 +49,18 @@ final class OrderAdminUrlTest extends ContractTestCase
     public function testWooCommercesOwnAnswerIsPreferredWhenItHasOne(): void
     {
         eval('class WooCommerce {}');
-        self::utilWithEditUrl('https://example.test/wp-admin/admin.php?page=wc-orders&action=edit&id=');
+        // ⛔ AN ADDRESS THE FALLBACK COULD NOT INVENT. The first version of
+        // this handed back exactly the string the HPOS branch builds, so
+        // deleting the «ask WooCommerce» branch altogether left the test
+        // green — it was asserting the SHAPE, not the SOURCE. A query
+        // argument nothing else writes is what makes the two distinguishable.
+        self::utilWithEditUrl(
+            'https://example.test/wp-admin/admin.php?page=wc-orders&action=edit&woo=1&id='
+        );
         self::assertSame(
-            'https://example.test/wp-admin/admin.php?page=wc-orders&action=edit&id=12300',
+            'https://example.test/wp-admin/admin.php?page=wc-orders&action=edit&woo=1&id=12300',
             (new WcOrderAdminUrl())->editUrl(12300),
-            'WooCommerce knows where its own orders are'
+            'WooCommerce knows where its own orders are, and is asked first'
         );
     }
 

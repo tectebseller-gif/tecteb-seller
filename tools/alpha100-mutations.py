@@ -137,8 +137,8 @@ MUTATIONS = [
     {
         "name": "an unreadable count is read as «nothing left over»",
         "file": STOP,
-        "expect": "database",
-        "old": "            return $seen >= self::SCAN_LIMIT ? 1 : 0;",
+        "expect": "unit",
+        "old": "            return $seen >= $limit ? 1 : 0;",
         "new": "            return 0;",
     },
     # ── the reports strip ───────────────────────────────────────────────────

@@ -1,0 +1,243 @@
+alpha.100 falsification — 17 mutations
+database filter inside the loop: OrderLedgerSummaryTest|OrderLedgerReportTest|OrderReconciliationTest|ReportLayoutEvidenceTest|CatalogProjectionTest|AdminPagesRenderTest
+the closing baseline runs the database suite UNFILTERED
+tree: a804289 (plus the uncommitted round)
+
+=== 1/17 the report table loses the card it needs to become a table
+    file:   src/Modules/Order/Presentation/Admin/OrderLedgerPage.php
+    expect: architecture,database
+applied: the report table loses the card it needs to become a table
+sha256 after: a8a61067a8f9dd5c6849529956b5acff4ba778c872488d2eaa3ba2dde7be68d9
+    architecture: 0
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 2/17 a stacked cell stops saying which figure it holds
+    file:   src/Modules/Order/Presentation/Admin/OrderLedgerPage.php
+    expect: architecture,database
+applied: a stacked cell stops saying which figure it holds
+sha256 after: 5ebe766474aa4eeceb6a16241bd755a136da388e401d30bd667ef060a9750829
+    architecture: 2
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/17 every order link goes back to post.php, dead on HPOS
+    file:   src/Modules/Order/Domain/OrderAdminPath.php
+    expect: unit,contract,database
+applied: every order link goes back to post.php, dead on HPOS
+sha256 after: 72ae80c770dcb426582a98475a4612afd56356f8403bf1d15bb43260e5841aa4
+    unit: 2
+    contract: 2
+    database: 0
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/17 WooCommerce's own address helper is no longer preferred
+    file:   src/Modules/Order/Infrastructure/WooCommerce/WcOrderAdminUrl.php
+    expect: contract
+applied: WooCommerce's own address helper is no longer preferred
+sha256 after: 42aceb6ddba70d482f6a505645aca2c8824e1e01c0a22b8206c00451a59bbf25
+    contract: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 5/17 an address is invented on a site with no WooCommerce
+    file:   src/Modules/Order/Infrastructure/WooCommerce/WcOrderAdminUrl.php
+    expect: contract
+applied: an address is invented on a site with no WooCommerce
+sha256 after: e47d0cd36bc98a9a31da3a20ed43469f3c3483b11aaa20ae2a65e7a7862c209e
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/17 the SELECT's own placeholders are bound after the WHERE's
+    file:   src/Modules/Order/Infrastructure/DbOrderItemRepository.php
+    expect: database
+applied: the SELECT's own placeholders are bound after the WHERE's
+sha256 after: 3a3db59954f0ec00de89d36b3c0c9bd48dd7750f8707806addec763650157bf0
+    database: 6
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/17 a sweep cut off at its cap reports that it finished
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: a sweep cut off at its cap reports that it finished
+sha256 after: 063b824117cfdd91388d46248b42ec0602783a198496008de4546271bad895b4
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/17 the payment column holds a sentence again, one word per line
+    file:   src/Modules/Order/Presentation/OrderLedgerMessages.php
+    expect: database
+applied: the payment column holds a sentence again, one word per line
+sha256 after: a0b50dd1cd56e55fa5fcf9bc4632f6677b64985c82999bd08c8755eafbadb83d
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/17 the audit reads the books before asking who is asking
+    file:   src/Modules/Order/Application/ReconcileOrders.php
+    expect: architecture,database
+applied: the audit reads the books before asking who is asking
+sha256 after: 4422cab851249a958b7405dce7de31c9d0cfcf90f5df19841fe4a4017d5e54c7
+    architecture: 1
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/17 a cancelled line with no reversing document is called clean
+    file:   src/Modules/Order/Domain/LineReconciliation.php
+    expect: unit,database
+applied: a cancelled line with no reversing document is called clean
+sha256 after: 2407ef2d1ff28c258da7bcbe4142bafe9dbe996cc3309442f9b01b88ffb3f73e
+    unit: 3
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/17 a reversal standing beside a live line is called clean
+    file:   src/Modules/Order/Domain/LineReconciliation.php
+    expect: unit,database
+applied: a reversal standing beside a live line is called clean
+sha256 after: caa8cde9ef286dc24b21507b996416db60b311829cab9ced53751b08199af715
+    unit: 2
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/17 a document in two units is no longer noticed
+    file:   src/Modules/Finance/Infrastructure/DbLedgerRepository.php
+    expect: database
+applied: a document in two units is no longer noticed
+sha256 after: ce751327d6642bd1a8124df8a89d915e3917c473b6cc75aa91613b9d441455bc
+    database: 10
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/17 the summary adds figures across two units of money
+    file:   src/Modules/Order/Application/OrderLedgerReport.php
+    expect: database
+applied: the summary adds figures across two units of money
+sha256 after: 61cf6fafd2622cd86ed42a394d62ef46975b86d9f318f9836a8a9ddd02518ba6
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/17 a stop that reached its cap goes back to saying nothing
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: database
+applied: a stop that reached its cap goes back to saying nothing
+sha256 after: 18fa2d2099f8441d5ee4db2669aa139a3e86d38c7f50eca1a80f6ebb273d6482
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15/17 an unreadable count is read as «nothing left over»
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: database
+applied: an unreadable count is read as «nothing left over»
+sha256 after: dc953e0204926c7ac44c439bb5d3f6dbc0ec3b43cad7ab7bcf357bb0151788f1
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 16/17 the reports strip stops asking who may see each place
+    file:   src/Modules/Admin/Presentation/Components.php
+    expect: architecture
+applied: the reports strip stops asking who may see each place
+sha256 after: b6f3d5d2c77624c447cba4352d0f0eacc8f03f8ad245e3087583162fa1e4983b
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 17/17 the tax is folded into the commission base
+    file:   src/Modules/Order/Application/CaptureOrder.php
+    expect: architecture
+applied: the tax is folded into the commission base
+sha256 after: 09e2717d200b8d5ffccd93b6d636961e25e336d7dfdbbcb61408e31f4c0270b5
+    architecture: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 0
+
+problems: 4
+
+=== SECOND RUN — the four that survived, after their gaps were closed
+    (same harness, quiet tree, byte-for-byte restore; the first run's
+     answers above are left exactly as they were)
+
+=== 1 (second run) the report table loses the card it needs to become a table
+    file:   src/Modules/Order/Presentation/Admin/OrderLedgerPage.php
+    expect: architecture,database
+applied: the report table loses the card it needs to become a table
+sha256 after: a8a61067a8f9dd5c6849529956b5acff4ba778c872488d2eaa3ba2dde7be68d9
+    architecture: 0
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4 (second run) WooCommerce's own address helper is no longer preferred
+    file:   src/Modules/Order/Infrastructure/WooCommerce/WcOrderAdminUrl.php
+    expect: contract
+applied: WooCommerce's own address helper is no longer preferred
+sha256 after: 42aceb6ddba70d482f6a505645aca2c8824e1e01c0a22b8206c00451a59bbf25
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15 (second run) an unreadable count is read as «nothing left over»
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: unit
+applied: an unreadable count is read as «nothing left over»
+sha256 after: 4bb58f0737ed403c4d5784ade7f7400d98629cb09a05afafb3ce886442a6237a
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 17 (second run) the tax is folded into the commission base
+    file:   src/Modules/Order/Application/CaptureOrder.php
+    expect: architecture
+applied: the tax is folded into the commission base
+sha256 after: 09e2717d200b8d5ffccd93b6d636961e25e336d7dfdbbcb61408e31f4c0270b5
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards (second run)
+    unit: 0
+    architecture: 0
+    contract: 0
+    database: 0
+
+problems (second run): 0
+
+=== SECOND RUN — the four that survived, after their gaps were closed
+    (same harness, quiet tree, byte-for-byte restore; the first run's
+     answers above are left exactly as they were)
+
+=== 1 (second run) the report table loses the card it needs to become a table
+    file:   src/Modules/Order/Presentation/Admin/OrderLedgerPage.php
+    expect: architecture,database
+applied: the report table loses the card it needs to become a table
+sha256 after: a8a61067a8f9dd5c6849529956b5acff4ba778c872488d2eaa3ba2dde7be68d9
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards (second run)
+    unit: 0
+    architecture: 0
+    contract: 0
+    database: 0
+
+problems (second run): 0

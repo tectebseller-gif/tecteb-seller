@@ -84,10 +84,26 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
         $table = strpos($html, 'tmc-table');
         self::assertIsInt($table, 'the table must be rendered');
         $before = substr($html, 0, $table);
+        // ⛔ THE CARD THAT ENCLOSES **THIS** TABLE, not one that happens to
+        // appear earlier on the page. The first version of this looked for
+        // `class="tmc-card"` anywhere before the table and the summary cards
+        // above satisfied it — so removing the table's own card left the test
+        // green while the container query had nothing to match. A needle the
+        // page prints in several places says nothing about this place
+        // (`alpha.88`). The last section to OPEN before the table must be the
+        // card, and nothing may have closed in between.
+        $lastOpen = strrpos($before, '<section');
+        self::assertIsInt($lastOpen, 'the table must be inside a section');
+        $enclosing = substr($before, $lastOpen);
         self::assertStringContainsString(
             'class="tmc-card"',
-            $before,
-            'a card must be OPEN before the table — the container query has nothing to match otherwise'
+            substr($enclosing, 0, (int) strpos($enclosing, '>') + 1),
+            'the section the table sits in must BE the card — the container query matches nothing otherwise'
+        );
+        self::assertStringNotContainsString(
+            '</section>',
+            $enclosing,
+            'and that card must still be open where the table starts'
         );
         // And the scroll region is still there, so a wide table scrolls
         // instead of pushing the page.

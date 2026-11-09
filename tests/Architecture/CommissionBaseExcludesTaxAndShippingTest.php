@@ -86,10 +86,15 @@ final class CommissionBaseExcludesTaxAndShippingTest extends TestCase
     public function testTheBaseIsTheLineTotalAndTheTaxIsItsOwnMoney(): void
     {
         $code = self::code();
-        self::assertMatchesRegularExpression(
-            "/\\\$base = Money::of\\(\\(int\\) \\(\\\$line\\['line_total_minor'\\]/",
+        // ⛔ THE WHOLE STATEMENT, not its first half. The first version of
+        // this matched a PREFIX, so `… ?? 0) + (int) ($line['line_tax_minor']
+        // ?? 0), …` still matched it and the tax could be folded into the
+        // base with the test green. A regex that stops before the semicolon
+        // is asserting where a statement starts, never what it says.
+        self::assertStringContainsString(
+            "\$base = Money::of((int) (\$line['line_total_minor'] ?? 0), \$lineCurrency, \$lineExponent);",
             $code,
-            'the commission base must be the line total on its own'
+            'the commission base must be the line total on its own, and nothing added to it'
         );
         self::assertMatchesRegularExpression(
             "/\\\$tax = Money::of\\(\\(int\\) \\(\\\$line\\['line_tax_minor'\\]/",
