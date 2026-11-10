@@ -139,7 +139,7 @@ deactivate-then-reactivate انجام دهد، ۱۸۴ محصول را بی تص�
 `order_payment_not_received`. هر دو رد **با نام** اند و مدیر تفاوتشان را روی
 صفحه می‌بیند. §۵ دستور همین را خواست.
 
-اجرا: unit **۸۸۴** · architecture **۳۳۵** · contract **<!--CONTRACT-->** ·
+اجرا: unit **۸۸۴** · architecture **۳۳۵** · contract **۳۹۱** ·
 database **<!--DATABASE-->** · packaging **<!--PACKAGING-->** — همه ۰ شکست، و
 سوییت database **تنها** دوانده شد (`alpha.40`/`alpha.98`).
 `php -l` روی **۶۶۱** فایل با **۸٫۳٫۶** و ۰ شکست؛ **۸٫۱ اجرا نشد و §۹ دستور

@@ -1,0 +1,213 @@
+alpha.102 falsification — 21 mutations
+database filter inside the loop: OrderFlowTest|StoreAndStaffFlowTest|ActivationFlowTest|CatalogProjectionTest
+the closing baseline runs the database suite UNFILTERED
+tree: eb11849 (plus the uncommitted round)
+
+=== 1/21 the native coupon is applied again instead of refused
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: the native coupon is applied again instead of refused
+    database: 5
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/21 the refusal returns false, so the buyer loses the sentence
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: the refusal returns false, so the buyer loses the sentence
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/21 an unreadable basket refuses every coupon on the site
+    file:   src/Modules/Finance/Infrastructure/WooCommerce/CommissionCartGuard.php
+    expect: database
+applied: an unreadable basket refuses every coupon on the site
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/21 a code whose reach is unknown is allowed through
+    file:   src/Modules/Finance/Application/ForeignDiscountScope.php
+    expect: unit
+applied: a code whose reach is unknown is allowed through
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/21 the vendor's own coupon is refused and a foreign one is not
+    file:   src/Modules/Finance/Application/ForeignDiscountScope.php
+    expect: unit,database
+applied: the vendor's own coupon is refused and a foreign one is not
+    unit: 6
+    database: 6
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/21 the host shop's own goods are treated as a vendor's
+    file:   src/Modules/Finance/Application/ForeignDiscountScope.php
+    expect: unit
+applied: the host shop's own goods are treated as a vendor's
+    unit: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 7/21 deactivation drafts the catalogue again, with nobody asking
+    file:   src/Infrastructure/WordPress/Lifecycle/Deactivator.php
+    expect: contract
+applied: deactivation drafts the catalogue again, with nobody asking
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/21 what is left on sale is never counted, so nothing says so
+    file:   src/Infrastructure/WordPress/Lifecycle/Deactivator.php
+    expect: contract
+applied: what is left on sale is never counted, so nothing says so
+    contract: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 9/21 the audit row drops the two keys that say which path ran
+    file:   src/Core/Audit/AuditEventCatalog.php
+    expect: contract
+applied: the audit row drops the two keys that say which path ran
+    contract: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/21 any stored value counts as the owner having said yes
+    file:   src/Modules/Product/Application/DeactivationStopPolicy.php
+    expect: unit
+applied: any stored value counts as the owner having said yes
+    unit: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/21 the default becomes «stop», so an unanswered gate acts
+    file:   src/Modules/Product/Application/DeactivationStopPolicy.php
+    expect: unit,contract
+applied: the default becomes «stop», so an unanswered gate acts
+    unit: 2
+    contract: 0
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/21 the orders route takes the catalogue permission again
+    file:   src/Modules/Operations/Infrastructure/Rest/MarketplaceController.php
+    expect: architecture
+applied: the orders route takes the catalogue permission again
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/21 reading order lines needs the catalogue instead of the money
+    file:   src/Modules/Operations/Infrastructure/Rest/MarketplaceController.php
+    expect: architecture,database
+applied: reading order lines needs the catalogue instead of the money
+    architecture: 1
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/21 order access alone opens a payload carrying commission
+    file:   src/Modules/Operations/Infrastructure/Rest/MarketplaceController.php
+    expect: architecture,database
+applied: order access alone opens a payload carrying commission
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 15/21 a stop that hit its cap reports success
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: database
+applied: a stop that hit its cap reports success
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 16/21 a real stop leaves the «left on sale» warning standing
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: database
+applied: a real stop leaves the «left on sale» warning standing
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 17/21 the store base is not remembered, so removal kills redirects
+    file:   src/Modules/Vendor/Infrastructure/WordPress/DokanUrlRedirects.php
+    expect: contract
+applied: the store base is not remembered, so removal kills redirects
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 18/21 every front-end hit writes an option while reading
+    file:   src/Modules/Vendor/Infrastructure/WordPress/DokanUrlRedirects.php
+    expect: contract
+applied: every front-end hit writes an option while reading
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 19/21 the ledger export gets its own, contradictory escaping back
+    file:   src/Modules/Order/Presentation/Admin/OrderLedgerPage.php
+    expect: unit,architecture
+applied: the ledger export gets its own, contradictory escaping back
+    unit: 0
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 20/21 the formula list is typed out a second time
+    file:   src/Modules/Product/Application/ProductCsv.php
+    expect: architecture
+applied: the formula list is typed out a second time
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 21/21 the finance dispatcher cancels for any unlisted verb again
+    file:   src/Modules/Finance/Infrastructure/WordPress/FinanceArea.php
+    expect: architecture
+applied: the finance dispatcher cancels for any unlisted verb again
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 0
+
+problems: 2
+
+=== SECOND RUN — the four that survived, after their gaps were closed
+    (same harness, quiet tree, byte-for-byte restore; the first run's
+     answers above are left exactly as they were)
+
+=== 8 (second run) what is left on sale is never counted, so nothing says so
+    file:   src/Infrastructure/WordPress/Lifecycle/Deactivator.php
+    expect: architecture
+applied: what is left on sale is never counted, so nothing says so
+    architecture: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 16 (second run) a real stop leaves the «left on sale» warning standing
+    file:   src/Modules/Product/Application/StorefrontStop.php
+    expect: database
+applied: a real stop leaves the «left on sale» warning standing
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards (second run)
+    unit: 0
+    architecture: 0
+    contract: 0
+    database: 0
+
+problems (second run): 0
