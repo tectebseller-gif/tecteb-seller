@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderLedgerReport;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderLedgerFilter;
 use Tecteb\Marketplace\Modules\Order\Presentation\OrderLedgerMessages;
+use Tecteb\Marketplace\Core\Support\CsvCell;
 
 /**
  * «سفارش‌ها — ردیف به ردیف» — every recorded line, filterable.
@@ -299,19 +300,21 @@ final class OrderLedgerPage
     /**
      * One CSV cell, quoted — and never a formula.
      *
-     * A value beginning `=`, `+`, `-` or `@` is a formula to every spreadsheet
-     * that opens the file, so it is prefixed with a tab the way the product
-     * export does. Nothing in these columns should be able to begin that way;
-     * the title is a vendor's own text and that is exactly why it is not
-     * trusted to.
+     * ⛔ The rule comes from `CsvCell` rather than from here, and this
+     * docblock used to claim it worked «the way the product export does» while
+     * doing the opposite: a TAB prefix, where `ProductCsv` uses a single quote
+     * AND counts a leading TAB as itself something to defuse. Two writers, two
+     * rules, and this one had no test.
+     *
+     * Nothing in these columns should be able to begin with a formula
+     * character; the title is a vendor's own text and that is exactly why it
+     * is not trusted to.
      */
     private static function cell(string $value): string
     {
-        $value = str_replace(["\r", "\n"], ' ', $value);
-        if ($value !== '' && str_contains('=+-@', $value[0])) {
-            $value = "\t" . $value;
-        }
-        return '"' . str_replace('"', '""', $value) . '"';
+        // Newlines first: a cell that spans rows breaks the file for every
+        // reader, formula or not.
+        return CsvCell::of(str_replace(["\r", "\n"], ' ', $value));
     }
 
     /**

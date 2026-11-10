@@ -62,7 +62,7 @@ final class MarketplaceController
         register_rest_route(self::NAMESPACE, '/vendors/(?P<vendor>\d+)/orders', [
             'methods' => \WP_REST_Server::READABLE,
             'callback' => [$this, 'orders'],
-            'permission_callback' => [$this, 'mayReadVendor'],
+            'permission_callback' => [$this, 'mayReadVendorOrders'],
             'args' => $this->pagingArgs(),
         ]);
         register_rest_route(self::NAMESPACE, '/events', [
@@ -80,7 +80,50 @@ final class MarketplaceController
 
     // ----------------------------------------------------------- permissions
 
+    /** The catalogue route: the same area the vendor's product screen asks for. */
     public function mayReadVendor(\WP_REST_Request $request): bool|\WP_Error
+    {
+        return $this->mayRead($request, [[StaffArea::Product, StaffLevel::View]]);
+    }
+
+    /**
+     * THE ORDER-LINE ROUTE, which is NOT the catalogue route wearing a
+     * different path.
+     *
+     * ⛔ Until this split both routes shared `mayReadVendor`, and that asked
+     * for `Product/View`. The `ProductAndInventory` preset
+     * (`StaffRolePreset.php:40-43`) grants `product` and `inventory` and NO
+     * `order` — so a shop assistant hired to keep the catalogue tidy could
+     * read, over the REST API with nothing but an application password, every
+     * order line of the shop including `base_minor`, `tax_minor`,
+     * `commission_minor` and `vendor_share_minor` (`orders()` below). The
+     * screens deny exactly that person: `ManageOrderItems` asks `Order/View`
+     * for the list and `Finance/View` for the money.
+     *
+     * Not a cross-vendor leak — a foreign id has always been refused below —
+     * but in-shop privilege escalation onto financial data, which is what
+     * §6's «API … قابلیت دورزدن دسترسی نداشته باشند» is about.
+     *
+     * BOTH areas are required rather than one, because this payload carries
+     * both kinds of fact, and the rule this repository already follows is
+     * «نتیجهٔ یکسان ⇒ مجوز یکسان» (`alpha.86`): a response containing money
+     * takes the money permission. A reader holding `Order/View` alone is
+     * refused the whole route rather than served a payload with holes in it —
+     * the stricter answer on a question about somebody else's figures.
+     */
+    public function mayReadVendorOrders(\WP_REST_Request $request): bool|\WP_Error
+    {
+        return $this->mayRead($request, [
+            [StaffArea::Order, StaffLevel::View],
+            [StaffArea::Finance, StaffLevel::View],
+        ]);
+    }
+
+    /**
+     * @param list<array{0:StaffArea, 1:StaffLevel}> $required every one of
+     *        which the caller must hold for this shop
+     */
+    private function mayRead(\WP_REST_Request $request, array $required): bool|\WP_Error
     {
         $vendorUserId = (int) $request['vendor'];
         $userId = get_current_user_id();
@@ -94,12 +137,15 @@ final class MarketplaceController
         }
         /** @var StaffAccess $access */
         $access = $this->container->get(StaffAccess::class);
-        if ($access->can($userId, $vendorUserId, StaffArea::Product, StaffLevel::View)) {
-            return true;
+        foreach ($required as [$area, $level]) {
+            if (!$access->can($userId, $vendorUserId, $area, $level)) {
+                // 403, never an empty 200: «you may not» and «there is
+                // nothing» must not be the same answer, or the endpoint
+                // becomes an id oracle.
+                return $this->denied('tmc_forbidden', __('این فروشگاه در دسترس شما نیست.', 'tecteb-marketplace-core'));
+            }
         }
-        // 403, never an empty 200: «you may not» and «there is nothing» must
-        // not be the same answer, or the endpoint becomes an id oracle.
-        return $this->denied('tmc_forbidden', __('این فروشگاه در دسترس شما نیست.', 'tecteb-marketplace-core'));
+        return true;
     }
 
     public function mayManageApi(): bool|\WP_Error

@@ -360,7 +360,7 @@ final class AuditEventCatalog
         return [
             self::SETTINGS_UPDATED => ['changed', 'old', 'new'],
             self::PLUGIN_ACTIVATED => ['plugin_version', 'schema_version', 'migration_status'],
-            self::PLUGIN_DEACTIVATED => ['plugin_version', 'withdrawn'],
+            self::PLUGIN_DEACTIVATED => ['plugin_version', 'withdrawn', 'stopped_selling', 'left_on_sale'],
             self::MIGRATION_APPLIED => ['from', 'to', 'steps'],
             self::MIGRATION_FAILED => ['step', 'message'],
             self::VENDOR_APPLICATION_SUBMITTED => ['application_id', 'from', 'to', 'documents'],

@@ -95,7 +95,17 @@ namespace {
         public const CREATABLE = 'POST';
     }
 
-    class WP_REST_Request
+    /**
+     * ⛔ `implements ArrayAccess` is not decoration: `MarketplaceController`
+     * reads the route's capture as `$request['vendor']`, which is the real
+     * `WP_REST_Request`'s own API. Without it on the double, a test of that
+     * permission callback would either throw or have to reach the parameter by
+     * a path production never takes — and the callback is the only place in
+     * this plugin where a vendor id legitimately arrives from the request.
+     *
+     * @implements \ArrayAccess<string,mixed>
+     */
+    class WP_REST_Request implements \ArrayAccess
     {
         /** @var array<string,mixed> */
         private array $params = [];
@@ -124,6 +134,26 @@ namespace {
         public function get_param(string $key): mixed
         {
             return $this->params[$key] ?? null;
+        }
+
+        public function offsetExists(mixed $offset): bool
+        {
+            return isset($this->params[(string) $offset]);
+        }
+
+        public function offsetGet(mixed $offset): mixed
+        {
+            return $this->params[(string) $offset] ?? null;
+        }
+
+        public function offsetSet(mixed $offset, mixed $value): void
+        {
+            $this->params[(string) $offset] = $value;
+        }
+
+        public function offsetUnset(mixed $offset): void
+        {
+            unset($this->params[(string) $offset]);
         }
 
         public function set_header(string $key, string $value): void

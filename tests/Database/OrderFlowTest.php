@@ -78,6 +78,7 @@ use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Tests\Support\FakeDokanPresence;
 use Tecteb\Marketplace\Tests\Support\FakeTrialUnlock;
 use Tecteb\Marketplace\Tests\Support\FakeWcProduct;
+use Tecteb\Marketplace\Tests\Support\FakeWcCoupon;
 use TmcWpStubs\FakeWcCart;
 use TmcWpStubs\FakeWooCommerce;
 use TmcWpStubs\State;
@@ -994,6 +995,274 @@ final class OrderFlowTest extends DatabaseTestCase
      * falsification note for this round records that removing the discount
      * call from `inspectCart()` turns these five red.
      */
+    /**
+     * THE STAGING FINDING, reproduced: `TMC-GLOBAL-TEST101`, a `fixed_cart`
+     * code of 1,000 toman, on a marketplace product.
+     *
+     * On `alpha.101` this produced the refusal AND «Coupon code applied
+     * successfully.» on one screen, and the basket fell 64,567 → 63,567. Both
+     * sentences were true about their own instant: the guard sat on
+     * `woocommerce_check_cart_items`, which runs when the cart RENDERS, by
+     * which time `apply_coupon()` had already stored the code.
+     *
+     * So the assertion that matters is not «a refusal was shown» — that was
+     * already true — but that the code was NOT applied and there is exactly
+     * ONE sentence.
+     */
+    public function testTheNativeCartCouponIsRefusedBeforeItIsApplied(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('TMC-GLOBAL-TEST101', cartLevel: true),
+            [$this->marketplaceLine()]
+        );
+
+        self::assertFalse($outcome['applied'], 'the code must not reach the basket');
+        self::assertSame([], $outcome['success'], 'no success sentence may be shown');
+        self::assertCount(1, $outcome['errors'], 'exactly one sentence, not two');
+        self::assertStringContainsString('قابل استفاده نیست', $outcome['errors'][0]);
+    }
+
+    /**
+     * §4-الف: «بدون خواندن تصمیم جاری، همه کوپن‌های ووکامرس را ممنوع نکن.»
+     *
+     * A real `shop_coupon` scoped to the host shop's own product ids does not
+     * reach a marketplace line, so it applies unchanged and the shopper sees
+     * nothing from us. Without this control the fix would be the `alpha.60`
+     * trap — a guard wider than the defect.
+     */
+    public function testAWooCommerceCouponScopedToTheShopsOwnGoodsStillApplies(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('SHOP-ONLY', cartLevel: false, productScope: [777777]),
+            [$this->marketplaceLine()]
+        );
+
+        self::assertTrue($outcome['applied']);
+        self::assertSame([], $outcome['errors']);
+    }
+
+    /** A basket of nothing but the host shop's own goods is not our business. */
+    public function testACartCouponOnABasketWithNoMarketplaceLineStillApplies(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('SHOP-WIDE', cartLevel: true),
+            [$this->foreignLine(909090)]
+        );
+
+        self::assertTrue($outcome['applied']);
+        self::assertSame([], $outcome['errors']);
+    }
+
+    /** The vendor's own marketplace code on their own line, unchanged. */
+    public function testTheVendorsOwnCodeIsStillAppliedAtApplyTime(): void
+    {
+        $this->cartFixture();
+        $this->coupons->createCoupon(new Coupon(0, 'vendora10', self::VENDOR_A, Coupon::PERCENT, 10));
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('vendora10', cartLevel: false, productScope: []),
+            [$this->marketplaceLine()]
+        );
+
+        self::assertTrue($outcome['applied']);
+        self::assertSame([], $outcome['errors']);
+    }
+
+    /**
+     * A PRODUCT-level code (`percent`) that names the marketplace product. The
+     * cart-level branch is not what refuses here — `is_valid_for_product()` is.
+     */
+    public function testAProductCouponAimedAtTheMarketplaceLineIsRefused(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('AIMED', cartLevel: false, productScope: [$this->cartProductId]),
+            [$this->marketplaceLine()]
+        );
+
+        self::assertFalse($outcome['applied']);
+        self::assertSame([], $outcome['success']);
+        self::assertCount(1, $outcome['errors']);
+    }
+
+    /**
+     * The mixed basket: the host shop's own goods plus one marketplace line.
+     * A cart-level code spreads across both, so it is refused — and the
+     * sentence names the marketplace product, not the host one.
+     */
+    public function testAMixedBasketRefusesTheCartCouponAndNamesTheVendorLine(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('MIXED', cartLevel: true),
+            [$this->foreignLine(909090), $this->marketplaceLine()]
+        );
+
+        self::assertFalse($outcome['applied']);
+        self::assertCount(1, $outcome['errors']);
+        self::assertStringContainsString('دستکش لاتکس', $outcome['errors'][0]);
+    }
+
+    /**
+     * §4-ب, «بدون باقی‌ماندن state معیوب در session»: a code already sitting in
+     * the session is removed rather than left half-applied.
+     *
+     * What is asserted here is the half this plugin owns — that the question
+     * `WC_Cart::check_cart_coupons()` asks answers «not valid». The removal
+     * itself is WooCommerce's own code, registered at priority 1 on
+     * `woocommerce_check_cart_items` (`class-wc-cart.php:138`) and calling the
+     * same `is_valid()` (`:814`). ⛔ That it then calls `remove_coupon()` is
+     * read from source, NOT run here: no WooCommerce in this process.
+     */
+    public function testACodeAlreadyInTheSessionIsAnsweredNotValid(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('ALREADY-IN-SESSION', cartLevel: true),
+            [$this->marketplaceLine()],
+            ['ALREADY-IN-SESSION']
+        );
+
+        self::assertFalse($outcome['applied']);
+    }
+
+    /**
+     * Two vendors, the code is the first vendor's own. The second vendor never
+     * agreed to fund anything, so a basket-wide code is still refused —
+     * `alpha.46`, and it names the line it is protecting.
+     */
+    public function testAVendorsOwnCodeIsStillRefusedAgainstAnotherVendorsLine(): void
+    {
+        $this->cartFixture();
+        $this->coupons->createCoupon(new Coupon(0, 'vendora10', self::VENDOR_A, Coupon::PERCENT, 10));
+        $otherId = $this->publish(self::VENDOR_B, 'ماسک سه لایه', 'B-9');
+        $otherWcId = (int) $this->products->find($otherId)?->wcProductId;
+
+        $outcome = $this->applyCoupon(
+            new FakeWcCoupon('vendora10', cartLevel: true),
+            [$this->marketplaceLine(), $this->lineFor($otherWcId, 'ماسک سه لایه')]
+        );
+
+        self::assertFalse($outcome['applied']);
+        self::assertCount(1, $outcome['errors']);
+        self::assertStringContainsString('ماسک سه لایه', $outcome['errors'][0]);
+    }
+
+    /**
+     * The guard steps aside when it cannot read the basket at all — the
+     * `alpha.60` direction, with `VendorFundedDiscount` still standing behind
+     * it. Without this the host shop's own codes would stop working on any
+     * fault inside the new rule.
+     */
+    public function testAnUnreadableBasketDoesNotStopTheCode(): void
+    {
+        $this->cartFixture();
+        $outcome = $this->applyCoupon(new FakeWcCoupon('ANY', cartLevel: true), []);
+
+        self::assertTrue($outcome['applied']);
+        self::assertSame([], $outcome['errors']);
+    }
+
+    /** @return array<string,mixed> */
+    private function marketplaceLine(): array
+    {
+        return $this->lineFor($this->cartProductId, 'دستکش لاتکس');
+    }
+
+    /** @return array<string,mixed> a product this marketplace does not own */
+    private function foreignLine(int $wcProductId): array
+    {
+        return $this->lineFor($wcProductId, 'کالای خود فروشگاه');
+    }
+
+    /** @return array<string,mixed> */
+    private function lineFor(int $wcProductId, string $name): array
+    {
+        return [
+            'data' => new FakeWcProduct($wcProductId, 0, $name),
+            'product_id' => $wcProductId,
+            'variation_id' => 0,
+            'quantity' => 1,
+            'line_subtotal' => '100000',
+            'line_total' => '100000',
+        ];
+    }
+
+    /**
+     * `WC_Cart::apply_coupon()`'s decision, mirrored at the four lines that
+     * decide it, so that «applied or not» is expressible without WooCommerce.
+     *
+     * Read from WooCommerce 11.0.1, the version on staging
+     * (sha256 `88837ea0…494c`):
+     *
+     *  - `WC_Discounts::is_coupon_valid()` wraps the filter in a `try`
+     *    (`class-wc-discounts.php:1134-1151`) and passes a non-numeric
+     *    exception message straight through (`:1159`);
+     *  - `WC_Cart::apply_coupon()` calls `is_valid()` and, on false, adds that
+     *    message as an error and RETURNS before storing the code
+     *    (`class-wc-cart.php:2055-2058`);
+     *  - only past that point does WooCommerce store the code and say
+     *    «Coupon code applied successfully.»
+     *
+     * ⛔ This is a mirror of a control flow, not WooCommerce running. The real
+     * integration is `Not Run` here and stays a staging step.
+     *
+     * @param list<array<string,mixed>> $lines
+     * @param list<string> $alreadyApplied
+     * @return array{applied:bool, errors:list<string>, success:list<string>}
+     */
+    private function applyCoupon(FakeWcCoupon $coupon, array $lines, array $alreadyApplied = []): array
+    {
+        State::$notices = [];
+        $cart = new FakeWcCart($lines, $alreadyApplied);
+        State::$woocommerce = new FakeWooCommerce($cart);
+        // What the filter is really handed: the `WC_Discounts` object built
+        // from the same cart (`class-wc-discounts.php:73-91`), each item
+        // carrying `->product` and `->object`.
+        $discounts = new class ($lines) {
+            /** @param list<array<string,mixed>> $lines */
+            public function __construct(private array $lines)
+            {
+            }
+
+            /** @return list<object> */
+            public function get_items(): array
+            {
+                $items = [];
+                foreach ($this->lines as $line) {
+                    $item = new \stdClass();
+                    $item->product = $line['data'];
+                    $item->object = $line;
+                    $item->quantity = (int) ($line['quantity'] ?? 1);
+                    $items[] = $item;
+                }
+                return $items;
+            }
+        };
+
+        $applied = true;
+        try {
+            if (apply_filters('woocommerce_coupon_is_valid', true, $coupon, $discounts) === false) {
+                throw new \Exception('Coupon is not valid.');
+            }
+        } catch (\Throwable $e) {
+            wc_add_notice($e->getMessage(), 'error');
+            $applied = false;
+        }
+        if ($applied) {
+            wc_add_notice('Coupon code applied successfully.', 'success');
+        }
+
+        $of = static fn (string $type): array => array_values(array_map(
+            static fn (array $n): string => $n['message'],
+            array_filter(State::$notices, static fn (array $n): bool => $n['type'] === $type)
+        ));
+
+        return ['applied' => $applied, 'errors' => $of('error'), 'success' => $of('success')];
+    }
+
     public function testANativeWooCommerceCouponOnAMarketplaceLineIsRefused(): void
     {
         $this->cartFixture();

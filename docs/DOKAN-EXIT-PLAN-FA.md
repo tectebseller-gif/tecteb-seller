@@ -145,8 +145,8 @@
 | چیز | چرا |
 |---|---|
 | `DokanUrlRedirects` | ⛔ **دائمی. پس از خروج لازم‌تر.** |
-| دو گام migration سوابق دکان | جدول‌های **آرشیو خودمان** را می‌سازند |
-| ۳۸ نام رویداد ممیزی | ردِ تاریخیِ کارهای انجام‌شده |
+| **چهار** گام migration با نام دکان | جدول‌های **آرشیو خودمان** را می‌سازند — ⛔ **تصحیح `alpha.102`: «دو گام» غلط بود.** اندازه‌گیری‌شده از `Bootstrap.php`: `M0015DokanOrderHistory` · `M0017DokanShopRecords` · `M0018HandoverRowsAndRecordVersion` · `M0037ShopRecordConfirmation` — و هشت جدول `tmc_dokan_*` می‌سازند، نه چهار. (`M0027/M0028` مالِ Min Max اند، نه دکان.) این عدد مهم است چون همین سند را کسی پیش از خاموش‌کردن دکان می‌خواند. |
+| **ده** نام رویداد ممیزیِ دکان | ردِ تاریخیِ کارهای انجام‌شده — ⛔ **تصحیح `alpha.102`: «۳۸» شمارشِ خطِ `grep` بود، شامل کامنت‌ها، نه تعداد نام رویداد.** مقدارهای متمایزِ اندازه‌گیری‌شده: `migration.dokan_category_applied` · `dokan_category_map_saved` · `dokan_dry_run` · `dokan_finance_handover` · `dokan_import_repaired` · `dokan_imported` · `dokan_records_confirmation_revoked` · `dokan_records_confirmed` · `dokan_rolled_back` · `dokan_staff_granted`. جوهرِ ادعا سر جایش است (حذفشان تاریخچه را ناخوانا می‌کند)؛ عددش نه. |
 | آرشیو سوابق (`tmc_dokan_*_history`) | ⛔ **کپیِ ما؛ تنها نسخه‌ای که پس از رفتن دکان می‌مانَد** |
 | `tmc_dokan_handover` | تصمیم مالی، با تاریخچه |
 | `tools/plugin-exit-inventory.php` و `tools/shop-dependency-census.php` | فقط‌خواندنی؛ ابزار ممیزی |

@@ -103,6 +103,20 @@ final class StorefrontSwitch
      * @param list<int> $orders   unpaid orders whose pay link still works
      */
     /** The count the scan could not reach; nought clears it. */
+    /**
+     * Answers the note deactivation leaves when it was told NOT to stop
+     * selling (`DeactivationStopPolicy::LEFT_ON_SALE_OPTION`).
+     *
+     * Deleted, not zeroed: «it never happened» and «it happened and the shelf
+     * is down now» are the same state as far as anybody reading it is
+     * concerned, and a zero row would keep a sentence alive about a shelf that
+     * is no longer up.
+     */
+    public function clearLeftOnSale(): bool
+    {
+        return $this->options->delete(DeactivationStopPolicy::LEFT_ON_SALE_OPTION);
+    }
+
     public function markUnseen(int $unseen): void
     {
         if ($unseen <= 0) {

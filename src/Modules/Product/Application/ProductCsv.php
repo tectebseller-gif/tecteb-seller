@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
+use Tecteb\Marketplace\Core\Support\CsvCell;
 
 /**
  * Controlled CSV in and out (Master Spec §5 and A.1).
@@ -58,7 +59,14 @@ final class ProductCsv
     public const MAX_ROWS = 500;
 
     /** Anything a spreadsheet would treat as the start of a formula. */
-    private const FORMULA_STARTERS = ['=', '+', '-', '@', "\t", "\r"];
+    /**
+     * Kept as a name so twenty versions of audit rows and tests that cite it
+     * still resolve, but the LIST is `CsvCell`'s — one rule, two writers
+     * (`alpha.78`).
+     *
+     * @var list<string>
+     */
+    private const FORMULA_STARTERS = CsvCell::FORMULA_STARTERS;
 
     public function __construct(
         private readonly ProductRepositoryInterface $products,
@@ -447,10 +455,7 @@ final class ProductCsv
         $escaped = [];
         foreach ($cells as $cell) {
             $value = (string) $cell;
-            if ($defuse && $value !== '' && in_array($value[0], self::FORMULA_STARTERS, true)) {
-                $value = "'" . $value;
-            }
-            $escaped[] = '"' . str_replace('"', '""', $value) . '"';
+            $escaped[] = $defuse ? CsvCell::of($value) : CsvCell::quote($value);
         }
         return implode(',', $escaped);
     }

@@ -7,6 +7,8 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
+use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
 
 /** Persian admin notices for dependency and activation outcomes. */
 final class Notices
@@ -106,6 +108,40 @@ final class Notices
                 . esc_html__('بازارگاه تک‌طب: توقف فروش کامل نشد.', 'tecteb-marketplace-core')
                 . '</strong> ' . esc_html(implode(' ', $lines)) . ' '
                 . esc_html__('تا بسته‌شدن این موارد، بستهٔ افزونه را عوض یا غیرفعال نکنید؛ بدون افزونه چیزی جلوی فروش یا پرداختشان را نمی‌گیرد. صفحهٔ «وضعیت فروش بازارگاه» جزئیات و دکمهٔ تلاش دوباره را دارد.', 'tecteb-marketplace-core')
+                . '</p></div>';
+        });
+
+        // ⛔ AND THE PRICE OF THE §6 DEFAULT, said out loud.
+        //
+        // Deactivation no longer takes the shelf down unless it was told to,
+        // so it counts what it left buyable instead. This is read on the next
+        // admin page — which, on a reactivation, is the first thing the person
+        // who turned the plugin back on sees.
+        //
+        // It is not an error notice: nothing failed. It is the one fact that
+        // would otherwise be invisible, and it clears itself the moment
+        // somebody deals with it (the storefront page's own stop deletes the
+        // row, and so does reading it here once the count is zero).
+        add_action('admin_notices', static function (): void {
+            if (!current_user_can(Capabilities::MANAGE_STOREFRONT)) {
+                return;
+            }
+            $left = get_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, null);
+            if (!is_int($left) && !(is_string($left) && ctype_digit($left))) {
+                return;             // never written, or written by nobody we know
+            }
+            $left = (int) $left;
+            if ($left <= 0) {
+                return;
+            }
+            echo '<div class="notice notice-warning tmc-notice"><p><strong>'
+                . esc_html__('بازارگاه تک‌طب: افزونه یک بار غیرفعال شد و محصولات روی فروش ماندند.', 'tecteb-marketplace-core')
+                . '</strong> ' . esc_html(sprintf(
+                    /* translators: %s: how many marketplace products stayed on sale */
+                    __('%s محصول بازارگاه در آن فاصله خریدنی بودند و سهم فروشنده برایشان ثبت نمی‌شد.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $left)
+                )) . ' '
+                . esc_html__('اگر در آن فاصله سفارشی ثبت شده، صفحهٔ «ممیزی سفارش‌های بی‌سند» آن را با نام می‌آورد. این انتخاب را صفحهٔ «وضعیت فروش بازارگاه» عوض می‌کند.', 'tecteb-marketplace-core')
                 . '</p></div>';
         });
     }

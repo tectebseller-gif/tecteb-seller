@@ -76,12 +76,52 @@ final class DokanUrlRedirects
         }, 20);
     }
 
-    /** The store base Dokan is configured with, e.g. «store». */
+    /**
+     * Where this plugin remembers Dokan's store base, for after Dokan is gone.
+     *
+     * ⛔ The whole reason this class exists is that deactivating Dokan leaves
+     * its `store/…` rewrite rules in the cached `rewrite_rules` option, so
+     * every old shop URL answers 200 with the home page. These redirects
+     * therefore have to keep working with Dokan ABSENT — and the base was
+     * being read live from `dokan_general`, which Dokan's own UNINSTALL
+     * deletes. On a site with a custom base («forushgah»), that is the moment
+     * the redirects silently stop matching the URLs they were written for,
+     * while the stale rules may still match them.
+     */
+    public const BASE_SNAPSHOT_OPTION = 'tmc_dokan_store_base';
+
+    /** Dokan's default when it has nothing configured. */
+    public const DEFAULT_BASE = 'store';
+
+    /**
+     * The store base Dokan is configured with, e.g. «store» — and, once Dokan
+     * has gone, the one it WAS configured with.
+     *
+     * The snapshot is only ever written from an admin request: this is read on
+     * the front end, and a read that writes an option on every page view is
+     * not a read. An admin page is visited long before a cutover, and the
+     * value only changes when somebody changes Dokan's settings.
+     */
     public static function storeBase(): string
     {
         $settings = get_option('dokan_general', []);
-        $base = is_array($settings) ? (string) ($settings['custom_store_url'] ?? '') : '';
-        return $base !== '' ? trim($base, '/') : 'store';
+        $live = is_array($settings) ? trim((string) ($settings['custom_store_url'] ?? ''), '/') : '';
+        if ($live !== '') {
+            if (is_admin() && self::rememberedBase() !== $live) {
+                update_option(self::BASE_SNAPSHOT_OPTION, $live, false);
+            }
+            return $live;
+        }
+        // Dokan cannot answer. Its last known base beats the default, because
+        // «store» would be a guess about somebody else's URLs.
+        $remembered = self::rememberedBase();
+        return $remembered !== '' ? $remembered : self::DEFAULT_BASE;
+    }
+
+    private static function rememberedBase(): string
+    {
+        $remembered = get_option(self::BASE_SNAPSHOT_OPTION, '');
+        return is_string($remembered) ? trim($remembered, '/') : '';
     }
 
     private static function maybeRedirect(ContainerInterface $container): void

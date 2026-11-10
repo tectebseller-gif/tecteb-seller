@@ -72,14 +72,30 @@ final class AreaActionsAreRegisteredTest extends TestCase
             $code .= $token;
         }
         $at = strpos($code, 'match ($action)');
-        if ($at === false) {
-            return [];
+        if ($at !== false) {
+            // Up to the end of the match: the closing `};` of the statement.
+            $end = strpos($code, '};', $at);
+            $body = substr($code, $at, $end === false ? null : $end - $at);
+            preg_match_all("/'([a-z0-9_]+)'\s*=>/", $body, $names);
+            return array_values(array_unique($names[1]));
         }
-        // Up to the end of the match: the closing `};` of the statement.
-        $end = strpos($code, '};', $at);
-        $body = substr($code, $at, $end === false ? null : $end - $at);
-        preg_match_all("/'([a-z0-9_]+)'\s*=>/", $body, $names);
-        return array_values(array_unique($names[1]));
+        // ⛔ AND THE THREE AREAS THAT DO NOT USE `match`.
+        //
+        // `OrderArea`, `FinanceArea` and `ReviewArea` dispatch with
+        // `in_array($action, self::ACTIONS, true)` and then if/else. Returning
+        // `[]` for them made this file skip them entirely — so the test
+        // written to catch the `preview_bulk_products` class of bug was blind
+        // to three of the seven places that bug could appear, and a binary
+        // `?:` in `FinanceArea` would silently run the wrong verb if a third
+        // were ever registered.
+        //
+        // What is read instead is every `$action === '…'` comparison. That is
+        // the shape those three use, and a verb they compare against is a verb
+        // they answer.
+        // `!==` counts as well as `===`: `OrderArea` names its last verb by
+        // refusing everything else, which distinguishes it just as explicitly.
+        preg_match_all("/\\\$action\s*[!=]==\s*'([a-z0-9_]+)'/", $code, $compared);
+        return array_values(array_unique($compared[1]));
     }
 
     public function testEveryDispatchedActionIsAlsoRegistered(): void

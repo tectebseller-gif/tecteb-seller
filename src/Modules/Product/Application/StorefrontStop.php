@@ -145,6 +145,12 @@ final class StorefrontStop
         // in a place that outlives the run and is read on the next admin page.
         $this->switch->markStuck($stuck, $orders['stuck']);
         $this->switch->markUnseen($unseen);
+        // A real stop answers the «left on sale» note, whoever wrote it: the
+        // shelf is down now, so the sentence about it being up is no longer
+        // true. Through the switch rather than `delete_option()`, because
+        // Application may not call WordPress (`alpha.9`) — the switch is the
+        // thing holding the option store.
+        $this->switch->clearLeftOnSale();
         $this->audit->log(AuditEventCatalog::STOREFRONT_STOPPED, $actorId, 'storefront', 'marketplace', [
             'reason' => $reason,
             'withdrawn' => $withdrawn,
@@ -398,10 +404,23 @@ final class StorefrontStop
     public function stopAsResult(string $reason, int $actorId = 0): OperationResult
     {
         $outcome = $this->stop($reason, $actorId);
-        if ($outcome['failed'] > 0) {
+        // ⛔ `unseen` COUNTS AS INCOMPLETE, and until this round it did not.
+        //
+        // `failed` was `count($stuck) + count($orders['stuck'])` only, so on a
+        // shop with more products than `SCAN_LIMIT` and no per-product
+        // failure this returned a plain success — «done» on the screen while
+        // the 501st product was still `publish`. The number was persisted and
+        // raised as a notice elsewhere, which is not the same as the operator
+        // who pressed the button being told.
+        //
+        // Unreachable at 184 products, and it is exactly the defect §6 names:
+        // «هیچ سقف پنهان مانند ۵۰۰ نباید باعث باقی‌ماندن محصولات فروش‌پذیر
+        // شود.» A cap is allowed; a cap that reports success is not.
+        if ($outcome['failed'] > 0 || $outcome['unseen'] > 0) {
             return OperationResult::failure('storefront_stop_incomplete', [
                 'withdrawn' => $outcome['withdrawn'],
                 'failed' => $outcome['failed'],
+                'unseen' => $outcome['unseen'],
                 'total' => $outcome['total'],
                 'stuck' => implode('، ', array_map('strval', $outcome['stuck'])),
                 'orders_stuck' => implode('، ', array_map('strval', $outcome['orders_stuck'])),

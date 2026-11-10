@@ -8,6 +8,10 @@ use Tecteb\Marketplace\Core\Migration\SchemaVersion;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
+use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
+use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
+use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use TmcWpStubs\State;
 
@@ -131,4 +135,100 @@ final class ActivationFlowTest extends DatabaseTestCase
             self::assertStringNotContainsString('DELETE FROM `' . $this->auditTable() . '`', $q);
         }
     }
+
+    /**
+     * ⛔ §6: «خاموش‌کردن یا ارتقای عادی افزونه نباید بدون تصمیم مستقل مالک
+     * وضعیت منتشرشده محصولات را تغییر دهد.»
+     *
+     * Up to `alpha.101` `deactivate()` called the storefront stop in its
+     * straight-line body — no option, no capability, no filter — so every
+     * projected product went to `draft` and `hidden`, every unpaid marketplace
+     * order went to `on-hold` (which moves stock), and reactivation put none of
+     * it back.
+     *
+     * The measurement is the stop FLAG, because only `StorefrontStop::stop()`
+     * and the last-resort `markStoppedAnyway()` ever write it. No flag means
+     * the stop never ran, which means nothing was drafted and no order moved.
+     */
+    public function testDeactivationLeavesTheShelfAloneUnlessItWasToldTo(): void
+    {
+        $this->loginAdmin();
+        $this->activate();
+        delete_option(StorefrontSwitch::OPTION);
+        delete_option(DeactivationStopPolicy::OPTION);
+        // ⛔ THE SWITCH MUST BE REACHABLE, or this test measures nothing.
+        //
+        // Without the binding, the stop path cannot write its flag even when
+        // it runs — so «no flag» would be true of the gated build AND of the
+        // unconditional one, and the first run of this assertion passed on a
+        // mutant that put the old behaviour back (`alpha.82`). Bound, «no
+        // flag» means the stop genuinely did not run.
+        Bootstrap::container()->bind(
+            StorefrontSwitch::class,
+            static fn (): StorefrontSwitch => new StorefrontSwitch(new WpOptionStore(), new SystemClock())
+        );
+
+        do_action('deactivate_tecteb-marketplace-core/tecteb-marketplace-core.php');
+
+        self::assertFalse(
+            (bool) get_option(StorefrontSwitch::OPTION, false),
+            'a plain deactivation must not stop selling'
+        );
+        self::assertSame(
+            0,
+            (int) get_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, 0),
+            'and with no projected product there is nothing left on sale to report'
+        );
+    }
+
+    /** And the control: told to, it does — the old behaviour, now chosen. */
+    public function testDeactivationStopsSellingWhenTheOwnerAskedForThat(): void
+    {
+        $this->loginAdmin();
+        $this->activate();
+        delete_option(StorefrontSwitch::OPTION);
+        update_option(DeactivationStopPolicy::OPTION, true, false);
+        // The product module is not registered in this minimal container, so
+        // the full stop cannot run — but the switch can, and it is the last
+        // resort `Deactivator` falls back to. What is measured is therefore
+        // the BRANCH: the opt-in reached the stop path at all. The stop's own
+        // behaviour on real rows is `CatalogProjectionTest`.
+        Bootstrap::container()->bind(
+            StorefrontSwitch::class,
+            static fn (): StorefrontSwitch => new StorefrontSwitch(new WpOptionStore(), new SystemClock())
+        );
+
+        do_action('deactivate_tecteb-marketplace-core/tecteb-marketplace-core.php');
+
+        $flag = get_option(StorefrontSwitch::OPTION, false);
+        self::assertNotFalse($flag, 'the opt-in must still reach the stop');
+        self::assertSame(
+            StorefrontSwitch::REASON_DEACTIVATED,
+            is_array($flag) ? ($flag['reason'] ?? '') : '',
+            'and record why the shelf came down'
+        );
+        delete_option(DeactivationStopPolicy::OPTION);
+    }
+
+    /**
+     * The price of the default is written down rather than left implicit: the
+     * audit row says which way it went on BOTH paths, so a reader does not
+     * have to know what the option said that day.
+     */
+    public function testTheAuditRowSaysWhetherDeactivationStoppedSelling(): void
+    {
+        $this->loginAdmin();
+        $this->activate();
+        delete_option(DeactivationStopPolicy::OPTION);
+
+        do_action('deactivate_tecteb-marketplace-core/tecteb-marketplace-core.php');
+
+        $payload = (string) $this->wpdb->get_var(
+            "SELECT payload FROM `{$this->auditTable()}` WHERE event_type = 'plugin.deactivated' ORDER BY id DESC LIMIT 1"
+        );
+        self::assertStringContainsString('stopped_selling', $payload, $payload);
+        self::assertStringContainsString('"no"', $payload, $payload);
+        self::assertStringContainsString('left_on_sale', $payload, $payload);
+    }
+
 }

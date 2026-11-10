@@ -168,6 +168,50 @@ final class StorePublicSurfaceTest extends ContractTestCase
         self::assertSame('forushgah', DokanUrlRedirects::storeBase(), 'slashes are not part of the base');
     }
 
+    /**
+     * ⛔ THE BASE HAS TO SURVIVE DOKAN, because these redirects are FOR after
+     * Dokan.
+     *
+     * Deactivating Dokan keeps `dokan_general`; uninstalling it deletes the
+     * row. Until this round the base was read live from that row with a
+     * fallback to «store», so a shop whose base was «forushgah» silently
+     * stopped redirecting its old URLs at exactly the moment Dokan's stale
+     * rewrite rules were still matching them — the one scenario this class
+     * was written for.
+     */
+    public function testTheStoreBaseSurvivesDokansOptionBeingDeleted(): void
+    {
+        State::$isAdmin = true;                     // the snapshot is admin-only
+        update_option('dokan_general', ['custom_store_url' => 'forushgah']);
+        self::assertSame('forushgah', DokanUrlRedirects::storeBase());
+
+        delete_option('dokan_general');             // Dokan uninstalled
+        State::$isAdmin = false;                    // and a front-end visitor arrives
+        self::assertSame(
+            'forushgah',
+            DokanUrlRedirects::storeBase(),
+            'the last known base beats a guess about somebody else’s URLs'
+        );
+    }
+
+    /**
+     * And the control: a read on the front end never writes. A read that
+     * writes an option on every page view is not a read.
+     */
+    public function testTheFrontEndNeverWritesTheSnapshot(): void
+    {
+        State::$isAdmin = false;
+        delete_option(DokanUrlRedirects::BASE_SNAPSHOT_OPTION);
+        update_option('dokan_general', ['custom_store_url' => 'forushgah']);
+
+        self::assertSame('forushgah', DokanUrlRedirects::storeBase(), 'the live value is still used');
+        self::assertSame(
+            '',
+            (string) get_option(DokanUrlRedirects::BASE_SNAPSHOT_OPTION, ''),
+            'but nothing was remembered from a front-end request'
+        );
+    }
+
     public function testADokanStoreUrlRedirectsPermanentlyToTheSameShopHere(): void
     {
         $this->bootWithVendor(ApplicationStatus::Approved, 'daroukhane');

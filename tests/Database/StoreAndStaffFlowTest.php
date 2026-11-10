@@ -23,6 +23,10 @@ use Tecteb\Marketplace\Modules\Vendor\Domain\ChangeRequest;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffRolePreset;
+use Tecteb\Marketplace\Modules\Operations\Infrastructure\Rest\MarketplaceController;
+use Tecteb\Marketplace\Core\Container;
+use TmcWpStubs\State;
+use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffStatus;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbChangeRequestRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbStaffRepository;
@@ -892,4 +896,142 @@ final class StoreAndStaffFlowTest extends DatabaseTestCase
         $stmt->execute([$staffId]);
         return (string) $stmt->fetchColumn();
     }
+
+    /**
+     * ⛔ THE REST ROUTES, which until this round nothing tested at all — and
+     * that blind spot is where the defect lived.
+     *
+     * Both `/vendors/{id}/products` and `/vendors/{id}/orders` shared one
+     * permission callback, and it asked for `Product/View`. The
+     * `ProductAndInventory` preset grants product and inventory and NO order,
+     * so a catalogue assistant could read the shop's order lines — with
+     * `base_minor`, `tax_minor`, `commission_minor` and `vendor_share_minor`
+     * in them — over the API, while every screen denied them.
+     *
+     * This runs the real `StaffAccess` against real staff rows, so it is the
+     * decision and not a double's opinion of it.
+     */
+    public function testACatalogueAssistantMayReadProductsOverTheApiAndNotOrders(): void
+    {
+        $controller = $this->restController();
+        $assistant = $this->staffUserWith(StaffRolePreset::ProductAndInventory);
+        $this->becomeUser($assistant);
+
+        self::assertTrue(
+            $controller->mayReadVendor($this->restRequest(self::VENDOR)),
+            'the catalogue is their job'
+        );
+        $refusal = $controller->mayReadVendorOrders($this->restRequest(self::VENDOR));
+        self::assertInstanceOf(\WP_Error::class, $refusal, 'order lines are not');
+        self::assertSame('tmc_forbidden', $refusal->get_error_code());
+    }
+
+    /**
+     * And the control: somebody whose job IS the money reads it. Without this
+     * the fix would be «refuse everyone», which is not a fix.
+     */
+    public function testAnAccountantMayReadTheOrderLinesOverTheApi(): void
+    {
+        $controller = $this->restController();
+        $accountant = $this->staffUserWith(StaffRolePreset::Accountant);
+        $this->becomeUser($accountant);
+
+        self::assertTrue($controller->mayReadVendorOrders($this->restRequest(self::VENDOR)));
+    }
+
+    /**
+     * `Order/View` without `Finance/View` is refused the whole route rather
+     * than served a payload with holes in it — the response carries money, so
+     * it takes the money permission (`alpha.86`).
+     */
+    public function testOrderAccessAloneIsNotEnoughForAPayloadCarryingMoney(): void
+    {
+        $controller = $this->restController();
+        $packer = $this->staffUserWith(StaffRolePreset::OrderAndShipping);
+        $this->becomeUser($packer);
+
+        self::assertInstanceOf(
+            \WP_Error::class,
+            $controller->mayReadVendorOrders($this->restRequest(self::VENDOR))
+        );
+    }
+
+    /** Another shop is still 403 and never an empty 200 — the id-oracle rule. */
+    public function testAnotherShopsOrderLinesAreRefusedOverTheApi(): void
+    {
+        $controller = $this->restController();
+        $accountant = $this->staffUserWith(StaffRolePreset::Accountant);
+        $this->becomeUser($accountant);
+
+        $refusal = $controller->mayReadVendorOrders($this->restRequest(self::OTHER_VENDOR));
+        self::assertInstanceOf(\WP_Error::class, $refusal);
+        self::assertSame('tmc_forbidden', $refusal->get_error_code());
+    }
+
+    /** A guest is 401, not 403: «log in» and «you may not» are different. */
+    public function testAGuestIsToldToLogIn(): void
+    {
+        $controller = $this->restController();
+        State::logout();
+        $this->capabilities->become(null, []);
+
+        $refusal = $controller->mayReadVendorOrders($this->restRequest(self::VENDOR));
+        self::assertInstanceOf(\WP_Error::class, $refusal);
+        self::assertSame('tmc_not_authenticated', $refusal->get_error_code());
+    }
+
+    /**
+     * ⛔ `MarketplaceController` asks WordPress for the current user
+     * (`get_current_user_id()`), NOT the capability checker. Moving only the
+     * double would make every one of these tests answer
+     * `tmc_not_authenticated` — a true sentence about a logged-out visitor,
+     * and nothing at all about the permission being measured.
+     */
+    private function becomeUser(int $userId): void
+    {
+        State::loginAs($userId, []);
+        $this->capabilities->become($userId, []);
+    }
+
+    private function restController(): MarketplaceController
+    {
+        $container = new Container();
+        $container->bind(CapabilityCheckerInterface::class, fn () => $this->capabilities);
+        $container->bind(StaffAccess::class, fn () => $this->access);
+        return new MarketplaceController($container);
+    }
+
+    private function restRequest(int $vendorUserId): \WP_REST_Request
+    {
+        $request = new \WP_REST_Request();
+        $request['vendor'] = (string) $vendorUserId;
+        return $request;
+    }
+
+    /** An active staff member of self::VENDOR on the given preset. */
+    private function staffUserWith(StaffRolePreset $preset): int
+    {
+        $suffix = substr(md5($preset->value), 0, 6);
+        $invite = $this->manageStaff->invite(
+            self::VENDOR,
+            self::VENDOR,
+            'کارمند',
+            $preset->value,
+            'staff' . $suffix,
+            'staff' . $suffix . '@example.test',
+            '0912000' . substr($suffix, 0, 4),
+            $preset
+        );
+        self::assertTrue($invite->ok, 'the fixture must really hire somebody: ' . $invite->code);
+        $staffId = (int) ($invite->context['staff_id'] ?? 0);
+        $accepted = $this->invitations->accept(
+            (string) ($invite->context['token'] ?? ''),
+            'a-long-enough-password-' . $suffix
+        );
+        self::assertTrue($accepted->ok, 'and they must really accept: ' . $accepted->code);
+        $member = $this->staff->find($staffId);
+        self::assertSame(StaffStatus::Active, $member?->status, 'an invited member is not access');
+        return (int) $member->staffUserId;
+    }
+
 }

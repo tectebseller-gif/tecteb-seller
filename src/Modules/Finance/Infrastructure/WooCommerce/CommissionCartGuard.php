@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Finance\Infrastructure\WooCommerce;
 
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Modules\Finance\Application\CommissionLineCheck;
+use Tecteb\Marketplace\Modules\Finance\Application\ForeignDiscountScope;
 use Tecteb\Marketplace\Modules\Finance\Application\VendorFundedDiscount;
 use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
@@ -139,6 +140,49 @@ final class CommissionCartGuard
             }
             self::inspectCart($policy(), $check(), WC()->cart);
         }, 25);
+
+        // ⛔ AND THE ONE THAT HAD TO MOVE. The reading above raises a notice,
+        // and a notice is not a refusal of a COUPON: by the time
+        // `woocommerce_check_cart_items` runs, `WC_Cart::apply_coupon()` has
+        // already returned true and WooCommerce has already queued «Coupon
+        // code applied successfully.» The owner measured both sentences on one
+        // screen and the basket falling 64,567 → 63,567.
+        //
+        // `woocommerce_coupon_is_valid` is the point WooCommerce itself asks
+        // the question, and it is asked by all three callers that can apply a
+        // code:
+        //
+        //  - `WC_Cart::apply_coupon()` → `is_valid()` (`class-wc-cart.php:2055`),
+        //    which on false adds OUR message and returns before the code is
+        //    stored — no success notice, no discount;
+        //  - `WC_Cart::check_cart_coupons()`, registered at priority **1** on
+        //    `woocommerce_check_cart_items` (`class-wc-cart.php:138`), which
+        //    REMOVES a code already sitting in the session — so the «broken
+        //    state left in the session» half of §4-ب is closed by WooCommerce's
+        //    own mechanism rather than by a second guard of ours;
+        //  - the Store API's `CartController::apply_coupon()`, which calls
+        //    `is_coupon_valid()` directly (`CartController.php:972`).
+        //
+        // Throwing rather than returning false is deliberate: the
+        // `apply_filters` sits INSIDE the `try` in
+        // `WC_Discounts::is_coupon_valid()` (`class-wc-discounts.php:1148`),
+        // and a non-numeric exception message is passed straight through to
+        // the shopper at `:1159`. Returning false would reach the same
+        // refusal wearing WooCommerce's generic «Coupon is not valid.»
+        add_filter('woocommerce_coupon_is_valid', static function (
+            mixed $valid,
+            mixed $coupon = null,
+            mixed $discounts = null
+        ) use ($policy): mixed {
+            if ($valid === false) {
+                return $valid;          // already refused; do not argue
+            }
+            $verdict = self::scopeAnswerForCoupon($coupon, $policy(), $discounts);
+            if ($verdict === null || $verdict['ok']) {
+                return $valid;
+            }
+            throw new \Exception(self::globalCouponMessage($verdict['product']));
+        }, 25, 3);
 
         // THE CLASSIC PAY LINK of an order that was never paid. The notice IS
         // the refusal: `pay_action()` reaches `process_payment()` only when
@@ -295,6 +339,131 @@ final class CommissionCartGuard
      * @param array<string,mixed> $item
      * @return array{ok:bool, reason:string, discount_minor:int, codes:list<string>}|null
      */
+    /**
+     * «Would this code reach a marketplace line whose vendor does not own it?»
+     *
+     * `null` means no claim: not a coupon we can read, or a basket we could
+     * not read, or a basket with no marketplace line in it. That is the wide
+     * direction and `ForeignDiscountScope` explains why this one rule is
+     * allowed to take it.
+     *
+     * @return array{ok:bool, reason:string, product:string, vendor:int}|null
+     */
+    private static function scopeAnswerForCoupon(mixed $coupon, PurchasePolicy $policy, mixed $discounts): ?array
+    {
+        if (!is_object($coupon) || !method_exists($coupon, 'get_code')) {
+            return null;
+        }
+        $code = trim((string) $coupon->get_code());
+        if ($code === '') {
+            return null;
+        }
+        $lines = self::basketLines($discounts);
+        if ($lines === []) {
+            return null;
+        }
+        // A cart-level code (`fixed_cart` — the type the owner tested) spreads
+        // across every line, so it reaches a marketplace line whatever its
+        // product scope says. Asked through WooCommerce's own accessor so the
+        // site's `woocommerce_cart_coupon_types` filter is respected.
+        $cartLevel = method_exists($coupon, 'is_valid_for_cart')
+            ? (bool) $coupon->is_valid_for_cart()
+            : null;
+        $rows = [];
+        foreach ($lines as $line) {
+            $product = $line['product'];
+            $vendor = PurchaseGuard::marketplaceProduct($policy, $product);
+            if ($vendor === null) {
+                continue;               // the host shop's own goods
+            }
+            if ($cartLevel === true) {
+                $touches = true;
+            } elseif (method_exists($coupon, 'is_valid_for_product')) {
+                $touches = (bool) $coupon->is_valid_for_product($product, $line['item']);
+            } else {
+                $touches = null;        // cannot tell — refuses, narrowly
+            }
+            $rows[] = [
+                'vendor' => $vendor->vendorUserId,
+                'owned' => self::foreignCodes([$code], $vendor->vendorUserId) === [],
+                'touches' => $touches,
+                'name' => is_object($product) && method_exists($product, 'get_name')
+                    ? (string) $product->get_name()
+                    : '',
+            ];
+        }
+        return $rows === [] ? null : ForeignDiscountScope::check($rows);
+    }
+
+    /**
+     * The basket as `{product, item}` pairs, from whichever of the two shapes
+     * is to hand.
+     *
+     * `WC_Discounts` is preferred because it is what the filter is handed and
+     * it is built from the same object the caller is validating against
+     * (`class-wc-discounts.php:73-91`, each item carrying `->product` and
+     * `->object`). `WC()->cart` is the fallback for a build that passes no
+     * third argument.
+     *
+     * @return list<array{product:mixed, item:array<string,mixed>}>
+     */
+    private static function basketLines(mixed $discounts): array
+    {
+        $lines = [];
+        if (is_object($discounts) && method_exists($discounts, 'get_items')) {
+            foreach ((array) $discounts->get_items() as $item) {
+                if (!is_object($item) || !isset($item->product)) {
+                    continue;
+                }
+                $lines[] = [
+                    'product' => $item->product,
+                    'item' => is_array($item->object ?? null) ? $item->object : [],
+                ];
+            }
+            if ($lines !== []) {
+                return $lines;
+            }
+        }
+        if (!function_exists('WC')) {
+            return [];
+        }
+        $cart = WC()->cart;
+        if (!is_object($cart) || !method_exists($cart, 'get_cart')) {
+            return [];
+        }
+        foreach ((array) $cart->get_cart() as $item) {
+            if (!is_array($item) || !isset($item['data'])) {
+                continue;
+            }
+            $lines[] = ['product' => $item['data'], 'item' => $item];
+        }
+        return $lines;
+    }
+
+    /**
+     * What the shopper reads when a code is refused at apply time.
+     *
+     * It names the code's problem and not the rate, the commission, or any
+     * internal key — and it is the ONLY sentence they see, because the code
+     * never reaches the basket.
+     */
+    public static function globalCouponMessage(string $productName): string
+    {
+        return $productName === ''
+            ? __(
+                'این کد تخفیف روی کالاهای فروشندگان بازارگاه در این سبد قابل استفاده نیست.',
+                'tecteb-marketplace-core'
+            )
+            : sprintf(
+                /* translators: %s: product name */
+                __(
+                    'این کد تخفیف روی «%s» قابل استفاده نیست، چون کالای یکی از فروشندگان بازارگاه است.',
+                    'tecteb-marketplace-core'
+                ),
+                $productName
+            );
+    }
+
     private static function discountAnswerForCart(mixed $cart, array $item, Product $vendor): ?array
     {
         if (!array_key_exists('line_subtotal', $item) && !array_key_exists('line_total', $item)) {

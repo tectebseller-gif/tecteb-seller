@@ -242,9 +242,17 @@ final class ReviewArea
         }
         $reviews = $this->container->get(ManageReviews::class);
         $body = $request->postTextarea('reply_body');
-        $result = $action === 'reply_review'
-            ? $reviews->replyToReview($userId, $vendorUserId, $request->postInt('review_id'), $body)
-            : $reviews->replyToRating($userId, $vendorUserId, $request->postInt('rating_id'), $body);
+        // Explicit arms: the two verbs reply to DIFFERENT objects, read from
+        // different request fields, so «anything that is not the first» was
+        // never a safe way to pick the second.
+        $result = match ($action) {
+            'reply_review' => $reviews->replyToReview($userId, $vendorUserId, $request->postInt('review_id'), $body),
+            'reply_rating' => $reviews->replyToRating($userId, $vendorUserId, $request->postInt('rating_id'), $body),
+            default => null,
+        };
+        if ($result === null) {
+            return new VendorAreaOutcome('forbidden', $this->reviewsUrl());
+        }
         return new VendorAreaOutcome($result->code, $this->reviewsUrl(), $result->context);
     }
 

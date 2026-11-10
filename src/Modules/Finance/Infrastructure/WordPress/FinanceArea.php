@@ -68,9 +68,20 @@ final class FinanceArea
             return new VendorAreaOutcome('not_a_vendor', $urls->dashboard());
         }
         $service = $this->container->get(RequestWithdrawal::class);
-        $result = $action === 'request_withdrawal'
-            ? $service->handle($userId, $vendorUserId)
-            : $service->cancel($userId, $vendorUserId, $request->postInt('withdrawal_id'));
+        // ⛔ `match`, not a binary `?:`. The ternary ran `cancel()` for
+        // ANYTHING that was not `request_withdrawal` — so registering a third
+        // verb in `ACTIONS` would have cancelled a withdrawal while the
+        // operator thought they had asked for something else. The `in_array`
+        // above means the `default` arm is unreachable today, and it is here
+        // so that it stays a refusal rather than becoming a cancellation.
+        $result = match ($action) {
+            'request_withdrawal' => $service->handle($userId, $vendorUserId),
+            'cancel_withdrawal' => $service->cancel($userId, $vendorUserId, $request->postInt('withdrawal_id')),
+            default => null,
+        };
+        if ($result === null) {
+            return new VendorAreaOutcome('forbidden', $this->financeUrl());
+        }
 
         return new VendorAreaOutcome($result->code, $this->financeUrl(), $result->context);
     }

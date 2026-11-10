@@ -13,7 +13,21 @@ namespace Tecteb\Marketplace\Modules\Order\Domain;
  */
 enum ReturnStatus: string
 {
-    /** The customer, the vendor or a manager asked. Nobody has decided. */
+    /**
+     * Somebody asked. Nobody has decided.
+     *
+     * ⛔ TODAY THAT SOMEBODY IS THE SHOP, and only the shop. The one entry
+     * point is `open_return` on the vendor dashboard
+     * (`OrderArea::ACTIONS`), behind `StaffArea::Order` + `StaffLevel::Edit`
+     * — so a buyer asks the shop out of band, and the shop raises it. The
+     * manager's screen decides and refunds; it cannot open.
+     *
+     * This sentence used to read «The customer, the vendor or a manager
+     * asked», which was true of none of them but the vendor. The customer's
+     * own path hangs on DEC-03, which `decision-log.md` records as outside
+     * phase 1 — so it is a named absence rather than a gap, and UX §10.2 puts
+     * the manager in this flow as the one who DECIDES, which is built.
+     */
     case Requested = 'requested';
     /** A manager agreed to take the goods back. No money has moved. */
     case Approved = 'approved';

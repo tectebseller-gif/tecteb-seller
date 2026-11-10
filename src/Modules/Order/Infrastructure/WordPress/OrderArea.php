@@ -147,6 +147,12 @@ final class OrderArea
             return new VendorAreaOutcome($result->code, $this->ordersUrl(), $result->context);
         }
 
+        // ⛔ Named rather than reached by falling off the end of two `if`s.
+        // `move_order_item` changes an order line's state, and «whatever is
+        // left over» is not how that should be chosen.
+        if ($action !== 'move_order_item') {
+            return new VendorAreaOutcome('forbidden', $this->ordersUrl());
+        }
         $to = OrderItemStatus::tryFrom($request->postKey('to'));
         if ($to === null) {
             return new VendorAreaOutcome('invalid_transition', $this->ordersUrl());

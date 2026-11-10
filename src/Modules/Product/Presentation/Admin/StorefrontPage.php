@@ -17,6 +17,7 @@ use Tecteb\Marketplace\Modules\Order\Application\OrderOperationsGate;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\PurchasePolicy;
+use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontStop;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Modules\Product\Application\UnpaidOrderGuardInterface;
@@ -422,6 +423,43 @@ final class StorefrontPage
                 . esc_html__('روشن‌کردن حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</button></p>';
         }
         echo '</form>';
+
+        $this->renderDeactivationChoice();
+    }
+
+    /**
+     * «آیا غیرفعال‌کردن افزونه، فروش را هم متوقف کند؟» — the §6 separation,
+     * as a button rather than as an option row somebody has to know about.
+     */
+    private function renderDeactivationChoice(): void
+    {
+        $stops = DeactivationStopPolicy::decide(get_option(DeactivationStopPolicy::OPTION, false));
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('غیرفعال‌کردن افزونه و توقف فروش', 'tecteb-marketplace-core') . '</h2>';
+        echo '<p>' . ($stops
+            ? esc_html__('در حال حاضر: غیرفعال‌کردن افزونه محصولات بازارگاه را هم از فروش خارج می‌کند.', 'tecteb-marketplace-core')
+            : esc_html__('در حال حاضر: غیرفعال‌کردن افزونه به وضعیت انتشار، موجودی و مالکیت محصولات دست نمی‌زند.', 'tecteb-marketplace-core'))
+            . '</p>';
+        echo Components::moreDetails($stops
+            ? [
+                __('با این انتخاب، هر غیرفعال‌سازی — از جمله غیرفعال‌سازیِ خودکارِ بعضی پنل‌های میزبانی — محصولات را پیش‌نویس می‌کند، و فعال‌کردن دوباره آن‌ها را برنمی‌گردانَد؛ برگرداندن یک دکمهٔ صریح است.', 'tecteb-marketplace-core'),
+                __('به‌روزرسانی عادی بسته در هیچ‌کدام از دو حالت محصولی را پیش‌نویس نمی‌کند، چون وردپرس در ارتقا قلاب غیرفعال‌سازی را اجرا نمی‌کند.', 'tecteb-marketplace-core'),
+            ]
+            : [
+                __('بهای این انتخاب گفته می‌شود: در فاصله‌ای که افزونه خاموش است، محصولات بازارگاه خریدنی می‌مانند و سهم فروشنده ثبت نمی‌شود.', 'tecteb-marketplace-core'),
+                __('برای همین، غیرفعال‌سازی تعداد محصولات باقی‌مانده روی فروش را می‌شمارد و در ردیف ممیزی و یک اعلان می‌نویسد؛ و سفارشی که در آن فاصله ثبت شود در «ممیزی سفارش‌های بی‌سند» با نام می‌آید.', 'tecteb-marketplace-core'),
+                __('پیش از تعویض بسته یا خاموش‌کردن دکان، فروش را با همین دکمهٔ «توقف فروش» متوقف کنید؛ آن یکی شمارش و فهرست جاماندگان را به شما می‌دهد.', 'tecteb-marketplace-core'),
+            ]);
+        echo '<form method="post">';
+        wp_nonce_field(self::NONCE, 'tmc_storefront_nonce');
+        echo '<p><button type="submit" name="storefront_action" value="'
+            . ($stops ? 'deact_stop_off' : 'deact_stop_on') . '" class="tmc-button">'
+            . esc_html($stops
+                ? __('غیرفعال‌سازی به محصولات دست نزند', 'tecteb-marketplace-core')
+                : __('غیرفعال‌سازی فروش را هم متوقف کند', 'tecteb-marketplace-core'))
+            . '</button></p>';
+        echo '</form></section>';
     }
 
     /** Every projected product, and what the catalogue would answer about it. */
@@ -477,6 +515,31 @@ final class StorefrontPage
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
 
         $action = $request->postKey('storefront_action');
+
+        if ($action === 'deact_stop_on' || $action === 'deact_stop_off') {
+            $wanted = $action === 'deact_stop_on';
+            // A BUTTON, not a hand-edited option row. `alpha.80`: a gate whose
+            // only exit is editing a row in `wp_options` is worse than no gate,
+            // because nobody finds it and nobody audits it.
+            if (!update_option(DeactivationStopPolicy::OPTION, $wanted, false)) {
+                // `update_option` answers false for «failed» AND for «it was
+                // already that», so the stored value is read back rather than
+                // trusted (`alpha.44`).
+                if (DeactivationStopPolicy::decide(get_option(DeactivationStopPolicy::OPTION, false)) !== $wanted) {
+                    return 'err:' . __('ذخیرهٔ این تنظیم انجام نشد.', 'tecteb-marketplace-core');
+                }
+            }
+            $this->container->get(AuditLogger::class)->log(
+                AuditEventCatalog::STOREFRONT_STOPPED,
+                $actorId,
+                'storefront',
+                DeactivationStopPolicy::OPTION,
+                ['deactivation_stops_selling' => $wanted ? 'yes' : 'no']
+            );
+            return 'ok:' . ($wanted
+                ? __('از این پس غیرفعال‌کردن افزونه، محصولات بازارگاه را هم از فروش خارج می‌کند.', 'tecteb-marketplace-core')
+                : __('از این پس غیرفعال‌کردن افزونه به وضعیت محصولات دست نمی‌زند. توقف فروش دکمهٔ خودش را دارد.', 'tecteb-marketplace-core'));
+        }
 
         if ($action === 'trial_on' || $action === 'trial_off') {
             $trial = $this->container->get(TrialUnlock::class);

@@ -409,6 +409,67 @@ final class CatalogProjectionTest extends DatabaseTestCase
      * real products: the thing under test is the comparison between «how many
      * did I get» and «how many are there».
      */
+    /**
+     * ⛔ §6: «هیچ سقف پنهان مانند ۵۰۰ نباید باعث باقی‌ماندن محصولات فروش‌پذیر
+     * شود.»
+     *
+     * The number above was already persisted and already raised as an admin
+     * notice. What it was NOT in was the answer handed back to whoever pressed
+     * the button: `stopAsResult()` built `failed` from the stuck lists alone,
+     * so a shop with more products than `SCAN_LIMIT` and no per-product
+     * failure read «توقف فروش انجام شد» while the 501st product was still
+     * `publish`.
+     *
+     * A cap is allowed — the class argues for keeping it rather than raising
+     * it. A cap that reports success is not.
+     */
+    public function testAStopThatReachedItsCapIsNotReportedAsDone(): void
+    {
+        $this->publish('SKU-SEEN');
+        $this->publish('SKU-UNSEEN');
+
+        $short = new TruncatingDatabase(new WpDatabase($this->wpdb));
+        $short->truncateWhen(['wc_product_id IS NOT NULL', 'ORDER BY id ASC LIMIT'], 1);
+        $capped = new StorefrontStop(
+            new DbProductRepository($short, new SystemClock()),
+            $this->catalog,
+            new ProductReadiness(
+                new DbSpecTemplateRepository($short, new SystemClock()),
+                new DbVariationRepository($short, new SystemClock())
+            ),
+            new StaffAccess(
+                new DbStaffRepository($short, new SystemClock()),
+                new DbVendorRepository($short, new SystemClock())
+            ),
+            $this->switch,
+            $this->auditLog,
+            $this->unpaidOrders
+        );
+
+        $result = $capped->stopAsResult('manager_stopped', self::MANAGER);
+
+        self::assertFalse($result->ok, 'a cap that was reached is not a finished stop');
+        self::assertSame('storefront_stop_incomplete', $result->code);
+        self::assertSame(1, $result->context['unseen'] ?? null, 'and the count travels with the refusal');
+        self::assertSame(0, $result->context['failed'] ?? null, 'nothing was stuck — they were never tried');
+    }
+
+    /**
+     * The control, and it is the one that keeps the fix narrow: a stop that
+     * really did see everything still reports plain success.
+     */
+    public function testAStopThatSawEverythingIsStillReportedAsDone(): void
+    {
+        $this->publish('SKU-ONE');
+        $this->publish('SKU-TWO');
+
+        $result = $this->stop->stopAsResult('manager_stopped', self::MANAGER);
+
+        self::assertTrue($result->ok, $result->code);
+        self::assertSame('storefront_stopped', $result->code);
+        self::assertSame(2, $result->context['withdrawn'] ?? null);
+    }
+
     public function testAStopThatReachedItsCapSaysHowManyItNeverLookedAt(): void
     {
         $this->publish('SKU-SEEN');

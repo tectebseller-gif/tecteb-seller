@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Activator;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\Deactivator;
+use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
 use Tecteb\Marketplace\Infrastructure\WordPress\Lifecycle\MultisiteGuard;
 use TmcWpStubs\State;
 use TmcWpStubs\WpDieException;
@@ -67,11 +68,46 @@ final class LifecycleTest extends ContractTestCase
         self::assertContains('plugin.deactivated', $events);
         self::assertSame(1, $this->audit->records[array_search('plugin.deactivated', $events, true)]->actorId);
 
-        // …and, whatever happened to the shelf, the marketplace is left
-        // STOPPED. Without this a later reactivation would treat the site as
-        // one that was selling happily and put every product back on sale
-        // with nobody having asked for it.
-        self::assertArrayHasKey('tmc_storefront_stop', State::$options, 'deactivation leaves selling stopped');
+        // ⛔ REWRITTEN, NOT WEAKENED. This used to assert the opposite:
+        // «whatever happened to the shelf, the marketplace is left STOPPED».
+        // That was a true statement about `alpha.101`, where deactivation
+        // stopped selling unconditionally — and it is the exact state §6 asked
+        // to change: «توقف فروش … با غیرفعال‌سازی فنی افزونه یکی نباشد».
+        //
+        // So the contract measured here is the new one, and it is stronger
+        // rather than looser: a plain deactivation leaves the shelf ALONE, and
+        // says so in the row.
+        self::assertArrayNotHasKey(
+            'tmc_storefront_stop',
+            State::$options,
+            'a plain deactivation must not stop selling'
+        );
+        $row = $this->audit->records[array_search('plugin.deactivated', $events, true)];
+        self::assertSame('no', $row->payload['stopped_selling'] ?? null, 'and the row says which way it went');
+        self::assertArrayHasKey('left_on_sale', $row->payload, 'and what it left behind');
+    }
+
+    /**
+     * And the control, which is the half that keeps the change honest: told to
+     * stop, deactivation still stops — the `alpha.101` behaviour, now chosen
+     * rather than assumed.
+     */
+    public function testDeactivationStillStopsSellingWhenTheOwnerAskedForIt(): void
+    {
+        $this->bootPlugin(false);
+        $this->loginAdmin();
+        State::$options[DeactivationStopPolicy::OPTION] = true;
+
+        Deactivator::deactivate();
+
+        self::assertArrayHasKey(
+            'tmc_storefront_stop',
+            State::$options,
+            'the opt-in must still reach the stop'
+        );
         self::assertSame('plugin_deactivated', State::$options['tmc_storefront_stop']['reason'] ?? '');
+        $events = array_map(static fn ($r): string => $r->eventType, $this->audit->records);
+        $row = $this->audit->records[array_search('plugin.deactivated', $events, true)];
+        self::assertSame('yes', $row->payload['stopped_selling'] ?? null);
     }
 }
