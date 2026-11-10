@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Tecteb\Marketplace\Tests\Database;
 
+use Tecteb\Marketplace\Contracts\ClockInterface;
 use Tecteb\Marketplace\Core\Migration\MigrationRunner;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
@@ -72,6 +73,28 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
         }
         Bootstrap::container()->get(VendorRepositoryInterface::class)
             ->upsertProfile(self::VENDOR, 'فروشگاه ۱۰۲', true, false);
+        // ⛔ A FROZEN CLOCK, because this file is a DELIVERED artifact.
+        //
+        // `record()` stamps `created_at` from the container's clock, and the
+        // report prints that time in every row. So the HTML carried the
+        // minute it was generated in, and came out different on every run:
+        // `git status` showed it modified after any database run, and nothing
+        // could be byte-compared against what was handed over.
+        //
+        // That is the sibling of `alpha.22`'s rule — a file that is hashed
+        // must not read the clock — and of the `alpha.101` finding one layer
+        // out: this noise is exactly what hid a suite rewriting last round's
+        // delivered evidence, because a file that is always dirty is a file
+        // nobody looks at.
+        Bootstrap::container()->bind(
+            ClockInterface::class,
+            static fn (): ClockInterface => new class implements ClockInterface {
+                public function now(): \DateTimeImmutable
+                {
+                    return new \DateTimeImmutable('2026-01-01 00:00:00', new \DateTimeZone('UTC'));
+                }
+            }
+        );
         $this->items = Bootstrap::container()->get(OrderItemRepositoryInterface::class);
         // An order link in the HPOS shape — the owner's staging — so the
         // evidence shows the address a manager would actually click.
