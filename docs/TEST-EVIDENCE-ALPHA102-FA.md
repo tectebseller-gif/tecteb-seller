@@ -18,13 +18,21 @@
 | architecture | **۳۳۳** | ۶٬۹۲۹ | **PASS** (۰ شکست) | `--testsuite architecture` |
 | contract | **۳۹۱** | ۲٬۴۷۸ | **PASS** (۰ شکست) | `--testsuite contract --bootstrap tests/bootstrap-contract.php` |
 | database | **۱٬۲۲۷** | ۱۴٬۲۵۸ | **PASS** (۰ شکست) | `--testsuite database --bootstrap tests/bootstrap-database.php` — **تنها** |
-| packaging | — | — | **PASS** | `--testsuite packaging`، پس از ساخت |
+| packaging | **۳۱** | ۵۱٬۵۶۲ | **PASS** (۰ شکست، **در اجرای دوم**) | `--testsuite packaging`، پس از ساخت |
 
 ⛔ **سوییت database تنها دوانده شد** (`alpha.40`/`alpha.98`): stub ِ `wpdb` سوییت
 contract یک PDO واقعی روی **همان** دیتابیس است، پس دو runner هم‌زمان همدیگر را
 می‌سنجند نه بسته را. پیش از شروع `pgrep -af phpunit` خالی بود.
 
-⛔ **و اولین اجرای کامل یک شکست داد، و آن شکست یک گارد بود که کار کرد:**
+⛔ **و اولین اجرای سوییت packaging روی بستهٔ ساخته‌شده شکست خورد، و درست شکست
+خورد:** نسخه در سربرگ افزونه و `TMC_PLUGIN_VERSION` بالا رفته بود و
+`readme.txt` روی `alpha.101` مانده بود. گاردش عمداً **یک نسخهٔ ثابت را pin
+نمی‌کند** (آن کار یعنی ویرایش آزمون در هر تحویل) و می‌سنجد که **هر سه جا با هم
+بخوانند**. بستهٔ معیوب و دو آرشیو همراهش **حذف شدند** و روی درختِ آرام از نو
+ساخته شد؛ اجرای دوم ۰ شکست.
+
+⛔ **و اولین اجرای کامل سوییت database هم یک شکست داد، و آن هم یک گارد بود که
+کار کرد:**
 `ReportLayoutEvidenceTest` پوشهٔ شواهد را به **نسخهٔ خودِ افزونه** گره زده
 (`alpha.101`، قاعدهٔ `alpha.54`). با بالا رفتن نسخه، آزمون انتظار
 `alpha102-reports` داشت و سورس `alpha101-reports` می‌گفت — یعنی اجرای سوییت

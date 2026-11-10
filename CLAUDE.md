@@ -15,7 +15,7 @@
 هیچ sender/gateway واقعی وجود ندارد؛ خروجی‌های افزونه در Alpha همیشه بسته‌اند و
 **تأیید موبایل انجام نمی‌شود** تا وقتی Adapter واقعی و مستند وجود داشته باشد.
 
-**بستهٔ جاری:** `0.1.0-alpha.102` · `<!--ZIP_SHA-->` ·
+**بستهٔ جاری:** `0.1.0-alpha.102` · `c802a421b7e957648fb397fccbc17420ddd39f2549f51b50a7e2d596ee9080db` ·
 ساختار داده **۳۹ می‌مانَد، هیچ migration ای** — خوانده‌شده از
 `SchemaVersion::TARGET` در **هر دو** درخت و از **صفر** فایلِ تغییریافته زیر
 `src/**/Migrations/` · شاخهٔ `claude/new-session-z1vafy`.
@@ -140,7 +140,7 @@ deactivate-then-reactivate انجام دهد، ۱۸۴ محصول را بی تص�
 صفحه می‌بیند. §۵ دستور همین را خواست.
 
 اجرا: unit **۸۸۴** · architecture **۳۳۵** · contract **۳۹۱** ·
-database **<!--DATABASE-->** · packaging **<!--PACKAGING-->** — همه ۰ شکست، و
+database **۱۲۲۹** · packaging **۳۱** — همه ۰ شکست، و
 سوییت database **تنها** دوانده شد (`alpha.40`/`alpha.98`).
 `php -l` روی **۶۶۱** فایل با **۸٫۳٫۶** و ۰ شکست؛ **۸٫۱ اجرا نشد و §۹ دستور
 می‌گوید lint جایگزینش نیست** · PHPCompatibility با `testVersion 8.1-` روی همان
