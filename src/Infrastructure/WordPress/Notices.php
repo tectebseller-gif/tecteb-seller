@@ -61,8 +61,14 @@ final class Notices
      * looking. This says it on whatever admin page they are on, reads two
      * options and nothing else, and disappears by itself when the next stop
      * or resume succeeds.
+     *
+     * ⛔ Renamed from `registerStuckStorefront()` in `alpha.102`, because it
+     * now registers a SECOND, unrelated notice: the count of what a gated
+     * deactivation left on sale. A name that covers one of the two things it
+     * does is a name that will be trusted about the other — so the name
+     * changed rather than the contract (`alpha.82`).
      */
-    public static function registerStuckStorefront(ContainerInterface $container): void
+    public static function registerStorefrontNotices(ContainerInterface $container): void
     {
         add_action('admin_notices', static function () use ($container): void {
             if (!current_user_can('activate_plugins')) {

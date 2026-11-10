@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Infrastructure\WordPress\WpAuditRepository;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpDatabase;
 use Tecteb\Marketplace\Infrastructure\WordPress\WpOptionStore;
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFinanceTables;
+use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
@@ -665,6 +666,52 @@ final class CatalogProjectionTest extends DatabaseTestCase
     private function stampOf(int $productId): string
     {
         return $this->products->find($productId)?->rowVersion ?? '';
+    }
+
+    /**
+     * ⛔ A REAL STOP ANSWERS THE «left on sale» NOTE — and nothing measured it.
+     *
+     * The gated deactivation path counts what it left up and writes the
+     * number where the next admin page reads it. A real stop takes the shelf
+     * down, so that sentence stops being true whoever wrote it.
+     *
+     * Found by falsification rather than by reading: deleting
+     * `clearLeftOnSale()` left every suite green, so the note could have
+     * outlived the thing it described — a warning on every admin page about
+     * products that are no longer on sale, with no control anywhere that
+     * clears it.
+     */
+    public function testARealStopAnswersTheLeftOnSaleNote(): void
+    {
+        update_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, 7, false);
+        self::assertSame(
+            7,
+            (int) get_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, 0),
+            'the note is there to begin with, or this measures nothing'
+        );
+
+        $this->stop->stop('manager_stopped', self::MANAGER);
+
+        self::assertFalse(
+            get_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, false),
+            'a stop removes the note rather than leaving a stale count on every admin page'
+        );
+    }
+
+    /**
+     * And the control: a stop is the only thing that clears it. Resuming puts
+     * the shelf back up, and whatever a later deactivation leaves on sale is
+     * for that deactivation to count — not for `resume()` to guess at.
+     */
+    public function testResumingDoesNotInventANote(): void
+    {
+        $this->stop->stop('manager_stopped', self::MANAGER);
+        $this->stop->resume(self::MANAGER);
+
+        self::assertFalse(
+            get_option(DeactivationStopPolicy::LEFT_ON_SALE_OPTION, false),
+            'resuming writes no count of its own'
+        );
     }
 
 }

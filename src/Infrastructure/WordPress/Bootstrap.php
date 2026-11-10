@@ -173,7 +173,7 @@ final class Bootstrap
         // option reads on an admin request, and only for somebody who could
         // act on the answer.
         if (is_admin()) {
-            Notices::registerStuckStorefront($container);
+            Notices::registerStorefrontNotices($container);
         }
 
         // Updating a plugin's files does NOT re-fire its activation hook, so
