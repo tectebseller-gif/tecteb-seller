@@ -87,11 +87,24 @@ final class PackagingTest extends TestCase
      * payload grows a directory of development scripts — including the ones
      * that WRITE, which is exactly what `tools/` is removed by name for.
      */
-    public function testOnlyTheTwoReadOnlyToolsTravelInsideThePayload(): void
+    public function testOnlyTheReadOnlyToolsTravelInsideThePayload(): void
     {
         $entries = $this->entries();
         $prefix = self::SLUG . '/admin-tools/';
-        $shipped = ['shop-dependency-census.php', 'plugin-exit-inventory.php'];
+        // ⛔ Two became four in `alpha.103`, and deliberately: four of the
+        // twelve release blockers are closed by running `production-audit.php`
+        // and `payment-readiness.php`, so shipping without them means the §3
+        // reconciliation can only be done by hand-uploading PHP to a live
+        // server — the hazard that put the first two here. Both carry the
+        // ABSPATH guard, contain no writing verb and make no outbound request,
+        // and `ReadOnlyInventoryTest` asserts that per tool rather than for
+        // the set, so a fifth cannot ride in under a test about these four.
+        $shipped = [
+            'shop-dependency-census.php',
+            'plugin-exit-inventory.php',
+            'production-audit.php',
+            'payment-readiness.php',
+        ];
 
         foreach ($shipped as $tool) {
             self::assertContains($prefix . $tool, $entries, $tool . ' has to reach the server');
@@ -115,7 +128,7 @@ final class PackagingTest extends TestCase
                 self::assertContains(
                     basename($entry),
                     array_merge($shipped, ['README.txt']),
-                    'only the two read-only tools and their note belong here: ' . $entry
+                    'only the four read-only tools and their note belong here: ' . $entry
                 );
             }
         }
@@ -819,7 +832,16 @@ final class PackagingTest extends TestCase
         // after the acceptance run it says the gates passed on a disposable
         // site and that the owner's site is still untouched. What must never
         // disappear is the second half.
-        self::assertStringContainsString('نصب نشده', $header, 'the header still says the plugin is not installed on the real site');
+        //
+        // ⛔ `alpha.103` had to make that second half SHARPER rather than keep
+        // it: «روی هیچ سایت واقعی نصب نشده است» stopped being true the day the
+        // owner installed `alpha.102` on staging, and a guard that pins a claim
+        // into falsehood protects nothing — it only teaches the next round to
+        // delete it. The claim that is both true and the one worth protecting
+        // is about PRODUCTION, so the word is required too: a header that
+        // drifts back to the vague version fails here.
+        self::assertStringContainsString('نصب نشده', $header, 'the header still says where this is NOT installed');
+        self::assertStringContainsString('production', $header, 'and it must name production, not "any real site" — staging IS installed');
         self::assertStringContainsString('TODO(F-01)', $header, 'the version is marked provisional pending the lineage decision');
     }
 
@@ -906,7 +928,7 @@ final class PackagingTest extends TestCase
             // The note beside the tools is written for the owner's server and
             // has no copy in the tree, so it is the one shipped file this
             // comparison cannot make. Its presence is asserted by
-            // `testOnlyTheTwoReadOnlyToolsTravelInsideThePayload()` instead.
+            // `testOnlyTheReadOnlyToolsTravelInsideThePayload()` instead.
             if ($path === 'admin-tools/README.txt') {
                 continue;
             }

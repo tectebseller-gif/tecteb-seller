@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Tecteb Marketplace Core
- * Description:       هسته بازارگاه تک‌طب — فروشنده، محصول، سفارش، کمیسیون، تسویه، مرجوعی و مهاجرت از دکان، روی ۲۷ صفحه مدیریت. نسخه آزمایشی (Alpha): آماده آزمایش staging، و برای انتشار production هنوز NO-GO است (docs/FINAL-RELEASE-AUDIT-FA.md).
+ * Description:       هسته بازارگاه تک‌طب — فروشنده، محصول، سفارش، کمیسیون، تسویه، مرجوعی و مهاجرت از دکان، روی ۲۷ صفحه مدیریت. نسخه آزمایشی (Alpha): آماده آزمایش staging، و روی production (سایت اصلی) نصب نشده است و انتشارش NO-GO است (docs/FINAL-RELEASE-AUDIT-FA.md).
  * Version: 0.1.0-alpha.103
  * Requires at least: 6.3
  * Requires PHP:      8.1

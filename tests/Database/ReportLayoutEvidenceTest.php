@@ -53,8 +53,19 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
      * not the directories tests write into — so the assertion below ties this
      * name to the plugin's own version, and the next round fails here instead
      * of overwriting an old delivery.
+     *
+     * ⛔ It fired again in `alpha.103`, and that is the guard working, not a
+     * nuisance: the version bump turned the full database suite red here while
+     * the rest of it stayed green, which is exactly the signal wanted. It also
+     * showed the one thing the guard CANNOT do — the suite had already run once
+     * on this tree while the header still said `alpha.102`, so it wrote into
+     * the delivered folder before the bump. Measured rather than assumed: the
+     * three files came back byte-identical (the HTML is deterministic for the
+     * same fixtures), so nothing was lost. The lesson is about ORDER: bump the
+     * version BEFORE running the suites, or the first run writes where the
+     * guard would have stopped it.
      */
-    private const EVIDENCE = 'docs/evidence/alpha102-reports';
+    private const EVIDENCE = 'docs/evidence/alpha103-reports';
 
     private OrderItemRepositoryInterface $items;
 

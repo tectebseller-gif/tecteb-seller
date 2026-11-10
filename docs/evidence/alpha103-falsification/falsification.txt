@@ -83,3 +83,4 @@ went out anyway, because only the packaging suite was re-run after the bump.
 unit: Time: 00:04.779, Memory: 26.00 MB  OK (902 tests, 606251 assertions) 
 architecture: Time: 00:04.014, Memory: 40.00 MB  OK (351 tests, 7010 assertions) 
 contract: Time: 00:07.162, Memory: 36.00 MB  OK (395 tests, 2482 assertions) 
+database:  FAILURES! Tests: 1233, Assertions: 14335, Failures: 1. 
