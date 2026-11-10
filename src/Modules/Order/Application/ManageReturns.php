@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Order\Application;
 
 use Tecteb\Marketplace\Contracts\CapabilityCheckerInterface;
 use Tecteb\Marketplace\Contracts\ClockInterface;
+use Tecteb\Marketplace\Contracts\TransactionInterface;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
@@ -72,7 +73,30 @@ final class ManageReturns
         private readonly ?RefundRecorderInterface $recorder,
         private readonly ProductRepositoryInterface $products,
         private readonly CatalogProjectorInterface $catalog,
-        private readonly ?CapabilityCheckerInterface $capabilities = null
+        private readonly ?CapabilityCheckerInterface $capabilities = null,
+        /**
+         * ⛔ The unit of work the money half of a return needs, and the
+         * reason this class was the ONE money-moving service without it.
+         *
+         * `refund()` claims the row (status, event key, four amounts) and
+         * then tells the ledger, in two separate writes. The ledger REFUSING
+         * was always handled — the row is parked in `ReconciliationRequired`
+         * and audited. A hard death between the two was not: the row says
+         * `refunded` with a `reversal_event_key`, the ledger has no
+         * `return:<item>:<return>` event, and nothing reads that state —
+         * `ReconcileOrders` never names the returns table, and
+         * `LineReconciliation` is about cancelled lines. Worse, it is not
+         * inert: `reversedTotals()` sums `refund_minor` over every row, so
+         * the phantom shrinks every later refund on the same line.
+         *
+         * Every sibling that moves money already takes this — `CaptureOrder`,
+         * `SyncOrderLifecycle`, `RecordSupplierPayment`, `RequestWithdrawal`,
+         * `ReviewWithdrawals`. Optional in the signature only so the evidence
+         * probes of `alpha.38` and `alpha.39` keep loading (the `alpha.32`
+         * trap); `refund()` REFUSES without it, the way `capture_not_atomic`
+         * and `payment_not_atomic` do.
+         */
+        private readonly ?TransactionInterface $tx = null
     ) {
     }
 
@@ -202,6 +226,9 @@ final class ManageReturns
             ]);
         }
         $now = $this->clock->now()->format('Y-m-d H:i:s');
+        // The line's own quantity goes WITH the insert, so the ceiling is a
+        // condition of the write and not just of the read above. Two tabs
+        // both pass the read; only one passes the insert.
         $returnId = $this->returns->openReturn(new ReturnRequest(
             0,
             $item->id,
@@ -219,9 +246,21 @@ final class ManageReturns
             null,
             $actorId,
             $now
-        ));
+        ), $item->quantity);
         if ($returnId === 0) {
-            return OperationResult::failure('storage_failed');
+            // Two reasons reach here and they are different things to a
+            // person: the storage refused, or the ceiling did — the second
+            // meaning another request booked the remaining units between the
+            // read above and this insert. Asked once, on the failure path
+            // only, so the normal path costs nothing.
+            $leftNow = $this->returnableQuantity($item->id, $item->quantity);
+            return $quantity > $leftNow
+                ? OperationResult::failure('quantity_exceeds_returnable', [
+                    'requested' => $quantity,
+                    'returnable' => $leftNow,
+                    'raced' => true,
+                ])
+                : OperationResult::failure('storage_failed');
         }
         $this->audit->log(AuditEventCatalog::ORDER_RETURN_OPENED, $actorId, 'order_return', (string) $returnId, [
             'vendor_id' => $vendorUserId,
@@ -283,8 +322,32 @@ final class ManageReturns
         $now = $this->clock->now()->format('Y-m-d H:i:s');
         $decidedAt = $to === ReturnStatus::Received ? $request->decidedAt : $now;
         $receivedAt = $to === ReturnStatus::Received ? $now : null;
-        if (!$this->returns->updateReturnStatus($returnId, $to, $actorId, trim($note), $decidedAt, $receivedAt)) {
-            return OperationResult::failure('storage_failed');
+        // ⛔ The status this call believes it is moving FROM goes into the
+        // WHERE. `canMove()` was read above, two statements ago; on its own
+        // it lets two simultaneous presses of «دریافت شد» both through, and
+        // the branch below then puts the goods back on the shelf twice with
+        // an unconditional `+N`. Serialising here is what closes that, and it
+        // is why the restock guard underneath is belt rather than braces.
+        if (!$this->returns->updateReturnStatus(
+            $returnId,
+            $to,
+            $actorId,
+            trim($note),
+            $decidedAt,
+            $receivedAt,
+            $request->status
+        )) {
+            // Zero rows has two meanings and they are different work for a
+            // person: somebody else moved this return first, or the write
+            // failed. One extra read, on the failure path only.
+            $nowHolds = $this->returns->findReturn($returnId)?->status;
+            return $nowHolds !== null && $nowHolds !== $request->status
+                ? OperationResult::failure('return_moved', [
+                    'return_id' => $returnId,
+                    'expected' => $request->status->value,
+                    'found' => $nowHolds->value,
+                ])
+                : OperationResult::failure('storage_failed');
         }
         $this->audit->log(AuditEventCatalog::ORDER_RETURN_DECIDED, $actorId, 'order_return', (string) $returnId, [
             'vendor_id' => $request->vendorUserId,
@@ -340,6 +403,15 @@ final class ManageReturns
     ): OperationResult {
         if ($this->capabilities === null || !$this->capabilities->can(Capabilities::REVIEW_WITHDRAWALS)) {
             return OperationResult::failure('forbidden');
+        }
+        // ⛔ BEFORE THE FIRST WRITE, like every sibling that moves money.
+        // A build without a unit of work cannot keep the row claim and the
+        // ledger entry together, and a half-written reversal is read by
+        // nothing — so it refuses rather than writing the first half. Same
+        // shape and the same reason as `capture_not_atomic`,
+        // `payment_not_atomic`, `cancel_not_atomic` and `intake_not_atomic`.
+        if ($this->tx === null) {
+            return OperationResult::failure('refund_not_atomic', ['return_id' => $returnId]);
         }
         $request = $this->returns->findReturn($returnId);
         if ($request === null) {
@@ -437,8 +509,22 @@ final class ManageReturns
         $eventKey = 'return:' . $item->id . ':' . $returnId;
         $now = $this->clock->now()->format('Y-m-d H:i:s');
 
-        // The row first: it is the thing with the unique index, so it decides
-        // whether this refund is the first one. Only then is the ledger told.
+        // ⛔ ONE UNIT OF WORK FROM HERE TO THE COMMIT BELOW.
+        //
+        // The row claim still comes first — it holds the unique index, so it
+        // is what decides whether this refund is the first one — but it and
+        // the ledger entry are now the same transaction. What that buys is
+        // precisely the state that used to be unreachable to every reader: a
+        // process that dies after the claim and before the ledger leaves the
+        // row rolled back by the database, so a retry works and
+        // `reversedTotals()` never sums a reversal that is not in the books.
+        //
+        // The ledger REFUSING is a different thing and keeps its old
+        // behaviour: that is a decided outcome (the two stores disagree), so
+        // the park and its audit row are committed rather than rolled back.
+        if (!$this->tx->begin()) {
+            return OperationResult::failure('refund_not_atomic', ['return_id' => $returnId]);
+        }
         if (!$this->returns->recordReversal(
             $returnId,
             $eventKey,
@@ -452,6 +538,10 @@ final class ManageReturns
             $unit['currency'],
             $unit['exponent']
         )) {
+            // The claim lost to the unique index: somebody refunded this
+            // return first. Nothing of ours is in the transaction, so it is
+            // released rather than committed.
+            $this->tx->rollback();
             return OperationResult::failure('already_refunded', ['return_id' => $returnId]);
         }
 
@@ -494,6 +584,10 @@ final class ManageReturns
             );
 
         if (!$transaction->balances()) {
+            // Arithmetic, caught before the ledger is asked. The claim is
+            // released: a row that says «refunded» with no reversing entry is
+            // exactly the state this transaction exists to make impossible.
+            $this->tx->rollback();
             return OperationResult::failure('unbalanced_reversal');
         }
         if (!$this->ledger->record($transaction)) {
@@ -515,9 +609,28 @@ final class ManageReturns
                 'item_id' => $item->id,
                 'event_key' => $eventKey,
             ]);
+            // ⛔ COMMITTED, not rolled back — and this is the one exit inside
+            // the unit of work that keeps what it wrote. The two stores
+            // disagreeing is a FINDING, and the park plus its audit row are
+            // how a person is told. Rolling them back would restore the row
+            // to `received` and hand the next attempt the same disagreement
+            // with nothing recorded about the first.
+            if (!$this->tx->commit()) {
+                $this->tx->rollback();
+            }
             return OperationResult::failure('ledger_already_recorded', [
                 'event_key' => $eventKey,
                 'return_id' => $returnId,
+            ]);
+        }
+        if (!$this->tx->commit()) {
+            // The money half did not land. Release everything — the row claim
+            // included — so the return is retryable rather than left claiming
+            // a reversal the books never took.
+            $this->tx->rollback();
+            return OperationResult::failure('refund_not_written', [
+                'return_id' => $returnId,
+                'event_key' => $eventKey,
             ]);
         }
 
@@ -937,13 +1050,20 @@ final class ManageReturns
         if ($after === null) {
             return 0;       // no link, or a shop that does not count this product
         }
-        $this->returns->recordRestock($request->id, $request->quantity);
+        // Read, not discarded. The shelf has already moved by this point, so
+        // a row that refuses the number leaves the goods back on sale with
+        // `restocked_quantity = 0` — and `refund()` then reports the stock
+        // half as NOT done (`did_stock` is `restockedQuantity > 0`) about a
+        // movement that happened. The audit row is written either way,
+        // because the shelf moved either way, and it says which.
+        $recorded = $this->returns->recordRestock($request->id, $request->quantity);
         $this->audit->log(AuditEventCatalog::ORDER_RETURN_RESTOCKED, $actorId, 'order_return', (string) $request->id, [
             'vendor_id' => $request->vendorUserId,
             'return_id' => $request->id,
             'product_id' => $product->id,
             'quantity' => $request->quantity,
             'stock_after' => $after,
+            'recorded' => $recorded ? 'yes' : 'no',
         ]);
         return $request->quantity;
     }

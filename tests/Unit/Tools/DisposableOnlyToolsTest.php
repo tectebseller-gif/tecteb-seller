@@ -84,6 +84,26 @@ final class DisposableOnlyToolsTest extends TestCase
         // `ShopDependencyCensusIsReadOnlyTest`, which the assertion below
         // insists exists and names this file.
         'shop-dependency-census.php' => 'ShopDependencyCensusIsReadOnlyTest.php',
+        // ⛔ The third and fourth, and the list that vouches for them is now a
+        // SET rather than a hard-coded name. `ReadOnlyInventoryTest` held
+        // `private const TOOL` — one path — so a second entry pointing at it
+        // would have been waved through by a test about the FIRST tool. That
+        // is `alpha.97`'s lesson repeating one layer down, and the fix is the
+        // same: the guard names every tool it covers, and
+        // `ReadOnlyInventoryTest::testEveryToolHereIsAlsoOnTheReadOnlyExemptionList`
+        // compares the two lists in BOTH directions, so neither can drift.
+        //
+        // Reason for each, as the rule above demands:
+        //  - production-audit.php: §3 wants one row per product and per Dokan
+        //    financial record on production. No amount of reading PHP produces
+        //    rows, and §9-A forbids this repository from connecting.
+        //  - payment-readiness.php: §4 wants the gateway settings and the three
+        //    currency facts side by side. It prints the credential's length and
+        //    shape and never its value, and it sends NOTHING — the guard checks
+        //    that too, because an outbound request is not a write to this site
+        //    and the writer list would have waved it through.
+        'production-audit.php' => 'ReadOnlyInventoryTest.php',
+        'payment-readiness.php' => 'ReadOnlyInventoryTest.php',
     ];
 
     /** The refusal, verbatim enough that a rewrite has to be deliberate. */

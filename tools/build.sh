@@ -78,7 +78,17 @@ done
 # `ShopDependencyCensusIsReadOnlyTest` check by reading the bytes; and nothing
 # in the plugin ever loads them — they run only when a person names them.
 mkdir -p "${PAYLOAD}/admin-tools"
-for ro in shop-dependency-census.php plugin-exit-inventory.php; do
+#
+# ⛔ `production-audit.php` and `payment-readiness.php` joined this list in
+# `alpha.103` for the reason that put the first two here: without them in the
+# package, running the §3 production reconciliation means hand-uploading a PHP
+# file to the live server — more dangerous than the thing it makes possible.
+# And these two are not optional extras: four of the twelve release blockers
+# are closed by running exactly them, so leaving them out would hand the owner
+# a NO-GO they cannot clear with what they were given. Both meet all three
+# conditions above, and `ReadOnlyInventoryTest` asserts it per tool.
+for ro in shop-dependency-census.php plugin-exit-inventory.php \
+          production-audit.php payment-readiness.php; do
   cp "tools/${ro}" "${PAYLOAD}/admin-tools/${ro}"
 done
 cp dist/ADMIN-TOOLS.txt "${PAYLOAD}/admin-tools/README.txt" 2>/dev/null || true

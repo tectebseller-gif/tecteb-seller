@@ -1,0 +1,85 @@
+=== healthy baseline, before any mutation ===
+baseline: unit:0 architecture:0 contract:0 database:0
+
+MUTATION 1 restock-guard-out-of-the-statement
+  breaks: a second number can land on a return that was already restocked
+  suites: unit:0 architecture:0 contract:0 database:1 (stopped: this suite noticed)
+  restored byte-for-byte: abae56dd7321357677931a4cb11b0496a0e2dd9d43afe3af2c270c97451ff47e
+
+MUTATION 2 ceiling-checked-in-php-only
+  breaks: the bare INSERT is back, so two requests that both pass the read both write
+  suites: unit:0 architecture:0 contract:0 database:1 (stopped: this suite noticed)
+  restored byte-for-byte: abae56dd7321357677931a4cb11b0496a0e2dd9d43afe3af2c270c97451ff47e
+
+MUTATION 3 return-scope-forgets-the-shop
+  breaks: one shop can open a return on another shop's line
+  suites: unit:0 architecture:0 contract:0 database:1 (stopped: this suite noticed)
+  restored byte-for-byte: b186aea9f0066b5e2e37d37016aa2cbd4fe854d1be8430abc047107520a662f3
+
+MUTATION 4 refund-without-a-unit-of-work
+  breaks: the reversal and the row claim stop being one transaction
+  suites: unit:0 architecture:0 contract:0 database:0
+  restored byte-for-byte: b186aea9f0066b5e2e37d37016aa2cbd4fe854d1be8430abc047107520a662f3
+  ⛔ SURVIVED — no suite noticed. Either a hole in the tests or unreachable; measure which.
+
+MUTATION 5 unrecordable-guard-trusts-an-unknown-module
+  breaks: a module that failed to register, rather than being gated, is read as running
+  suites: unit:0 architecture:1 (stopped: this suite noticed)
+  restored byte-for-byte: 031a4bfed92075afafce4c9edb8f4f7e964728b4f5ccc9a6613b058857d2de2b
+
+MUTATION 6 unrecordable-guard-marks-every-order
+  breaks: an order with no marketplace line is claimed as ours
+  suites: unit:1 (stopped: this suite noticed)
+  restored byte-for-byte: 66effae3b64917e821925d904a163a787d8edc5703079dcd684c76c5737c2acf
+
+MUTATION 7 sanitizer-denylist-only-nested
+  breaks: a top-level key named `iban` or `token` reaches the audit row
+  suites: unit:0 architecture:0 contract:0 database:0
+  restored byte-for-byte: 38e61a47d5927a163fb02108946e837a0b96b065f45c9b08a36dbc340c8dc274
+  ⛔ SURVIVED — no suite noticed. Either a hole in the tests or unreachable; measure which.
+
+MUTATION 8 cart-pricing-computes-on-a-scale-it-cannot-express
+  breaks: a two-decimal currency gets a hundredfold wholesale or coupon figure
+  suites: unit:0 architecture:0 contract:0 database:0
+  restored byte-for-byte: c5082c31accbdcd7697df872161cda28d2de8bdb622c6c1937b6ff016c1eab06
+  ⛔ SURVIVED — no suite noticed. Either a hole in the tests or unreachable; measure which.
+
+=== final baseline, after every restore ===
+baseline: unit:0 architecture:0 contract:0 database:0
+
+mutations: 8   problems: 3
+
+=== SECOND RUN: the three that survived, after the holes were closed ===
+MUTATION 4 refund-without-a-unit-of-work (second run)
+  suites: unit:0 architecture:0 contract:1 (stopped: this suite noticed)
+  restored byte-for-byte: b186aea9f0066b5e2e37d37016aa2cbd4fe854d1be8430abc047107520a662f3
+
+MUTATION 7 sanitizer-denylist-only-nested (second run)
+  suites: unit:0 architecture:1 (stopped: this suite noticed)
+  restored byte-for-byte: 38e61a47d5927a163fb02108946e837a0b96b065f45c9b08a36dbc340c8dc274
+
+MUTATION 8 cart-pricing-computes-on-a-scale-it-cannot-express (second run)
+  suites: unit:0 architecture:0 contract:4 (stopped: this suite noticed)
+  restored byte-for-byte: 4c79e24f14c5b88b05b571f6bfa0d0b998220174f9cc5fbd1c868c820d7c1aec
+
+=== baseline after the second run ===
+baseline: unit:0 architecture:0 contract:1 (stopped: this suite noticed)
+second run: 3 mutations   problems: 0
+
+=== ⛔ why the baseline above was red, and why it was NOT a leftover mutation ===
+`contract:1` after the second run was MainFileTest::testMainFileRegistersLifecycleHooksAndAutoloader:
+  the header and the constant must agree
+  Expected '0.1.0-alpha.103'  Actual '0.1.0-alpha.102'
+That is the version bump of THIS cycle, not a mutation: the plugin header had
+been moved to alpha.103 while `TMC_PLUGIN_VERSION` still said alpha.102, and
+the bump happened WHILE the re-measure was running. Every mutated file was
+restored byte-for-byte (hashes above), so the tree was quiet — the disagreement
+was a real defect of my own, and that test exists precisely for it: its own
+comment records that the `alpha.18` bump left this suite red and the package
+went out anyway, because only the packaging suite was re-run after the bump.
+`TMC_PLUGIN_VERSION` was corrected and the suite is green again.
+
+=== TRUE FINAL BASELINE, after the version constant was corrected ===
+unit: Time: 00:04.779, Memory: 26.00 MB  OK (902 tests, 606251 assertions) 
+architecture: Time: 00:04.014, Memory: 40.00 MB  OK (351 tests, 7010 assertions) 
+contract: Time: 00:07.162, Memory: 36.00 MB  OK (395 tests, 2482 assertions) 

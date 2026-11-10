@@ -60,6 +60,7 @@ use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\WooCommerce\WcOrderAdminUrl;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress\WpDokanPresence;
 use Tecteb\Marketplace\Modules\Order\Application\TrialUnlock;
+use Tecteb\Marketplace\Modules\Order\Infrastructure\WordPress\UnrecordableOrderGuard;
 use Tecteb\Marketplace\Modules\Order\OrderModule;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDescriptionAndCreateToken;
@@ -174,6 +175,19 @@ final class Bootstrap
         // act on the answer.
         if (is_admin()) {
             Notices::registerStorefrontNotices($container);
+        }
+        // ⛔ AFTER the modules and OUTSIDE them, which is the only place it
+        // can go. `ModuleLoader` asks a self-gated module `blockedReason()`
+        // before `register()`, so while the order module is blocked neither
+        // its services nor `OrderHooks` exist — and the window this guard
+        // watches is exactly that state. Registering it from inside the
+        // module would be registering it in the one case it never runs.
+        //
+        // Costs nothing on a working site: the first thing it does on each
+        // order is read the load report, and an active order module returns
+        // immediately.
+        if ($wooCommerceAvailable) {
+            UnrecordableOrderGuard::register($container);
         }
 
         // Updating a plugin's files does NOT re-fire its activation hook, so
@@ -493,7 +507,16 @@ final class Bootstrap
             $c->get(RefundRecorderInterface::class),
             $c->get(ProductRepositoryInterface::class),
             $c->get(CatalogProjectorInterface::class),
-            $c->get(CapabilityCheckerInterface::class)
+            $c->get(CapabilityCheckerInterface::class),
+            // ⛔ The unit of work the refund needs. Taken from the database
+            // gateway itself (`DatabaseInterface extends TransactionInterface`)
+            // rather than from the `TransactionInterface` binding, which lives
+            // in `MigrationModule::register()` — a module that can be blocked.
+            // A money path must not depend on another module having loaded,
+            // and `refund()` refuses outright when this is null, so a missing
+            // binding would turn into «no refunds» rather than into «refunds
+            // that are not atomic».
+            $c->get(DatabaseInterface::class)
         ));
         $c->bind(RefundRecorderInterface::class, static fn () => new WcRefundRecorder());
         // «Did this person buy this?» — decided once, here, by whether there is

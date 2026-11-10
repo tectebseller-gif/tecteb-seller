@@ -35,6 +35,7 @@ use Tecteb\Marketplace\Modules\Order\Application\ReturnTerms;
 use Tecteb\Marketplace\Modules\Order\Application\ShipItems;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\OrderItemStatus;
+use Tecteb\Marketplace\Modules\Order\Domain\ReturnRequest;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStateMachine;
 use Tecteb\Marketplace\Modules\Order\Domain\ReturnStatus;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\DbOrderItemRepository;
@@ -63,6 +64,7 @@ use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
 use Tecteb\Marketplace\Tests\Support\FakeTrialUnlock;
+use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 use Tecteb\Marketplace\Tests\Support\SpyRefundRecorder;
 
 /**
@@ -198,7 +200,11 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             null,
             $this->products,
             $this->storefront,
-            $manager
+            $manager,
+            // The unit of work `refund()` now requires: the row claim and the
+            // reversing ledger entry are one transaction, so a build without
+            // one answers `refund_not_atomic` rather than writing half.
+            new WpDatabase($this->wpdb)
         );
 
         $vendors->upsertProfile(self::VENDOR, 'داروخانه ارسال', true, false);
@@ -558,7 +564,8 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             null,
             $this->products,
             $this->storefront,
-            new FakeCapabilityChecker(self::VENDOR, [])
+            new FakeCapabilityChecker(self::VENDOR, []),
+            new WpDatabase($this->wpdb)
         );
         $result = $vendorSide->refund(self::VENDOR, $returnId);
         self::assertFalse($result->ok);
@@ -831,7 +838,8 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             $recorder,
             new DbProductRepository($db, $clock),
             $this->storefront,
-            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR, Capabilities::REVIEW_WITHDRAWALS])
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR, Capabilities::REVIEW_WITHDRAWALS]),
+            $db
         );
     }
 
@@ -855,7 +863,8 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
             null,
             new DbProductRepository($db, $clock),
             $this->storefront,
-            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS])
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            $db
         );
     }
 
@@ -1355,4 +1364,353 @@ final class ShipmentAndReturnFlowTest extends DatabaseTestCase
         return $this->products->find($productId)?->rowVersion ?? '';
     }
 
+    // --- the three halves the refund audit found had no test ----------------
+
+    /**
+     * WHAT THIS PROVES: the goods go back on the shelf once per return, and
+     * the row that records it refuses a second number.
+     *
+     * **Why both halves are asserted.** `decide()` carries the status it
+     * believes it is moving FROM into the `WHERE`, so two simultaneous presses
+     * of «دریافت شد» cannot both land — and that is the half a manager can
+     * reach. But `recordRestock()` is also guarded, on
+     * `restocked_quantity = 0`, and until this round **nothing measured it**:
+     * the audit's own coverage table read «stock idempotent — none». A guard
+     * no test can distinguish from its own absence is a guard nobody is
+     * keeping (`alpha.80`'s rule about callers, one layer down).
+     *
+     * ⛔ And the two are not interchangeable. The status guard stops the
+     * SECOND DECISION; the row guard stops a second NUMBER landing on a
+     * decision that already happened — which is what a retry of a half-done
+     * restock looks like from the repository's side.
+     */
+    public function testTheSameReturnCannotPutTheGoodsBackOnTheShelfTwice(): void
+    {
+        $itemId = $this->sell(3, 300000);
+        $productId = (int) $this->orderItems->find($itemId)?->productId;
+        $wcId = (int) $this->products->find($productId)?->wcProductId;
+        $before = $this->storefront->stock[$wcId] ?? 0;
+
+        $opened = $this->returns->open(self::VENDOR, self::VENDOR, $itemId, 2, 'اشتباه سفارش');
+        self::assertTrue($opened->ok, $opened->code);
+        $returnId = (int) $opened->context['return_id'];
+        self::assertTrue($this->returns->decide(self::MANAGER, $returnId, ReturnStatus::Approved)->ok);
+
+        $first = $this->returns->decide(self::MANAGER, $returnId, ReturnStatus::Received, '', true);
+        self::assertTrue($first->ok, $first->code);
+        self::assertSame(2, $first->context['restocked']);
+        self::assertSame($before + 2, $this->storefront->stock[$wcId]);
+        self::assertSame(2, $this->shipments->findReturn($returnId)?->restockedQuantity);
+
+        // (a) The door a manager uses: refused BY NAME, and the shelf is not
+        //     asked a second time.
+        $again = $this->returns->decide(self::MANAGER, $returnId, ReturnStatus::Received, '', true);
+        self::assertFalse($again->ok);
+        self::assertSame('invalid_transition', $again->code);
+        self::assertSame('received', $again->context['from']);
+        self::assertArrayNotHasKey('restocked', $again->context);
+        self::assertSame(
+            $before + 2,
+            $this->storefront->stock[$wcId],
+            'the shelf moved exactly once'
+        );
+
+        // (b) The row, which had no test at all.
+        self::assertFalse(
+            $this->shipments->recordRestock($returnId, 1),
+            'restocked_quantity = 0 is in the WHERE, so no second number lands'
+        );
+        self::assertSame(
+            2,
+            $this->shipments->findReturn($returnId)?->restockedQuantity,
+            'and the first number is left alone'
+        );
+    }
+
+    /**
+     * WHAT THIS PROVES: two requests that both pass the PHP ceiling cannot
+     * both open a return — the second gets zero rows from its own INSERT.
+     *
+     * **The claim this falsifies.** `ManageReturns` reads a SUM and compares
+     * it in PHP, and its docblock said «two tabs cannot each pass it». They
+     * could: a read followed by a bare INSERT is two statements, and both
+     * requests pass the read before either writes. There was no lock, no
+     * transaction and no condition on that INSERT.
+     *
+     * The interference is injected in the one window that matters — after this
+     * request has read the SUM and decided it is allowed, and before its own
+     * INSERT runs. One connection, no `sleep`, and the competing row is
+     * written by a SECOND repository so it is a real row rather than a fixture
+     * poke.
+     *
+     * ⛔ The PHP check is NOT removed and this does not replace it: that one
+     * produces the sentence a person reads. This one is the one that cannot be
+     * raced, and it answers with zero rows (`alpha.50`, `alpha.61`).
+     */
+    public function testTwoRequestsRacingOnTheSameLineCannotBothOpenAReturn(): void
+    {
+        $itemId = $this->sell(3, 300000);
+        $this->ship->ship(self::VENDOR, self::VENDOR, $itemId, 3, 'post', 'TRK');
+
+        $db = new WpDatabase($this->wpdb);
+        $clock = new SystemClock();
+        $interfering = new InterferingDatabase($db);
+        $racing = new ManageReturns(
+            new DbOrderItemRepository($db, $clock),
+            new DbShipmentRepository($interfering, $clock),
+            new DbLedgerRepository($db, $clock),
+            new StaffAccess(new DbStaffRepository($db, $clock), new DbVendorRepository($db, $clock)),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new ReturnStateMachine(),
+            new ReturnTerms(),
+            new RefundScope(),
+            null,
+            new DbProductRepository($db, $clock),
+            $this->storefront,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            $db
+        );
+
+        // The other tab, landing in the window: it takes all three units.
+        $competitor = new DbShipmentRepository($db, $clock);
+        $interfering->before(['INSERT INTO', 'COALESCE(SUM(quantity)'], 1, function () use ($competitor, $itemId): void {
+            $taken = $competitor->openReturn(new ReturnRequest(
+                id: 0,
+                orderItemId: $itemId,
+                vendorUserId: self::VENDOR,
+                quantity: 3,
+                status: ReturnStatus::Requested,
+                reason: 'رقیب',
+                note: '',
+                requestedBy: self::VENDOR,
+                requestedAt: '',
+                decidedAt: null,
+                decidedBy: null,
+                receivedAt: null,
+                restockedQuantity: 0,
+                refundMinor: null,
+                commissionReversedMinor: null,
+                reversalEventKey: null,
+                wcRefundId: null,
+                currency: 'IRT',
+                exponent: 0
+            ), 3);
+            self::assertGreaterThan(0, $taken, 'the competing row really was written');
+        });
+
+        $loser = $racing->open(self::VENDOR, self::VENDOR, $itemId, 2, 'بازندهٔ رقابت');
+
+        self::assertFalse($loser->ok, 'the ceiling is in the statement, so the race has a loser');
+        self::assertSame('quantity_exceeds_returnable', $loser->code);
+        self::assertTrue($loser->context['raced'] ?? false, 'and it says it lost a race, not that storage broke');
+        self::assertSame(0, $loser->context['returnable'], 'all three units are taken');
+
+        $rows = $this->shipments->returnsFor($itemId);
+        self::assertCount(1, $rows, 'exactly one return exists for this line');
+        self::assertSame(3, $rows[0]->quantity);
+    }
+
+    /**
+     * WHAT THIS PROVES: on one WooCommerce order holding two shops' lines, a
+     * return and its refund touch one shop only.
+     *
+     * The audit's coverage table read «multi-vendor order — none», and this is
+     * the shape §2-D names: «multi-vendor، بدون بازپرداخت دوگانه». Three
+     * separate assertions, because they can fail independently — the other
+     * shop cannot open a return on this line, the reversal lands in one
+     * shop's ledger, and the other shop's balance does not move.
+     */
+    public function testOnATwoShopOrderAReturnAndItsRefundTouchOneShopOnly(): void
+    {
+        $db = new WpDatabase($this->wpdb);
+        $clock = new SystemClock();
+        $vendors = new DbVendorRepository($db, $clock);
+        $second = 72;
+        $vendors->upsertProfile($second, 'داروخانهٔ دوم', true, false);
+
+        [$mine, $theirs] = $this->sellTwoShopsInOneOrder($second);
+
+        $myBalanceBefore = count($this->ledger->forVendor(self::VENDOR, 200));
+        $theirBalanceBefore = count($this->ledger->forVendor($second, 200));
+
+        // 1. The other shop cannot even see this line: indistinguishable from
+        //    one that does not exist (`alpha.5`'s posture, kept here).
+        $trespass = $this->returns->open($second, $second, $mine, 1, 'تلاش');
+        self::assertFalse($trespass->ok);
+        self::assertSame('not_found', $trespass->code);
+
+        // 2. A refund on my line reverses MY ledger.
+        $returnId = $this->receivedReturn($mine, 1);
+        $refunded = $this->returns->refund(self::MANAGER, $returnId);
+        self::assertTrue($refunded->ok, $refunded->code);
+
+        $myBalanceAfter = count($this->ledger->forVendor(self::VENDOR, 200));
+        self::assertGreaterThan($myBalanceBefore, $myBalanceAfter, 'my ledger gained the reversal');
+
+        // 3. And the other shop's ledger did not move at all.
+        self::assertSame(
+            $theirBalanceBefore,
+            count($this->ledger->forVendor($second, 200)),
+            'the other shop on the same order is untouched'
+        );
+
+        // And their line is still exactly as it was sold.
+        $theirLine = $this->orderItems->find($theirs);
+        self::assertNotNull($theirLine);
+        self::assertSame($second, $theirLine->vendorUserId);
+        self::assertSame(OrderItemStatus::Placed->value, $theirLine->status->value);
+        self::assertSame([], $this->shipments->returnsFor($theirs));
+    }
+
+    /**
+     * One `wc_order_id`, two lines, two shops — captured in one call, which is
+     * how a real mixed basket arrives.
+     *
+     * @return array{int,int} the line id of VENDOR's product, then the other's
+     */
+    private function sellTwoShopsInOneOrder(int $otherVendor): array
+    {
+        $mineProduct = $this->publish('کالای مشترک ۱', 'SKU-SHARED-1');
+        $mine = $this->products->find($mineProduct);
+        $theirsProduct = $this->publishFor($otherVendor, 'کالای مشترک ۲', 'SKU-SHARED-2');
+        $theirs = $this->products->find($theirsProduct);
+
+        $orderId = 7700;
+        $report = $this->capture->capture($orderId, [
+            [
+                'order_item_id' => 8701,
+                'wc_product_id' => (int) $mine?->wcProductId,
+                'variation_id' => null,
+                'title' => (string) $mine?->details->title,
+                'sku' => (string) $mine?->details->sku,
+                'quantity' => 2,
+                'line_total_minor' => 200000,
+                'line_tax_minor' => 20000,
+            ],
+            [
+                'order_item_id' => 8702,
+                'wc_product_id' => (int) $theirs?->wcProductId,
+                'variation_id' => null,
+                'title' => (string) $theirs?->details->title,
+                'sku' => (string) $theirs?->details->sku,
+                'quantity' => 1,
+                'line_total_minor' => 100000,
+                'line_tax_minor' => 10000,
+            ],
+        ]);
+        self::assertSame(2, $report['captured'], 'both shops recorded off one order');
+        self::assertSame(0, $report['unrecorded']);
+
+        $mineLine = $this->orderItems->findByOrderItem(8701);
+        $theirsLine = $this->orderItems->findByOrderItem(8702);
+        self::assertNotNull($mineLine);
+        self::assertNotNull($theirsLine);
+        self::assertSame(self::VENDOR, $mineLine->vendorUserId);
+        self::assertSame($otherVendor, $theirsLine->vendorUserId);
+        return [$mineLine->id, $theirsLine->id];
+    }
+
+    /** `publish()`, for a shop that is not `self::VENDOR`. */
+    private function publishFor(int $vendorId, string $title, string $sku): int
+    {
+        $details = new ProductDetails(
+            title: $title,
+            categoryKey: 'gloves',
+            priceMinor: 200000,
+            sku: $sku,
+            stock: 20
+        );
+        $created = $this->manage->save($vendorId, $vendorId, 0, $details);
+        self::assertTrue($created->ok, $created->code);
+        $productId = (int) $created->context['product_id'];
+        $mediaId = 900 + $productId;
+        $this->images->give($mediaId, $vendorId);
+        $this->manage->save($vendorId, $vendorId, $productId, $details, [], [$mediaId], $mediaId, $this->stampOf($productId));
+        self::assertTrue($this->manage->submit($vendorId, $vendorId, $productId)->ok);
+        self::assertTrue($this->review->approve($productId)->ok);
+        return $productId;
+    }
+
+    /**
+     * WHAT THIS PROVES: a build with no unit of work REFUSES to refund, and
+     * writes nothing while refusing.
+     *
+     * ⛔ **This test exists because falsification said it had to.** Taking the
+     * `$this->tx === null` branch out left all four suites green: once the
+     * fixtures were given a real `WpDatabase` — which they had to be, because
+     * the guard is right — nothing in the tree constructed the service
+     * without one any more. So the guard that stops a half-written reversal
+     * had no test of its own, and «no suite noticed» is byte-for-byte what an
+     * absent guard looks like (`alpha.77`, `alpha.95`).
+     *
+     * The refusal has to come BEFORE the first write, not after it: that is
+     * the whole difference between «this build cannot refund» and «this build
+     * reversed the ledger and then could not close the return».
+     */
+    public function testARefundRefusesOutrightWhenThereIsNoUnitOfWork(): void
+    {
+        $itemId = $this->sell(2, 200000);
+        $returnId = $this->receivedReturn($itemId, 1);
+
+        $linesBefore = count($this->ledger->forVendor(self::VENDOR, 200));
+        $before = $this->shipments->findReturn($returnId);
+        self::assertNotNull($before);
+
+        $refused = $this->serviceWithoutAUnitOfWork()->refund(self::MANAGER, $returnId);
+
+        self::assertFalse($refused->ok);
+        self::assertSame('refund_not_atomic', $refused->code);
+
+        // Nothing moved: not the ledger, not the return's money fields, not
+        // its status. A refusal that had already written one of the three
+        // would be the defect this guard is for.
+        self::assertSame(
+            $linesBefore,
+            count($this->ledger->forVendor(self::VENDOR, 200)),
+            'no ledger line was written by a refusal'
+        );
+        $after = $this->shipments->findReturn($returnId);
+        self::assertNotNull($after);
+        self::assertSame($before->status, $after->status);
+        self::assertNull($after->reversalEventKey, 'no reversal was claimed');
+        self::assertSame($before->refundMinor, $after->refundMinor);
+
+        // And the control: the same return, through a service that HAS one,
+        // goes through — so the refusal is about the missing unit of work and
+        // not about this fixture being unrefundable for some other reason.
+        $allowed = $this->secondRefundService()->refund(self::MANAGER, $returnId);
+        self::assertTrue($allowed->ok, $allowed->code);
+    }
+
+    /**
+     * The same service as `secondRefundService()`, minus the unit of work.
+     *
+     * A build like this is constructible — that is why the guard is checked at
+     * run time rather than being a type — and `Bootstrap` passes a real
+     * gateway, so on a live site this shape does not occur. The test is what
+     * keeps that true.
+     */
+    private function serviceWithoutAUnitOfWork(): ManageReturns
+    {
+        $db = new WpDatabase($this->wpdb);
+        $clock = new SystemClock();
+        return new ManageReturns(
+            new DbOrderItemRepository($db, $clock),
+            new DbShipmentRepository($db, $clock),
+            new DbLedgerRepository($db, $clock),
+            new StaffAccess(new DbStaffRepository($db, $clock), new DbVendorRepository($db, $clock)),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $clock,
+            new ReturnStateMachine(),
+            new ReturnTerms(),
+            new RefundScope(),
+            null,
+            new DbProductRepository($db, $clock),
+            $this->storefront,
+            new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_WITHDRAWALS]),
+            // ⛔ No unit of work. This is the point of the test.
+            null
+        );
+    }
 }

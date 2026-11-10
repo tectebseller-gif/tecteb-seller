@@ -32,6 +32,18 @@ final class AuditEventSanitizer
             if (!array_key_exists($key, $payload)) {
                 continue;
             }
+            // ⛔ The denylist, at the TOP level too — it used to apply only to
+            // nested keys, which made this class's own «defence in depth»
+            // half true. Nothing exploits it today: every key in
+            // `AuditEventCatalog`'s allowlist was measured against this
+            // pattern and none matches, so this changes no behaviour now. It
+            // changes what a FUTURE allowlist entry can do: a key called
+            // `*_token` would otherwise pass both defences, because an
+            // alphanumeric token has no `@` and no run of eight digits for
+            // value redaction to catch.
+            if (preg_match(self::KEY_DENYLIST, $key) === 1) {
+                continue;
+            }
             $value = $payload[$key];
             if (is_array($value)) {
                 $out[$key] = $this->sanitizeArray($value, $nestedKeys);

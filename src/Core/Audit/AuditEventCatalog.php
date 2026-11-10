@@ -79,6 +79,16 @@ final class AuditEventCatalog
      */
     public const ORDER_LEDGER_EXPORTED = 'order.ledger_exported';
     public const ORDER_BLOCKED = 'order.blocked';
+    /**
+     * An order was created carrying a marketplace line that nothing recorded.
+     *
+     * Distinct from `ORDER_BLOCKED`, which is a purchase this plugin REFUSED.
+     * This one is the opposite: a purchase it could not refuse, because the
+     * order already existed by the time any hook of ours ran. See
+     * `UnrecordableOrder` for why that door cannot be closed from there, and
+     * what is claimed instead.
+     */
+    public const ORDER_UNRECORDABLE = 'order.unrecordable';
     public const ORDER_TRIAL_CHANGED = 'order.trial_mode_changed';
     public const ORDER_SETTLEMENT_RECORDED = 'order.settlement_recorded';
     /** Shipping and returns: how much of a line moved, and how much came back. */
@@ -410,6 +420,10 @@ final class AuditEventCatalog
             ],
             self::ORDER_ITEM_STATUS_CHANGED => ['vendor_id', 'order_id', 'item_id', 'from', 'to'],
             self::ORDER_BLOCKED => ['product_id', 'vendor_id', 'reason'],
+            // `vendors` is a comma-joined list of shop ids, not a count: the
+            // question a manager asks of this row is «whose money», and a
+            // number cannot answer it.
+            self::ORDER_UNRECORDABLE => ['wc_order_id', 'reason', 'lines', 'vendors'],
             self::ORDER_TRIAL_CHANGED => ['requested', 'permitted', 'environment'],
             self::ORDER_SETTLEMENT_RECORDED => ['vendor_id', 'order_id', 'item_id', 'completed_at'],
             self::ORDER_ITEM_SHIPPED => [
@@ -426,7 +440,13 @@ final class AuditEventCatalog
                 // number somebody will read as تومان.
                 'currency', 'exponent',
             ],
-            self::ORDER_RETURN_RESTOCKED => ['vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after'],
+            // `recorded` says whether the ROW took the number the shelf
+            // already moved by. Without it in this list the key is dropped
+            // silently and the one case worth seeing — shelf moved, row did
+            // not — looks exactly like an ordinary restock (`alpha.91`).
+            self::ORDER_RETURN_RESTOCKED => [
+                'vendor_id', 'return_id', 'product_id', 'quantity', 'stock_after', 'recorded',
+            ],
             self::ORDER_RETURN_RECONCILE => ['return_id', 'item_id', 'event_key'],
             self::STOREFRONT_STOPPED => ['reason', 'withdrawn', 'failed', 'total', 'orders_held', 'orders_stuck'],
             self::STOREFRONT_RESUMED => ['published', 'refused', 'total', 'orders_released'],

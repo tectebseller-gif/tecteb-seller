@@ -76,6 +76,9 @@ final class CartPricing
             if (!is_object($cart) || !method_exists($cart, 'get_cart')) {
                 return;
             }
+            if (!self::scaleIsSupported()) {
+                return;     // see scaleIsSupported(): priced by WooCommerce, not by us
+            }
             $wholesale = $container->get(ManageWholesale::class);
             $products = $container->get(ProductRepositoryInterface::class);
             $userId = function_exists('get_current_user_id') ? (int) get_current_user_id() : 0;
@@ -145,6 +148,12 @@ final class CartPricing
      */
     private static function couponData(ContainerInterface $container, mixed $data, string $rawCode): mixed
     {
+        if (!self::scaleIsSupported()) {
+            // No marketplace coupon on a store this class cannot price. The
+            // host shop's own coupons are untouched — `$data` goes back
+            // exactly as WooCommerce handed it over.
+            return $data;
+        }
         $code = self::key($rawCode);
         unset(self::$refusals[$code]);
         if ($code === '' || !function_exists('WC')) {
@@ -199,6 +208,13 @@ final class CartPricing
      */
     private static function recordUses(ContainerInterface $container, int $orderId): void
     {
+        if (!self::scaleIsSupported()) {
+            // Nothing was discounted, so there is no use to record — and
+            // `tmc_coupon_uses.amount_minor` carries no unit of its own, so a
+            // figure written at a scale nothing states is a figure nobody can
+            // read back.
+            return;
+        }
         if ($orderId <= 0 || !function_exists('wc_get_order')) {
             return;
         }
@@ -313,5 +329,61 @@ final class CartPricing
     {
         $decimals = function_exists('wc_get_price_decimals') ? (int) wc_get_price_decimals() : 0;
         return (int) (10 ** max(0, $decimals));
+    }
+
+    /**
+     * ⛔ Whether this class may price anything at all on this store.
+     *
+     * **The disagreement this closes, measured rather than reasoned.** `unit()`
+     * above assumes `WooCommerce price = minor ÷ 10^decimals`. The projector
+     * assumes the opposite — `WooCommerceProjector` writes
+     * `set_regular_price((string) $details->priceMinor)`, raw, and so does
+     * every variation. Both are right on a store with ZERO decimals, where
+     * the factor is 1 and the two agree exactly; that is why this has never
+     * been wrong on this site, and why no test ever caught it.
+     *
+     * On any other configuration they diverge by a factor of 10^decimals, and
+     * the divergence lands where it hurts most: the wholesale ladder would
+     * price an item a hundredth of its intended figure and **the shopper
+     * would be charged that**, so WooCommerce's order total — the number a
+     * payment gateway receives — would no longer be the number the vendor set.
+     * Fixed-amount coupons and `min_subtotal_minor` go the same way: the
+     * subtotal they are compared against is computed at the store's scale and
+     * they are typed in whole units, with no exponent on the column to
+     * reconcile them (`tmc_coupons`, `tmc_price_tiers` and
+     * `tmc_coupon_uses.amount_minor` are all outside migration 33's four
+     * tables).
+     *
+     * So the answer is to **refuse, by name, rather than compute a wrong
+     * number**. The conservative direction here is doing nothing: the ladder
+     * stands down and WooCommerce's ordinary price applies, the marketplace
+     * coupon is not offered, and the host shop's own coupons and prices are
+     * untouched either way. Making the numbers right on a 2-decimal store is
+     * a separate change — every one of those columns needs a unit first — and
+     * `ZARINPAL-PAYMENT-TEST-FA.md` §2-3 says so where somebody deciding to
+     * switch to rials will read it.
+     */
+    /**
+     * ⛔ **Public, and the reason is reachability — not convenience.**
+     *
+     * Forcing this to `true` survived a whole falsification loop: this class
+     * had no test at all, and the stub shop reports zero decimals, so the
+     * refusal branch was never taken by anything. Reaching it through
+     * `register()` needs a container, a cart, a coupon and a ladder — that
+     * measures the graph, not the rule. `alpha.100` hit the same wall and the
+     * answer was the same: move the decision somewhere its branch can be
+     * reached, then pin the call sites separately.
+     *
+     * `CartPricingScaleTest` says what the answer is;
+     * `CartPricingAsksAboutTheScaleTest` says that all three money paths ask
+     * it, and ask it before they compute. Nothing outside this class calls it
+     * and an architecture test keeps the definition single.
+     */
+    public static function scaleIsSupported(): bool
+    {
+        if (!function_exists('wc_get_price_decimals')) {
+            return true;    // no WooCommerce to disagree with
+        }
+        return (int) wc_get_price_decimals() === 0;
     }
 }

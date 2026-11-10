@@ -179,9 +179,26 @@ final class OrderHooks
             );
         } catch (\Throwable) {
             // A capture that throws must not break the customer's checkout.
-            // The order exists in WooCommerce either way; the marketplace's
-            // own record is rebuilt by the next hook that fires for it, and
-            // the audit log shows what was and was not recorded.
+            // The order exists in WooCommerce either way, and nothing here is
+            // written by halves: the line, its ledger entry and the vendor's
+            // money unit share one transaction, so a build without one
+            // refuses with `capture_not_atomic` instead.
+            //
+            // ⛔ BUT THE AUDIT ROW IS NOT GUARANTEED, and the sentence that
+            // used to stand here said it was. `CaptureOrder::capture()` writes
+            // its audit row LAST, so a throw before that point — a dropped
+            // connection, a container `get()` that fails, a reader that
+            // throws — leaves no line, no document AND no audit row. Saying
+            // «the audit log shows what was and was not recorded» made a
+            // silence look like a record.
+            //
+            // What actually finds that state is `ReconcileOrders` class one
+            // (`order_without_line`): a WooCommerce order holding a
+            // marketplace product with no line of ours. It is read-only, it
+            // has a STATED ceiling of `ORDER_WINDOW` orders, and it is why
+            // that page has to be opened rather than trusted to be empty.
+            // The retry is the next hook this order fires — which is a status
+            // change, so an order that never changes again never retries.
         }
     }
 }

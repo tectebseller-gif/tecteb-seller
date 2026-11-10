@@ -28,8 +28,13 @@ interface ShipmentRepositoryInterface
     /** @return array<int,int> order item id => shipped quantity */
     public function shippedQuantities(array $orderItemIds): array;
 
-    /** @return int row id, 0 on failure */
-    public function openReturn(ReturnRequest $request): int;
+    /**
+     * @param int $lineQuantity the order line's own quantity, so the ceiling
+     *        can be enforced BY THE WRITE rather than by a read before it.
+     *        Zero asks for no ceiling and keeps the pre-`alpha.103` statement.
+     * @return int row id, 0 on failure — and 0 also when the ceiling refused
+     */
+    public function openReturn(ReturnRequest $request, int $lineQuantity = 0): int;
 
     public function findReturn(int $id): ?ReturnRequest;
 
@@ -51,13 +56,19 @@ interface ShipmentRepositoryInterface
     /** Money already reversed on this line, so the last return closes it exactly. */
     public function reversedTotals(int $orderItemId): array;
 
+    /**
+     * @param ?ReturnStatus $expectedFrom the status this caller believes the
+     *        row holds. Given, it travels in the WHERE and zero rows means a
+     *        lost race rather than success. Omitted, the old reading stands.
+     */
     public function updateReturnStatus(
         int $id,
         ReturnStatus $status,
         int $actorId,
         string $note,
         ?string $decidedAt,
-        ?string $receivedAt
+        ?string $receivedAt,
+        ?ReturnStatus $expectedFrom = null
     ): bool;
 
     /**

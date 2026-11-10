@@ -396,7 +396,11 @@ final class ProbeWorld
             $spy,
             $this->products,
             new FakeCatalogProjector(),
-            new FakeCapabilityChecker(MANAGER, [Capabilities::REVIEW_VENDOR, Capabilities::REVIEW_WITHDRAWALS])
+            new FakeCapabilityChecker(MANAGER, [Capabilities::REVIEW_VENDOR, Capabilities::REVIEW_WITHDRAWALS]),
+            // `alpha.103` made the refund one unit of work; without this the
+            // probe's refund verb would answer `refund_not_atomic` and this
+            // older round's evidence could not be reproduced at all.
+            $this->db
         );
     }
 

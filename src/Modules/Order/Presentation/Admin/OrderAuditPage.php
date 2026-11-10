@@ -170,8 +170,17 @@ final class OrderAuditPage
             'value' => $fa((string) $answer['examined']),
         ];
         if ($scan['checked']) {
+            // ⛔ THE CEILING, SAID OUT LOUD. Until `alpha.103` this row read
+            // «۱۰۰ سفارش ووکامرس خوانده شد» and stopped there — which on a
+            // shop with five hundred orders is read as «I looked at all of
+            // them». `alpha.100`'s rule: a silent ceiling is worse than a
+            // stated one, because the reader cannot tell it is there.
             $rows[] = [
-                'label' => __('سفارش‌های ووکامرس خوانده‌شده', 'tecteb-marketplace-core'),
+                'label' => sprintf(
+                    /* translators: %s: the announced ceiling, in Persian digits */
+                    __('سفارش‌های ووکامرس خوانده‌شده (سقف اعلام‌شده: %s سفارش آخر)', 'tecteb-marketplace-core'),
+                    $fa((string) ReconcileOrders::ORDER_WINDOW)
+                ),
                 'value' => $fa((string) $scan['orders']),
             ];
         }

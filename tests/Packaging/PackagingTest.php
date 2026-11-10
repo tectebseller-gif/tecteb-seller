@@ -1157,6 +1157,51 @@ final class PackagingTest extends TestCase
      * formula: a constant is stable and collides, and the clock never collides
      * and is never stable.
      */
+    /**
+     * The release notes carry the package's own hash, file count and size, and
+     * those are written only AFTER the build — so the file spends part of every
+     * cycle holding `__HASH__` and friends. That is fine while building and a
+     * defect the moment it ships: a reader holding the ZIP would see a
+     * placeholder where the checksum they are meant to verify should be, and
+     * §10 of the owner's instruction asks for «checksum قطعی».
+     *
+     * Relying on remembering to fill them in is the same bet that shipped a
+     * stale `dist/DELIVERED.txt` two versions behind in `alpha.102`. So the
+     * packaging suite — which only runs after a build — asks instead.
+     *
+     * Deliberately NOT a scan for every `__X__` anywhere: the docs legitimately
+     * print sentinels like `__unreadable__`, `__absent__` and `__none__` that
+     * the audit tools emit, and a guard wider than the defect is the bigger
+     * defect (`alpha.60`). Only the four build-time slots are named.
+     */
+    public function testTheReleaseNotesCarryRealBuildFiguresRatherThanPlaceholders(): void
+    {
+        $notes = (string) file_get_contents(self::root() . '/docs/RELEASE-NOTES-FA.md');
+
+        foreach (['__HASH__', '__FILES__', '__SIZE__', '__UNZIP__', '__PKG__', '__DB__'] as $slot) {
+            self::assertStringNotContainsString(
+                $slot,
+                $notes,
+                "docs/RELEASE-NOTES-FA.md still holds the build-time slot {$slot}; "
+                . 'it is filled from the built package, not typed from memory'
+            );
+        }
+
+        // And the hash it does carry must be the hash of the package this
+        // version names — not a leftover from the previous round, which is the
+        // failure the line above cannot catch on its own.
+        $zip = self::root() . '/dist/tecteb-marketplace-core-' . self::version() . '.zip';
+        if (!is_file($zip)) {
+            self::markTestSkipped('no package built yet');
+        }
+
+        self::assertStringContainsString(
+            hash_file('sha256', $zip),
+            $notes,
+            'the release notes name a SHA-256 that is not this package\'s'
+        );
+    }
+
     public function testTheReleaseStampIsStableForDeliveredVersionsAndNeverCollides(): void
     {
         // The stamps the formula must keep answering. Pinned here so a later

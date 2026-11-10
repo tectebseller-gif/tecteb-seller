@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Modules\Product\Application\StorefrontSwitch;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Modules\Product\Application\DeactivationStopPolicy;
+use Tecteb\Marketplace\Modules\Order\Application\UnrecordableOrder;
 
 /** Persian admin notices for dependency and activation outcomes. */
 final class Notices
@@ -148,6 +149,37 @@ final class Notices
                     PersianDigits::toPersian((string) $left)
                 )) . ' '
                 . esc_html__('اگر در آن فاصله سفارشی ثبت شده، صفحهٔ «ممیزی سفارش‌های بی‌سند» آن را با نام می‌آورد. این انتخاب را صفحهٔ «وضعیت فروش بازارگاه» عوض می‌کند.', 'tecteb-marketplace-core')
+                . '</p></div>';
+        });
+
+        // ⛔ AND THE ONE AN ORDER CANNOT TELL YOU ITSELF.
+        //
+        // `UnrecordableOrderGuard` marks an order that was created while the
+        // order module was not running — the wp-admin or programmatic door,
+        // the one with no earlier refusal. The mark is on the order and in the
+        // audit table, both permanently; this notice is the only thing that
+        // puts it in front of somebody without their going looking.
+        //
+        // The capability is the financial one rather than the storefront one:
+        // what the reader has to do next is reconcile money, and
+        // `OrderAuditPage` — the page named here — is gated on exactly this.
+        add_action('admin_notices', static function (): void {
+            if (!current_user_can(Capabilities::VIEW_VENDOR_FINANCE)) {
+                return;
+            }
+            $ids = get_option(UnrecordableOrder::REGISTER_OPTION, null);
+            if (!is_array($ids) || $ids === []) {
+                return;
+            }
+            $count = count($ids);
+            echo '<div class="notice notice-error tmc-notice"><p><strong>'
+                . esc_html__('بازارگاه تک‌طب: سفارشی ثبت شد که سهم فروشنده‌اش نوشته نشد.', 'tecteb-marketplace-core')
+                . '</strong> ' . esc_html(sprintf(
+                    /* translators: %s: how many orders carry the mark */
+                    __('%s سفارش در فاصله‌ای ساخته شده که ماژول سفارش اجرا نمی‌شده؛ هر کدام روی خودِ سفارش علامت دارند و در جدول ممیزی با نام آمده‌اند.', 'tecteb-marketplace-core'),
+                    PersianDigits::toPersian((string) $count)
+                )) . ' '
+                . esc_html__('هیچ تسویه‌ای برایشان ممکن نیست، چون قلمی ثبت نشده. صفحهٔ «ممیزی سفارش‌های بی‌سند» آن‌ها را ردیف‌به‌ردیف می‌آورد؛ تصمیم مالی دربارهٔ هر کدام با مدیر است.', 'tecteb-marketplace-core')
                 . '</p></div>';
         });
     }

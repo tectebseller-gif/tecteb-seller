@@ -19,8 +19,24 @@ namespace Tecteb\Marketplace\Modules\Order\Application;
  *  2. **STOCK** — the goods going back on WooCommerce's shelf, when the
  *     manager says they were received. **Done here, on request.**
  *  3. **WOOCOMMERCE REFUND RECORD** — a `WC_Order_Refund` against the order.
- *     **Done here since `alpha.11`, but only when a manager asks**, never as
- *     part of the refund itself. It was withheld entirely until it had been
+ *     ⛔ **BUILT AND UNREACHABLE, and this sentence used to say otherwise.**
+ *     It read «done here since `alpha.11`, but only when a manager asks» —
+ *     and there is no screen on which a manager can ask.
+ *     `ManageReturns::recordWooCommerceRefund()` has **zero callers in
+ *     `src/`** (measured: only its own definition and one docblock mention in
+ *     `DecimalAmount`), `ReturnsPage::handleAction()` dispatches only
+ *     `refund()` and `decide()`, `OrderArea::ACTIONS` carries no refund verb,
+ *     and not one of that method's five result codes has a notice string
+ *     anywhere in `Presentation/`. By this project's own `alpha.80` rule — a
+ *     function with no caller is not a capability — the 389 lines of
+ *     `WcRefundRecorder`, its intent marker and its orphan adoption are dead
+ *     in production. `RefundHalvesAreNamedHonestlyTest` now pins the caller
+ *     count so this cannot silently become true or false again.
+ *     What a manager CAN do is type a WooCommerce refund id into the returns
+ *     form, which only **links** a record they made by hand — and nothing
+ *     checks that the id exists or belongs to this order. The unique key stops
+ *     one id serving two returns, and that is all it stops.
+ *     Never as part of the refund itself, in either reading. It was withheld entirely until it had been
  *     read out of WooCommerce rather than assumed: `wc_create_refund()` takes
  *     `refund_payment => false` by default and calls no gateway at all, so the
  *     record can be written honestly without moving anybody's money. It is

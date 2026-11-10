@@ -85,26 +85,63 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         return $this->sumBy($this->shipments(), 'quantity', $orderItemIds, '');
     }
 
-    public function openReturn(ReturnRequest $request): int
+    public function openReturn(ReturnRequest $request, int $lineQuantity = 0): int
     {
         $now = $this->now();
-        $written = $this->db->execute(
-            'INSERT INTO `' . $this->returns() . '`
-             (order_item_id, vendor_user_id, quantity, status, reason, note, requested_by, requested_at, created_at, updated_at)
-             VALUES (%d, %d, %d, %s, %s, %s, %d, %s, %s, %s)',
-            [
-                $request->orderItemId,
-                $request->vendorUserId,
-                $request->quantity,
-                $request->status->value,
-                $request->reason,
-                $request->note,
-                $request->requestedBy,
-                $request->requestedAt !== '' ? $request->requestedAt : $now,
-                $now,
-                $now,
-            ]
-        );
+        $values = [
+            $request->orderItemId,
+            $request->vendorUserId,
+            $request->quantity,
+            $request->status->value,
+            $request->reason,
+            $request->note,
+            $request->requestedBy,
+            $request->requestedAt !== '' ? $request->requestedAt : $now,
+            $now,
+            $now,
+        ];
+        if ($lineQuantity <= 0) {
+            // No bound asked for: the old statement, unchanged. Kept so a
+            // caller built before this parameter existed behaves exactly as
+            // it did rather than losing the ability to open a return at all.
+            $written = $this->db->execute(
+                'INSERT INTO `' . $this->returns() . '`
+                 (order_item_id, vendor_user_id, quantity, status, reason, note, requested_by, requested_at, created_at, updated_at)
+                 VALUES (%d, %d, %d, %s, %s, %s, %d, %s, %s, %s)',
+                $values
+            );
+        } else {
+            // ⛔ THE CEILING, INSIDE THE WRITE.
+            //
+            // `ManageReturns` reads a SUM and compares it in PHP, and its own
+            // docblock claimed «two tabs cannot each pass it». They can: a
+            // read followed by a bare INSERT is two statements, and both
+            // requests pass the read before either inserts. Measured by
+            // reading the two files — the INSERT had no lock, no transaction
+            // and no condition of any kind.
+            //
+            // The PHP check stays where it is: it is what produces the named
+            // refusal a person reads («quantity_exceeds_returnable»). This is
+            // the one that cannot be raced, and it answers with zero rows.
+            // Same shape as `alpha.50`'s compare-and-set and `alpha.61`'s
+            // claim: the condition travels with the statement that depends on
+            // it.
+            $written = $this->db->execute(
+                'INSERT INTO `' . $this->returns() . '`
+                 (order_item_id, vendor_user_id, quantity, status, reason, note, requested_by, requested_at, created_at, updated_at)
+                 SELECT %d, %d, %d, %s, %s, %s, %d, %s, %s, %s
+                 FROM (SELECT COALESCE(SUM(quantity), 0) AS taken
+                       FROM `' . $this->returns() . '`
+                       WHERE order_item_id = %d AND status IN (' . $this->reservingList() . ')) AS held
+                 WHERE held.taken + %d <= %d',
+                array_merge($values, [$request->orderItemId, $request->quantity, $lineQuantity])
+            );
+            if ($written !== null && $written < 1) {
+                // Zero rows here is the ceiling refusing, not a storage
+                // failure — and the caller must not read it as «written».
+                return 0;
+            }
+        }
         if ($written === null) {
             return 0;
         }
@@ -222,7 +259,8 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
         int $actorId,
         string $note,
         ?string $decidedAt,
-        ?string $receivedAt
+        ?string $receivedAt,
+        ?ReturnStatus $expectedFrom = null
     ): bool {
         $sets = ['status = %s', 'updated_at = %s', 'decided_by = %d'];
         $params = [$status->value, $this->now(), $actorId];
@@ -239,10 +277,29 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
             $params[] = $receivedAt;
         }
         $params[] = $id;
-        $written = $this->db->execute(
-            'UPDATE `' . $this->returns() . '` SET ' . implode(', ', $sets) . ' WHERE id = %d',
+        $where = 'id = %d';
+        if ($expectedFrom !== null) {
+            // ⛔ The transition this UPDATE believes it is making, carried in
+            // the statement. `ReturnStateMachine::canMove()` is read two
+            // statements earlier, so on its own it lets two simultaneous
+            // presses of the same button both pass — and the one that matters
+            // is «received», because the branch after it puts goods back on
+            // the shelf with an unconditional `+N`.
+            $where .= ' AND status = %s';
+            $params[] = $expectedFrom->value;
+        }
+        $affected = $this->db->execute(
+            'UPDATE `' . $this->returns() . '` SET ' . implode(', ', $sets) . ' WHERE ' . $where,
             $params
-        ) !== null;
+        );
+        // With an expected status, zero rows is a LOST RACE and must not read
+        // as success — somebody else moved this return first. Without one the
+        // old reading stands, because an UPDATE that sets the status it
+        // already holds legitimately changes nothing (`alpha.8`: the meaning
+        // of zero belongs to the statement, not to a blanket rule).
+        $written = $expectedFrom !== null
+            ? ($affected !== null && $affected > 0)
+            : ($affected !== null);
         if ($written) {
             $this->figuresChanged((int) ($this->findReturn($id)?->vendorUserId ?? 0));
         }
@@ -337,10 +394,19 @@ final class DbShipmentRepository implements ShipmentRepositoryInterface
 
     public function recordRestock(int $id, int $quantity): bool
     {
-        return $this->db->execute(
-            'UPDATE `' . $this->returns() . '` SET restocked_quantity = %d, updated_at = %s WHERE id = %d',
+        // `restocked_quantity = 0` in the WHERE, because this is an ABSOLUTE
+        // set rather than an increment: run twice it would write the same
+        // number twice and the row would show one restock for two shelf
+        // movements. With the guard the second attempt affects no rows and
+        // says so, which is what lets the caller tell «already done» from
+        // «wrote it».
+        $affected = $this->db->execute(
+            'UPDATE `' . $this->returns() . '`
+             SET restocked_quantity = %d, updated_at = %s
+             WHERE id = %d AND restocked_quantity = 0',
             [max(0, $quantity), $this->now(), $id]
-        ) !== null;
+        );
+        return $affected !== null && $affected > 0;
     }
 
     /**
