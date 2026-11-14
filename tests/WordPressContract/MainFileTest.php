@@ -34,7 +34,22 @@ final class MainFileTest extends ContractTestCase
         self::assertSame($declared[1], TMC_PLUGIN_VERSION, 'the header and the constant must agree');
         self::assertSame($file, TMC_PLUGIN_FILE);
         self::assertTrue(Autoloader::isRegistered());
-        $basename = 'tecteb-seller/tecteb-marketplace-core.php';
+        // ⛔ THE BASENAME IS COMPUTED, NOT TYPED — and the typed one was wrong
+        // in every environment but this checkout. It was the literal
+        // `tecteb-seller/…`, i.e. the name of the DIRECTORY this repository
+        // happens to sit in: under a container that mounts it at `/app` the
+        // key is `app/…`, and on a real WordPress the folder is
+        // `tecteb-marketplace-core/…`, so the assertion passed here and
+        // nowhere else. It was found by running this suite on real PHP 8.1.34
+        // inside docker, which is the whole reason for running it there.
+        //
+        // What must hold is the property: the lifecycle hooks are registered
+        // under the basename WordPress itself computes for this file. So it
+        // is asked of `plugin_basename()` — the same function the plugin
+        // calls — and the one part that must never drift, the file name, is
+        // pinned separately.
+        $basename = plugin_basename(TMC_PLUGIN_FILE);
+        self::assertStringEndsWith('/tecteb-marketplace-core.php', $basename);
         self::assertArrayHasKey('activate_' . $basename, State::$hooks);
         self::assertArrayHasKey('deactivate_' . $basename, State::$hooks);
         self::assertArrayHasKey('plugins_loaded', State::$hooks);

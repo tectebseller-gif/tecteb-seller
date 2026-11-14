@@ -59,15 +59,84 @@ final class SanitizeTitleTest extends ContractTestCase
         ];
     }
 
+    /**
+     * ⛔ ONE ROW OF THIS LIST NEEDS AN EXTENSION, AND IT NOW SAYS SO.
+     *
+     * `tmc_stub_remove_accents()` decomposes Latin letters through
+     * `\Normalizer`, and on a PHP without `intl` it returns early by its own
+     * documented design — so `Größe` came back `gr%c3%b6se` instead of
+     * `grose`. Measured: the host interpreter here has `intl`, the 8.1.34
+     * container does not, and the suite therefore reported a FAILURE about a
+     * build that is fine. That is `alpha.11` exactly: an environment
+     * difference wearing the clothes of a defect.
+     *
+     * So the row is SKIPPED, by name, and only the rows that contain a Latin
+     * accented letter — the Persian pairs, which are what every attribute key
+     * on this site actually rests on, stay measured on both interpreters
+     * because the stub never touches non-Latin characters. Nothing shipped is
+     * involved: `tools/wp-stubs/` does not travel inside the package.
+     */
+    private static function needsIntl(string $title): bool
+    {
+        return !class_exists(\Normalizer::class)
+            && preg_match('/[\x{00C0}-\x{024F}\x{1E00}-\x{1EFF}]/u', $title) === 1;
+    }
+
+    /**
+     * ⛔ And the skip is no wider than the extension that is missing.
+     *
+     * The fix above opened a hole of its own shape: a predicate that skipped
+     * MORE than it has to would stop measuring the fifteen pinned pairs and
+     * the suite would still print `OK` — a warning outliving the thing it
+     * describes (`alpha.102`), and «nothing was measured» wearing the clothes
+     * of «nothing is wrong» (`alpha.77`).
+     *
+     * So the predicate is asserted directly, in both directions: no Persian
+     * label and no plain ASCII title may ever be skipped, and a Latin accent
+     * is skipped EXACTLY when `\Normalizer` is absent — which makes this one
+     * assertion answer differently on the two interpreters, on purpose. It is
+     * the interpreter's own answer, not a number typed from memory
+     * (`alpha.34`).
+     */
+    public function testTheSkipIsNoWiderThanTheMissingExtension(): void
+    {
+        self::assertFalse(self::needsIntl('کالای ویژه'), 'a Persian label never needs ext-intl');
+        self::assertFalse(self::needsIntl('Simple Title'), 'plain ASCII never needs ext-intl');
+        self::assertFalse(self::needsIntl(''), 'an empty title never needs ext-intl');
+        self::assertSame(
+            !class_exists(\Normalizer::class),
+            self::needsIntl('Größe'),
+            'a Latin accent is skipped exactly when Normalizer is absent'
+        );
+
+        // And the pairs this class pins are mostly Persian, so the skip can
+        // never take the whole measurement with it.
+        $skipped = 0;
+        foreach (self::measured() as $row) {
+            $skipped += self::needsIntl($row[0]) ? 1 : 0;
+        }
+        self::assertLessThan(
+            count(self::measured()),
+            $skipped,
+            'if every pinned pair is skipped, this class measures nothing'
+        );
+    }
+
     #[\PHPUnit\Framework\Attributes\DataProvider('measured')]
     public function testTheStubAnswersWhatWordPressAnswers(string $title, string $expected): void
     {
+        if (self::needsIntl($title)) {
+            self::markTestSkipped('Latin accents need ext-intl (\Normalizer); not loaded on this interpreter.');
+        }
         self::assertSame($expected, sanitize_title($title));
     }
 
     #[\PHPUnit\Framework\Attributes\DataProvider('measured')]
     public function testTheKeyThePluginComputesIsThatSameAnswer(string $title, string $expected): void
     {
+        if (self::needsIntl($title)) {
+            self::markTestSkipped('Latin accents need ext-intl (\Normalizer); not loaded on this interpreter.');
+        }
         self::assertSame($expected, ProjectedAttributes::keyFor($title));
     }
 

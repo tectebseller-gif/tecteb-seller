@@ -1093,6 +1093,37 @@ final class ProductAdminPagesTest extends DatabaseTestCase
         self::assertSame([244, 245], $products->find($productId)?->details->categorySet());
     }
 
+    /**
+     * ⛔ THE COMMISSION CARD COUNTS ONLY WHEN ASKED, AND SAYS ITS CEILING.
+     *
+     * Two halves, and the first is the one that matters for the page's cost:
+     * a card that scanned the catalogue on every render would put a meta read
+     * per product into every visit here — the `alpha.91` shape. So the button
+     * is drawn, and nothing is counted until it is pressed.
+     *
+     * The second half is what the manager reads: the bucket that needs a
+     * decision is named ⛔ on the card, and the announced ceiling is printed
+     * rather than implied (`alpha.100`).
+     */
+    public function testTheCommissionCardCountsOnlyWhenAsked(): void
+    {
+        $this->bootPlugin(false);
+        State::loginAs(9, ['read', 'tmc_review_products']);
+
+        $quiet = $this->render();
+        self::assertStringContainsString('شمارش پوشش کمیسیون', $quiet, 'the button is always drawn');
+        self::assertStringNotContainsString(
+            'محصولات بازارگاه که خوانده شدند',
+            $quiet,
+            'nothing is counted on a plain visit'
+        );
+
+        $asked = $this->submit(['commission_action' => 'scan']);
+        self::assertStringContainsString('محصولات بازارگاه که خوانده شدند', $asked);
+        self::assertStringContainsString('هیچ قاعده‌ای ندارند', $asked);
+        self::assertStringContainsString('سقف اعلام‌شده', $asked);
+    }
+
     private function render(array $query = []): string
     {
         $_GET = ['page' => ProductReviewPage::SLUG, ...$query];

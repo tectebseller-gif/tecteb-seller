@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Tecteb Marketplace Core
  * Description:       هسته بازارگاه تک‌طب — فروشنده، محصول، سفارش، کمیسیون، تسویه، مرجوعی و مهاجرت از دکان، روی ۲۷ صفحه مدیریت. نسخه آزمایشی (Alpha): آماده آزمایش staging، و روی production (سایت اصلی) نصب نشده است و انتشارش NO-GO است (docs/FINAL-RELEASE-AUDIT-FA.md).
- * Version: 0.1.0-alpha.103
+ * Version: 0.1.0-alpha.104
  * Requires at least: 6.3
  * Requires PHP:      8.1
  * Author:            Tecteb
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( ! defined( 'TMC_PLUGIN_VERSION' ) ) {
 	// TODO(F-01): placeholder taken from the prompt's empty-repository rule.
 	// It is NOT a lineage decision; see docs/decision-log.md §4 and F-01.
-	define( 'TMC_PLUGIN_VERSION', '0.1.0-alpha.103' );
+	define( 'TMC_PLUGIN_VERSION', '0.1.0-alpha.104' );
 }
 if ( ! defined( 'TMC_PLUGIN_FILE' ) ) {
 	define( 'TMC_PLUGIN_FILE', __FILE__ );

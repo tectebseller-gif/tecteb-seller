@@ -216,6 +216,15 @@ final class MigrationMariaDbTest extends DatabaseTestCase
     {
         $store = new WpLockStore($this->wpdb);
         $store->insert('tmc_migration_lock', 'owner-a:100');
+        // ⛔ A run that died between the rename and the `finally` below leaves
+        // `…_away` on disk, and then THIS rename fails with «table already
+        // exists» — a residue of a previous run wearing the clothes of a
+        // defect in the guard (`alpha.11`). It happened: two database runners
+        // overlapped on the one disposable database (`alpha.40`), one of them
+        // recreated `options` in its own setUp, and the other's restore could
+        // not land. A fixture that borrows a table must put back whatever an
+        // earlier borrow left (`alpha.21`), so the stale copy goes first.
+        $this->wpdb->pdo()->exec("DROP TABLE IF EXISTS `{$this->wpdb->options}_away`");
         $this->wpdb->pdo()->exec("RENAME TABLE `{$this->wpdb->options}` TO `{$this->wpdb->options}_away`");
         try {
             self::assertSame(

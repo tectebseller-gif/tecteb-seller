@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Core\Lifecycle\Capabilities;
 use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
+use Tecteb\Marketplace\Modules\Finance\Application\CommissionCoverage;
 use Tecteb\Marketplace\Modules\Migration\Application\CatalogueInventory;
 use Tecteb\Marketplace\Modules\Migration\Application\ImportExistingProducts;
 use Tecteb\Marketplace\Modules\Migration\Application\TransferOwnership;
@@ -242,6 +243,7 @@ final class ProductReviewPage
             // Stays on the list: a permission belongs to a VENDOR, not to any
             // one product, so it has no product page to live on.
             $this->renderPublishPermissions();
+            $this->renderCommissionCoverage($request);
         }
 
         echo Components::shellClose();
@@ -1504,6 +1506,101 @@ final class ProductReviewPage
             $out .= '<li>' . esc_html($label . ': ') . '<code>' . esc_html($value) . '</code></li>';
         }
         return $out . '</ul></details>';
+    }
+
+    /**
+     * ⛔ How many marketplace products would earn NOTHING — on a button.
+     *
+     * The three facts behind this card are each the owner's own decision and
+     * each verified in source: a sale reads only `_tmc_commission_type` and
+     * `_tmc_commission_value`; nothing under `src/` reads any Dokan
+     * commission key; and a missing rule is `none`, which is A RESULT RATHER
+     * THAN A REFUSAL. Together they mean a product whose commission only ever
+     * lived in Dokan's metadata sells, after Dokan is gone, at zero
+     * marketplace commission — with a ledger that balances, because zero
+     * balances. What was missing was never a guard. It was a NUMBER.
+     *
+     * **It runs only when the button is pressed**, and that is the point. A
+     * card that scanned the catalogue on every render would put hundreds of
+     * meta reads into every visit to this page — the `alpha.91` shape, one
+     * module over. The ceiling is announced on the card rather than implied
+     * (`alpha.100`), and a scan that did not reach the end never prints its
+     * partial count as a total.
+     */
+    private function renderCommissionCoverage(Request $request): void
+    {
+        $fa = static fn (string $text): string => PersianDigits::toPersian($text);
+        $asked = $request->isPost()
+            && $request->postKey('commission_action') === 'scan'
+            && $request->nonceOk('tmc_review_nonce', self::NONCE);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('پوشش کمیسیون', 'tecteb-marketplace-core') . '</h2>'
+            . '<p class="tmc-hint">' . esc_html__('محصولی که قاعدهٔ کمیسیون خودش را ندارد، فروخته می‌شود و سهمی برای تک‌طب ثبت نمی‌کند. این دکمه فقط می‌شمارد و چیزی نمی‌نویسد.', 'tecteb-marketplace-core') . '</p>'
+            . '<form method="post" class="tmc-inline">'
+            . wp_nonce_field(self::NONCE, 'tmc_review_nonce', true, false)
+            . '<input type="hidden" name="commission_action" value="scan" />'
+            . '<button type="submit" class="button">'
+            . esc_html__('شمارش پوشش کمیسیون', 'tecteb-marketplace-core')
+            . '</button></form>';
+
+        if (!$asked) {
+            echo '</section>';
+            return;
+        }
+
+        $answer = $this->container->get(CommissionCoverage::class)->scan();
+        $counts = $answer['counts'];
+        $rows = [
+            [
+                'label' => __('محصولات بازارگاه که خوانده شدند', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $answer['rows']),
+            ],
+            [
+                'label' => __('کمیسیون دارند', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $counts[CommissionCoverage::EARNS]),
+            ],
+            [
+                'label' => __('«بدون کمیسیون» به‌صراحت تصمیم گرفته شده', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $counts[CommissionCoverage::DECIDED_NONE]),
+            ],
+            [
+                'label' => __('⛔ هیچ قاعده‌ای ندارند — با کمیسیون صفر می‌فروشند', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $counts[CommissionCoverage::NO_RULE]),
+            ],
+            [
+                'label' => __('محصول ووکامرسی ندارند', 'tecteb-marketplace-core'),
+                'value' => $fa((string) $counts[CommissionCoverage::NO_STOREFRONT]),
+            ],
+            [
+                'label' => sprintf(
+                    /* translators: %s: the announced ceiling, in Persian digits */
+                    __('به پایان فهرست رسید؟ (سقف اعلام‌شده: %s ردیف)', 'tecteb-marketplace-core'),
+                    $fa((string) $answer['ceiling'])
+                ),
+                'value' => $answer['finished']
+                    ? __('بله', 'tecteb-marketplace-core')
+                    : __('نه — این شمارش ناقص است و کل نیست', 'tecteb-marketplace-core'),
+            ],
+        ];
+        echo Components::dataList($rows);
+
+        if ($answer['uncovered'] !== []) {
+            $names = [];
+            foreach ($answer['uncovered'] as $productId) {
+                $names[] = '#' . $fa((string) $productId);
+            }
+            echo '<p>' . esc_html__('شناسهٔ محصولات بی‌قاعده:', 'tecteb-marketplace-core') . '</p>'
+                . Components::codes($names);
+            if (!$answer['named_all']) {
+                echo '<p class="tmc-hint">' . esc_html__('فهرست نام‌ها کوتاه شده است؛ عددِ بالا کامل است.', 'tecteb-marketplace-core') . '</p>';
+            }
+        }
+        echo Components::moreDetails([
+            __('برای هر شناسهٔ این فهرست، یا نرخ کمیسیون را در صفحهٔ همان محصول در ووکامرس ست کنید، یا «بدون کمیسیون» را به‌صراحت بپذیرید. تا پیش از بازکردن فروش این تصمیم ارزان است؛ پس از آن هر سفارش نرخ لحظهٔ خودش را ثبت می‌کند و عوض نمی‌شود.', 'tecteb-marketplace-core'),
+            __('این کارت دربارهٔ قاعدهٔ خودِ این افزونه است. اینکه کدام محصول قبلاً در متای دکان نرخی داشته، پرسش دیگری است و پاسخش از ابزار فقط‌خواندنیِ ممیزی تولید می‌آید.', 'tecteb-marketplace-core'),
+        ]);
+        echo '</section>';
     }
 
     private function renderPublishPermissions(): void

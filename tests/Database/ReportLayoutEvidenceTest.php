@@ -65,7 +65,7 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
      * version BEFORE running the suites, or the first run writes where the
      * guard would have stopped it.
      */
-    private const EVIDENCE = 'docs/evidence/alpha103-reports';
+    private const EVIDENCE = 'docs/evidence/alpha104-reports';
 
     private OrderItemRepositoryInterface $items;
 
@@ -383,11 +383,26 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
      */
     private static function document(string $title, string $body): string
     {
-        $root = dirname(__DIR__, 2);
+        // ⛔ RELATIVE, AND THAT IS THE WHOLE POINT.
+        //
+        // This used to be `file://` + `dirname(__DIR__, 2)` — the ABSOLUTE
+        // path of whatever checkout ran the suite. The bytes of a committed
+        // artefact then depended on where the repository happened to sit, and
+        // the moment this suite was run inside a container that mounts the
+        // tree at `/app` it rewrote THREE DELIVERED FILES, differing only in
+        // that one href. Measured, this round, by `git status` on a run whose
+        // purpose was PHP 8.1.34 and which touched no report code at all.
+        //
+        // And running the suites in a container is now standing practice,
+        // because real 8.1 is only reachable that way — so an absolute path
+        // here would rewrite last round's evidence on every single 8.1 run.
+        // The path is relative to this file's own directory, so the same
+        // bytes come out of any checkout, and the stylesheet still resolves
+        // when the file is opened from disk.
         return '<!DOCTYPE html><html dir="rtl" lang="fa"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . htmlspecialchars($title, ENT_QUOTES) . ' — نمونه رابط</title>'
-            . '<link rel="stylesheet" href="file://' . $root . '/assets/admin/tmc-admin.css">'
+            . '<link rel="stylesheet" href="../../../assets/admin/tmc-admin.css">'
             . '<style>'
             . 'html,body{margin:0;padding:0;background:#f0f0f1;'
             . 'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Naskh Arabic",Tahoma,sans-serif}'
@@ -404,7 +419,7 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
             . '<div id="wpbody"><p class="harness-banner">نمونه رابط — این تصویر اثبات کارکرد افزونه '
             . 'داخل wp-admin نیست.</p>'
             . $body
-            . '</div></div><script src="file://' . $root . '/assets/admin/tmc-admin.js"></script>'
+            . '</div></div><script src="../../../assets/admin/tmc-admin.js"></script>'
             . '</body></html>';
     }
 

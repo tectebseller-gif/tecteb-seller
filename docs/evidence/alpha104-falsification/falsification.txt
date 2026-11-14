@@ -1,0 +1,52 @@
+alpha.104 falsification — 5 mutations
+database filter inside the loop: CommissionCoverageTest|ProductAdminPagesTest
+the closing baseline runs the database suite UNFILTERED
+tree: 8a01036 (plus the uncommitted round)
+
+=== 1/5 an explicit «no commission» is counted as nobody deciding
+    file:   src/Modules/Finance/Application/CommissionCoverage.php
+    expect: database
+applied: an explicit «no commission» is counted as nobody deciding
+    database: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/5 a row this marketplace does not sell is counted as well
+    file:   src/Modules/Finance/Application/CommissionCoverage.php
+    expect: database
+applied: a row this marketplace does not sell is counted as well
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/5 the scan never reads past the first page
+    file:   src/Modules/Finance/Application/CommissionCoverage.php
+    expect: database
+applied: the scan never reads past the first page
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/5 the card walks the catalogue on every visit to the page
+    file:   src/Modules/Product/Presentation/Admin/ProductReviewPage.php
+    expect: database
+applied: the card walks the catalogue on every visit to the page
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/5 the ext-intl skip widens until nothing is measured
+    file:   tests/WordPressContract/SanitizeTitleTest.php
+    expect: contract
+applied: the ext-intl skip widens until nothing is measured
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 1
+
+problems: 0

@@ -18,6 +18,7 @@ use Tecteb\Marketplace\Core\Events\EventBus;
 use Tecteb\Marketplace\Modules\Finance\Application\ResolveCommissionRate;
 use Tecteb\Marketplace\Modules\Finance\Domain\CommissionCalculator;
 use Tecteb\Marketplace\Modules\Product\Application\ConfigureSpecTemplates;
+use Tecteb\Marketplace\Modules\Finance\Application\CommissionCoverage;
 use Tecteb\Marketplace\Modules\Finance\Application\TectebCommissionSourceInterface;
 use Tecteb\Marketplace\Modules\Finance\Domain\TectebCommissionCalculator;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
@@ -146,6 +147,14 @@ final class ProductModule implements ModuleInterface
         $c->bind(ProductPublishPolicy::class, static fn (ContainerInterface $c) => new ProductPublishPolicy(
             $c->get(OptionStoreInterface::class)
         ));
+        // ⛔ Bound HERE, in the module whose page draws it, and reading the
+        // SAME commission source a sale reads. A second query about one rule
+        // is how two screens come to disagree about one site (`alpha.78`).
+        $c->bind(CommissionCoverage::class, static fn (ContainerInterface $c) => new CommissionCoverage(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(TectebCommissionSourceInterface::class)
+        ));
+
         $c->bind(ProductRepositoryInterface::class, static fn (ContainerInterface $c) => new DbProductRepository(
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)

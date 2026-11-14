@@ -22,9 +22,17 @@ if [ -z "${VERSION}" ]; then
   exit 1
 fi
 
-# The eleven §10 names, verbatim, plus the three this cycle added because the
-# instruction's own §2-B, §6 and §8 ask for them by content.
+# The eleven §10 names, verbatim, plus the three the `alpha.103` cycle added
+# because that instruction's §2-B, §6 and §8 asked for them by content — plus
+# the five `alpha.104` added for the same reason: its §7 names them, and a
+# bundle the owner receives without them is a bundle that cannot answer
+# «what is left to do».
 REQUIRED_DOCS="
+FINAL-RELEASE-CLOSURE-FA.md
+FEATURE-COMPLETENESS-MATRIX-FA.md
+PRODUCTION-DATA-RECONCILIATION-FA.md
+OWNER-DECISIONS-TO-CLOSE-FA.md
+PRODUCTION-CUTOVER-FINAL-FA.md
 FINAL-RELEASE-AUDIT-FA.md
 PRODUCTION-PREFLIGHT-FA.md
 STAGING-ACCEPTANCE-FINAL-FA.md

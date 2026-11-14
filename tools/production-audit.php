@@ -36,7 +36,12 @@
  *     wrong in both directions. It prints rows, with their type and their
  *     unit, and lets the reconciliation document do the arithmetic under a
  *     rule somebody chose.
- *  3. **It never prints a zero it could not measure.** A read that failed says
+ *  3. **It does not name Dokan's commission key.** No Dokan source is
+ *     readable from this repository, so a typed key name would be a guess
+ *     about the owner's site. The commission section DISCOVERS every product
+ *     meta key whose name contains `commission` and prints the foreign ones
+ *     raw, the same discipline as the Min Max triple.
+ *  4. **It never prints a zero it could not measure.** A read that failed says
  *     `__unreadable__`. «نتوانستم بخوانم» and «صفر» are different work for a
  *     person, and conflating them is the one mistake this file is for.
  *
@@ -73,6 +78,32 @@ $cell = static function (mixed $value): string {
 };
 $row = static function (array $cells) use ($cell): void {
     echo implode(',', array_map($cell, $cells)) . "\n";
+};
+
+/**
+ * One postmeta reader, for ANY post id — the per-row closure delegates to it.
+ *
+ * `get_var()` cannot tell «no row» from «a row holding the empty string»,
+ * because WordPress turns `''` into `null` on purpose (`alpha.82`). That is
+ * fine HERE and only here, because the question this tool asks of a
+ * commission key is the one `WpTectebCommissionSource::hasRule()` asks:
+ * `metadata_exists()` AND `trim(...) !== ''`. Both states answer «no rule»,
+ * so they need not be distinguished. A read that FAILED is a third answer and
+ * is never collapsed into either.
+ */
+$metaOf = static function (int $postId, string $key) use ($wpdb, $unreadable): string {
+    $value = $wpdb->get_var(
+        $wpdb->prepare(
+            'SELECT CAST(meta_value AS CHAR) FROM `' . $wpdb->postmeta . '`
+             WHERE post_id = %d AND meta_key = %s LIMIT 1',
+            $postId,
+            $key
+        )
+    );
+    if ($value === null) {
+        return $wpdb->last_error !== '' ? $unreadable : '';
+    }
+    return (string) $value;
 };
 
 // ------------------------------------------------------------------ products
@@ -114,6 +145,61 @@ if ($argv0 === 'products') {
         $wpdb->prepare('SHOW TABLES LIKE %s', $tmcTable)
     ) === $tmcTable;
 
+    // ----------------------------------------------------------- commission
+    //
+    // ⛔ WHAT THIS MEASURES, AND WHY NO SCREEN MEASURED IT BEFORE.
+    //
+    // This plugin reads exactly two meta keys for a commission —
+    // `_tmc_commission_type` and `_tmc_commission_value`, the two constants on
+    // `WpTectebCommissionSource` — and `src/` holds ZERO references to any
+    // Dokan commission key, measured by search. `RecordCommission` then treats
+    // a missing rule as `none`, and `none` is A RESULT RATHER THAN A REFUSAL:
+    // «نبود نرخ مانع … فروش نیست». Both halves are the owner's own decision
+    // and neither is a defect.
+    //
+    // Together they say one thing that nothing on screen said: a product whose
+    // commission lives only in Dokan's metadata sells, AFTER Dokan is gone, at
+    // ZERO marketplace commission — quietly, with a ledger that balances. The
+    // owner's 2026-11-14 export counts 148 main products carrying Dokan
+    // commission metadata, so the number of products this could touch is not
+    // hypothetical. It is still not a defect in either plugin; it is a
+    // migration fact nobody could see, which is what an audit is for.
+    //
+    // The keys are taken from the plugin when the plugin is loaded, so this
+    // tool cannot drift from the reader, and it SAYS which it used.
+    $tmcTypeMeta = '_tmc_commission_type';
+    $tmcValueMeta = '_tmc_commission_value';
+    $tmcKeysFrom = 'literal';
+    $sourceClass = 'Tecteb\\Marketplace\\Modules\\Finance\\Infrastructure\\WooCommerce\\WpTectebCommissionSource';
+    if (class_exists($sourceClass)) {
+        $tmcTypeMeta = (string) constant($sourceClass . '::TYPE_META');
+        $tmcValueMeta = (string) constant($sourceClass . '::VALUE_META');
+        $tmcKeysFrom = 'plugin';
+    }
+
+    // Which commission keys exist on this site AT ALL — discovered, not typed.
+    $keyRows = $wpdb->get_results(
+        'SELECT pm.meta_key AS k, COUNT(*) AS n
+         FROM `' . $wpdb->postmeta . '` pm
+         INNER JOIN `' . $wpdb->posts . '` p ON p.ID = pm.post_id
+         WHERE p.post_type IN (\'product\', \'product_variation\')
+           AND pm.meta_key LIKE \'%commission%\'
+         GROUP BY pm.meta_key
+         ORDER BY pm.meta_key ASC',
+        ARRAY_A
+    );
+    $keysReadable = is_array($keyRows);
+    $commissionKeys = [];
+    foreach ($keyRows ?: [] as $keyRow) {
+        $commissionKeys[(string) $keyRow['k']] = (int) $keyRow['n'];
+    }
+    $foreignKeys = [];
+    foreach (array_keys($commissionKeys) as $key) {
+        if ($key !== $tmcTypeMeta && $key !== $tmcValueMeta) {
+            $foreignKeys[] = $key;
+        }
+    }
+
     $posts = $wpdb->get_results(
         'SELECT p.ID, p.post_type, p.post_parent, p.post_author, p.post_status, p.post_title, p.post_name
          FROM `' . $wpdb->posts . '` p
@@ -135,6 +221,8 @@ if ($argv0 === 'products') {
             'manage_stock', 'stock', 'backorders', 'purchasable',
             'minmax_plain', 'minmax_s', 'minmax_pro',
             'categories', 'brand', 'attributes', 'permalink',
+            'tmc_commission_type', 'tmc_commission_value', 'tmc_commission_source',
+            'foreign_commission_meta', 'commission_after_exit',
         ]);
     }
 
@@ -146,6 +234,8 @@ if ($argv0 === 'products') {
     $types = [];
     $conflicts = [];
     $unreadables = [];
+    $commissionCounts = [];
+    $uncoveredIds = [];
     $wooThere = function_exists('wc_get_product');
 
     foreach ($posts as $post) {
@@ -200,19 +290,8 @@ if ($argv0 === 'products') {
         $statuses[(string) $post['post_status']] = ($statuses[(string) $post['post_status']] ?? 0) + 1;
         $types[(string) $post['post_type']] = ($types[(string) $post['post_type']] ?? 0) + 1;
 
-        $meta = static function (string $key) use ($wpdb, $id, $unreadable): string {
-            $value = $wpdb->get_var(
-                $wpdb->prepare(
-                    'SELECT CAST(meta_value AS CHAR) FROM `' . $wpdb->postmeta . '`
-                     WHERE post_id = %d AND meta_key = %s LIMIT 1',
-                    $id,
-                    $key
-                )
-            );
-            if ($value === null) {
-                return $wpdb->last_error !== '' ? $unreadable : '';
-            }
-            return (string) $value;
+        $meta = static function (string $key) use ($metaOf, $id): string {
+            return $metaOf($id, $key);
         };
         $triple = static function (string $prefix) use ($meta): string {
             return $meta($prefix . 'min_quantity') . '/'
@@ -267,6 +346,63 @@ if ($argv0 === 'products') {
             }
         }
 
+        // ⛔ THE RULE THE WAY THE PLUGIN READS IT: the variation's own key
+        // first, then its parent's — `WpTectebCommissionSource::forItem()`.
+        // Reading the parent first would report a rule the sale does not use.
+        $parentId = (int) $post['post_parent'];
+        $ownType = $metaOf($id, $tmcTypeMeta);
+        $parentType = $parentId > 0 ? $metaOf($parentId, $tmcTypeMeta) : '';
+        $ruleType = '';
+        $ruleValue = '';
+        $ruleSource = 'none';
+        if ($ownType === $unreadable || $parentType === $unreadable) {
+            $ruleSource = $unreadable;
+        } elseif (trim($ownType) !== '') {
+            $ruleType = trim($ownType);
+            $ruleValue = $metaOf($id, $tmcValueMeta);
+            $ruleSource = 'self';
+        } elseif ($parentId > 0 && trim($parentType) !== '') {
+            $ruleType = trim($parentType);
+            $ruleValue = $metaOf($parentId, $tmcValueMeta);
+            $ruleSource = 'parent';
+        }
+
+        // Every foreign commission key that actually HOLDS something on this
+        // row or on its parent, printed raw. The value is printed because the
+        // owner has to decide a number from it; the key is printed because
+        // only the site can say which key Dokan used.
+        $foreignHeld = [];
+        foreach ($foreignKeys as $key) {
+            foreach ([$id, $parentId] as $where) {
+                if ($where <= 0) {
+                    continue;
+                }
+                $held = $metaOf($where, $key);
+                if ($held === '' || $held === 'a:0:{}') {
+                    continue;
+                }
+                $foreignHeld[] = $key . '@' . $where . '=' . $held;
+            }
+        }
+
+        // Five answers, and the third one is the finding.
+        if ($ruleSource === $unreadable || !$keysReadable) {
+            $afterExit = 'unreadable';
+        } elseif ($ruleType !== '') {
+            $afterExit = in_array($ruleType, ['none', 'percent', 'fixed'], true)
+                ? 'rule_' . $ruleType
+                : 'rule_type_unknown';
+        } elseif ($foreignHeld !== []) {
+            // No marketplace rule, and a commission was recorded somewhere
+            // else. After the exit this line earns the marketplace NOTHING,
+            // and nothing refuses the sale.
+            $afterExit = 'no_rule_but_foreign_meta';
+            $uncoveredIds[] = $id;
+        } else {
+            $afterExit = 'no_rule';
+        }
+        $commissionCounts[$afterExit] = ($commissionCounts[$afterExit] ?? 0) + 1;
+
         $cells = [
             $id, (string) $post['post_type'], (int) $post['post_parent'],
             (string) $post['post_status'], (string) $post['post_title'], (string) $post['post_name'],
@@ -277,6 +413,8 @@ if ($argv0 === 'products') {
             $manage, $stock, $backorders, $purchasable,
             $triple('_'), $triple('_wcmmq_s_'), $triple('_wcmmq_'),
             $categories, $brand, $attributes, $permalink,
+            $ruleType, $ruleValue, $ruleSource,
+            implode('|', $foreignHeld), $afterExit,
         ];
         if ($csv) {
             $row($cells);
@@ -314,6 +452,34 @@ if ($argv0 === 'products') {
     $line('dokan_sellers_found', $sellersReadable ? count($sellers) : $unreadable);
     echo "\n# The gate: ownership_sum_equals_rows=yes AND conflict_ids=(none)\n";
     echo "# AND unreadable_ids=(none). Anything else is a blocker, by id.\n";
+
+    $head('commission: what each line would earn AFTER Dokan is gone');
+    $line('commission_tmc_keys_from', $tmcKeysFrom);
+    $line('commission_tmc_type_key', $tmcTypeMeta);
+    $line('commission_tmc_value_key', $tmcValueMeta);
+    if (!$keysReadable) {
+        $line('commission_keys_discovered', $unreadable);
+    } else {
+        $discovered = [];
+        foreach ($commissionKeys as $key => $n) {
+            $discovered[] = $key . ':' . $n;
+        }
+        $line('commission_keys_discovered', $discovered === [] ? '(none)' : implode(' ', $discovered));
+        $line('commission_foreign_keys', $foreignKeys === [] ? '(none)' : implode(' ', $foreignKeys));
+    }
+    $commissionSum = 0;
+    foreach ($commissionCounts as $name => $n) {
+        $line('commission_' . $name, $n);
+        $commissionSum += $n;
+    }
+    $line('commission_sum_equals_rows', $commissionSum === $total ? 'yes' : 'no');
+    $line('commission_uncovered_count', count($uncoveredIds));
+    $line('commission_uncovered_ids', $uncoveredIds === [] ? '(none)' : implode(' ', $uncoveredIds));
+    echo "\n# `no_rule_but_foreign_meta` is the one row that needs a decision\n";
+    echo "# BEFORE the exit: this plugin reads only its own two keys, and a\n";
+    echo "# missing rule is a RESULT, not a refusal — the line sells and earns\n";
+    echo "# the marketplace nothing. `no_rule` with no foreign metadata is the\n";
+    echo "# same deliberate answer on a product nobody ever charged for.\n";
     return;
 }
 

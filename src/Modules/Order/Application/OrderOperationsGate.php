@@ -73,9 +73,17 @@ final class OrderOperationsGate
      * reason, a log line or a screen written against the old name still reads
      * as what it was rather than as an unknown string.
      *
-     * Nothing else was opened. DEC-02 and DEC-04 are still the owner's and
-     * still close this gate, and the ledger probe still runs: «سایر دروازه‌های
-     * مستقل فروش، پرداخت، مهاجرت یا تسویه را خودکار باز نکن».
+     * Nothing else was opened, and the ledger probe still runs: «سایر
+     * دروازه‌های مستقل فروش، پرداخت، مهاجرت یا تسویه را خودکار باز نکن».
+     *
+     * ⛔ **And this paragraph used to end «DEC-02 and DEC-04 are still the
+     * owner's and still close this gate», which stopped being true in
+     * `alpha.101`.** The owner answered both and `OPEN_DECISIONS` below is
+     * empty, so nothing in this file closes for a missing definition any
+     * more — the docblock on that constant says so, and these two docblocks
+     * contradicted each other for three releases. The constant is the source
+     * of truth; a comment that disagrees with the constant beside it is the
+     * `alpha.93` hazard in prose.
      */
     public const RATE_UNSET = 'rate_unset';
     public const LEDGER_UNWRITABLE = 'ledger_unwritable';
