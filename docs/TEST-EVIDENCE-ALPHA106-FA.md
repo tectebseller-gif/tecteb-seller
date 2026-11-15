@@ -25,7 +25,7 @@
 | architecture | **PASS** — ۳۵۶ آزمون، ۷٬۱۰۰ assertion | **PASS** — همان اعداد |
 | contract | **PASS** — ۴۳۴ آزمون، ۲٬۶۵۲ assertion | **PASS** — ۴۳۴ آزمون، ۲٬۶۵۰ assertion، **۲ skip با نام** |
 | database | **PASS** — ۱۲۸۹ آزمون، ۱۴٬۶۲۰ assertion | **PASS** — ۱۲۸۹ آزمون، ۱۴٬۶۲۰ assertion |
-| packaging | **PASS** — ۳۲ آزمون، ۵۲٬۳۰۶ assertion | ⛔ **`Not Run`** — ایمیج `git`/`zip`/`unzip` ندارد |
+| packaging | **PASS** — ۳۲ آزمون، ۵۲٬۳۱۶ assertion | ⛔ **`Not Run`** — ایمیج `git`/`zip`/`unzip` ندارد |
 
 ⛔ **دو skip روی ۸٫۱٫۳۴ عمدی و نام‌دار اند:** ایمیج `intl` ندارد، پس
 `tmc_stub_remove_accents()` جوابِ دیگری می‌دهد و `SanitizeTitleTest` **فقط**
