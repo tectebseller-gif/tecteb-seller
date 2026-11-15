@@ -27,6 +27,7 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRevisionRepositoryInte
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
+use Tecteb\Marketplace\Modules\Product\Domain\PriceAndStockOrigin;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
@@ -1070,7 +1071,7 @@ final class ProductArea
                 $thumbnails[$variation->mediaId] = $library->thumbnailUrl($variation->mediaId);
             }
         }
-        return [
+        $data = [
             'attributes' => $attributes,
             'variations' => $variations,
             'thumbnails' => $thumbnails,
@@ -1086,6 +1087,18 @@ final class ProductArea
                 ? $this->storefrontVariations()->setFor($wcProductId)
                 : null,
         ];
+        // ⛔ WHERE THIS PRODUCT'S PRICE AND STOCK LIVE, decided HERE because
+        // this is the only place that holds all four facts at once — the type,
+        // our own tables, the storefront link and what the shop answered. The
+        // form view gets the verdict rather than the ingredients, so it cannot
+        // assemble a second rule out of them (`alpha.78`).
+        $data['origin'] = PriceAndStockOrigin::decide(
+            $type,
+            $attributes !== [] || $variations !== [],
+            $wcProductId > 0,
+            $data['storefront']
+        );
+        return $data;
     }
 
     /**

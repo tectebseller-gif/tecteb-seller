@@ -6,6 +6,9 @@ namespace Tecteb\Marketplace\Modules\Vendor\Infrastructure\WordPress;
 use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Modules\Marketplace\Application\ManageReviews;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Vendor\Application\StoreRepositoryInterface;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
@@ -166,6 +169,21 @@ final class StorePage
             }
         }
 
+        // ⛔ WHAT A VARIABLE PRODUCT COSTS, in ONE query for the page.
+        //
+        // An imported parent's own price is nought because its price is on its
+        // children, and until this round the card printed nothing at all. The
+        // read is `rangesFor()` — one indexed query over
+        // `wc_product_meta_lookup` — and NOT a `wc_get_product()` per row:
+        // this page lists up to twenty-four products and the vendor's own list
+        // showed what a per-row load costs (`alpha.91`).
+        //
+        // It is inside the cached fragment, so a price changed in WooCommerce
+        // reaches this page with the same «up to ten minutes» lag the title
+        // already has. Keyed by WooCommerce id, which is what the view looks
+        // the card up by.
+        $ranges = self::variableRanges($container, $products);
+
         // Cached only while the shop's state is steady. A closed shop is the
         // one case where «up to ten minutes stale» is the wrong answer to
         // «why does my shop still say closed», so that path renders fresh.
@@ -200,7 +218,8 @@ final class StorePage
                 $standing,
                 $canonical,
                 $page,
-                $pages
+                $pages,
+                $ranges
             );
             if (!$closed && $cached === null) {
                 StorePageCache::put($vendorUserId, $page, $body, $mode);
@@ -225,7 +244,8 @@ final class StorePage
             $standing,
             $canonical,
             $page,
-            $pages
+            $pages,
+            $ranges
         );
         if (!$closed && $cached === null) {
             StorePageCache::put($vendorUserId, $page, $html, $mode);
@@ -233,6 +253,43 @@ final class StorePage
         // phpcs:ignore WordPress.Security.EscapeOutput -- the view escapes.
         echo $html;
         exit;
+    }
+
+    /**
+     * Price ranges for the variable products on this page, keyed by
+     * WooCommerce id.
+     *
+     * Only variable products are asked about: a simple product's own row
+     * already carries its price, and asking for the rest would widen one query
+     * for no answer. An id the reader could not answer for comes back as
+     * `unreadable()` rather than absent, and the view prints nothing for it —
+     * never a nought.
+     *
+     * ⛔ The reader is resolved through the container and may be absent on an
+     * install with no WooCommerce, in which case there is nothing to ask and
+     * the page behaves exactly as it did.
+     *
+     * @param list<\Tecteb\Marketplace\Modules\Product\Domain\Product> $products
+     * @return array<int,StorefrontPriceRange>
+     */
+    private static function variableRanges(ContainerInterface $container, array $products): array
+    {
+        $wanted = [];
+        foreach ($products as $product) {
+            if ($product->details->type !== ProductType::VARIABLE) {
+                continue;
+            }
+            $wcId = (int) ($product->wcProductId ?? 0);
+            if ($wcId > 0) {
+                $wanted[$wcId] = $wcId;
+            }
+        }
+        if ($wanted === [] || !$container->has(StorefrontVariationReaderInterface::class)) {
+            return [];
+        }
+        /** @var StorefrontVariationReaderInterface $reader */
+        $reader = $container->get(StorefrontVariationReaderInterface::class);
+        return $reader->rangesFor(array_values($wanted));
     }
 
     private static function notFound(): void

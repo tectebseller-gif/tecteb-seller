@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Modules\Product\Application;
 
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
+use Tecteb\Marketplace\Modules\Product\Domain\PriceAndStockOrigin;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
@@ -32,8 +33,74 @@ final class SyncCatalog
         private readonly ProductRepositoryInterface $products,
         private readonly VariationRepositoryInterface $variations,
         private readonly CatalogProjectorInterface $projector,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * What the shop holds for a variable parent — READ ONLY, and appended
+         * with a default so every existing caller keeps compiling and keeps
+         * meaning «nobody asked» (`alpha.55`: a new required argument is how a
+         * previous round's probe stopped loading at all).
+         *
+         * `null` is not «ours». It makes `priceAndStockOrigin()` answer
+         * `UNKNOWN`, which refuses the write — the fail-closed direction, for
+         * a build that cannot see the shop.
+         */
+        private readonly ?StorefrontVariationReaderInterface $storefront = null
     ) {
+    }
+
+    /**
+     * WHERE THIS PRODUCT'S PRICE AND STOCK LIVE — asked here, decided in
+     * `PriceAndStockOrigin`.
+     *
+     * The facts are gathered in one place because three of them come from
+     * three different objects and a caller that assembled them itself would
+     * be a second rule (`alpha.78`).
+     *
+     * ⛔ NOT MEMOISED, and that was measured rather than chosen. A memo made
+     * this answer wrong inside a single request: `save()` asks before the
+     * dispatch and `saveAsRevision()` asks again a moment later, and in
+     * between the row can have been written — including its TYPE, which is
+     * one of the four facts. A cached «ours» about a product that was simple
+     * when the question was first asked is the `alpha.37` stale-memo trap one
+     * layer up, and it showed up as this round's own test reporting `ours`
+     * about an imported parent.
+     *
+     * The cost is at most two `setFor()` walks per save OF ONE PRODUCT, and
+     * only for a variable product whose combinations are not ours — a simple
+     * product and a native variable one never reach the read at all. The list
+     * path does not come through here; it uses `rangesFor()`, one indexed
+     * query for the whole page (`alpha.91`).
+     */
+    public function priceAndStockOrigin(int $productId): PriceAndStockOrigin
+    {
+        $product = $this->products->find($productId);
+        if ($product === null) {
+            // Not a judgement about a product — there is no product. The
+            // caller's own `not_found` is the honest answer and it reaches it
+            // on its own; this must not become a refusal of its own.
+            return PriceAndStockOrigin::ours('not_found');
+        }
+        $oursHoldsCombinations = $this->variations->attributes($productId) !== []
+            || $this->variations->variations($productId) !== [];
+        $wcProductId = (int) ($product->wcProductId ?? 0);
+        $linked = $product->isProjected() && $wcProductId > 0;
+        // Asked only when it could change the answer: a simple product and a
+        // product whose combinations are ours never reach the shop read, so
+        // the overwhelming majority of saves cost nothing extra.
+        $set = null;
+        if ($linked
+            && $this->storefront !== null
+            && !$oursHoldsCombinations
+            && $product->details->type === ProductType::VARIABLE
+        ) {
+            $set = $this->storefront->setFor($wcProductId);
+        }
+        return PriceAndStockOrigin::decide(
+            $product->details->type,
+            $oursHoldsCombinations,
+            $linked,
+            $set
+        );
     }
 
     public function isAvailable(): bool
@@ -357,6 +424,24 @@ final class SyncCatalog
     private function writeAndVerifyStock(int $productId, int $stock): OperationResult
     {
         $product = $this->products->find($productId);
+        // ⛔ THE PARENT'S STOCK IS NOT OURS TO WRITE when its variations live
+        // in the shop, and this is the layer that knows WHY rather than just
+        // that. Measured on the `alpha.105` bytes with this very fixture: a
+        // title-only save reached `writeStock()` with a nought and WooCommerce
+        // turned that into `set_manage_stock(true)` + `stock_quantity 0` +
+        // `outofstock` on a parent that was selling.
+        //
+        // The projector refuses this too, and that is not redundancy: a guard
+        // that holds because the callers happen to ask first is an ordering,
+        // not a guard (`alpha.98`).
+        $origin = $this->priceAndStockOrigin($productId);
+        if ($product !== null && !$origin->mayWriteParentFigures()) {
+            return OperationResult::failure('stock_not_written', [
+                'reason' => 'parent_figures_live_in_shop',
+                'origin' => $origin->reason,
+                'asked' => (string) $stock,
+            ]);
+        }
         if ($product !== null && !$this->mayWriteToStorefront($product)) {
             // Somebody else's product. An observed row's stock is a note, and
             // writing it would move a number on a product this marketplace
@@ -445,6 +530,17 @@ final class SyncCatalog
         }
         if (!$this->mayWriteToStorefront($product)) {
             return OperationResult::failure('not_our_product', ['product_id' => $productId, 'ownership' => $product->linkOwnership]);
+        }
+        // The price half of the same rule. A variable parent's own price is
+        // not a price WooCommerce reads — it derives the displayed range from
+        // the children — so writing one is at best noise and at worst the
+        // nought this round removes.
+        $origin = $this->priceAndStockOrigin($productId);
+        if (!$origin->mayWriteParentFigures()) {
+            return OperationResult::failure('parent_figures_live_in_shop', [
+                'product_id' => $productId,
+                'origin' => $origin->reason,
+            ]);
         }
         if (!$product->isProjected() || !$this->projector->isAvailable()) {
             return OperationResult::success('nothing_to_push');

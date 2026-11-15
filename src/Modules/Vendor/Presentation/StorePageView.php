@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Vendor\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Marketplace\Presentation\ReviewMessages;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StoreSettings;
 
 /**
@@ -80,14 +83,15 @@ final class StorePageView
         array $standing,
         string $canonical,
         int $page = 1,
-        int $pages = 1
+        int $pages = 1,
+        array $ranges = []
     ): string {
         return '<!DOCTYPE html><html lang="' . esc_attr(get_bloginfo('language')) . '" dir="rtl"><head>'
             . '<meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . self::head($store, $standing, $canonical)
             . '</head><body class="tmc-store tmc-store--standalone">'
-            . self::body($vendorUserId, $store, $products, $standing, $canonical, $page, $pages)
+            . self::body($vendorUserId, $store, $products, $standing, $canonical, $page, $pages, $ranges)
             . '</body></html>';
     }
 
@@ -199,7 +203,8 @@ final class StorePageView
         array $standing,
         string $canonical,
         int $page = 1,
-        int $pages = 1
+        int $pages = 1,
+        array $ranges = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $name = self::name($store);
@@ -229,7 +234,7 @@ final class StorePageView
 
         $html .= self::standingSection($standing);
         $html .= self::policySection($store, $fa);
-        $html .= self::productSection($products, $fa, $page, $pages, $canonical);
+        $html .= self::productSection($products, $fa, $page, $pages, $canonical, $ranges);
         $html .= self::socialSection($store);
 
         return $html . '</main>';
@@ -292,8 +297,21 @@ final class StorePageView
      * @param list<Product> $products
      * @param callable(string|int):string $fa
      */
-    private static function productSection(array $products, callable $fa, int $page = 1, int $pages = 1, string $canonical = ''): string
-    {
+    /**
+     * @param list<Product> $products
+     * @param array<int,\Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange> $ranges
+     *        keyed by WooCommerce product id, read in ONE indexed query by the
+     *        caller. Appended with a default, so every earlier caller — and
+     *        the evidence of six rounds — keeps compiling (`alpha.55`).
+     */
+    private static function productSection(
+        array $products,
+        callable $fa,
+        int $page = 1,
+        int $pages = 1,
+        string $canonical = '',
+        array $ranges = []
+    ): string {
         $html = '<section class="tmc-store__card"><h2>'
             . esc_html__('محصولات', 'tecteb-marketplace-core') . '</h2>';
         if ($products === []) {
@@ -331,7 +349,28 @@ final class StorePageView
                 . '<span class="tmc-store__thumb">' . self::thumbnail($wcId) . '</span>'
                 . '<span class="tmc-store__product-title">' . esc_html($title) . '</span>'
                 . '</a>';
-            if ($product->details->priceMinor > 0) {
+            // ⛔ WHERE A VARIABLE PRODUCT'S PRICE LIVES.
+            //
+            // On `alpha.105` this line was `priceMinor > 0` alone, and an
+            // imported variable parent keeps its price on its children — so
+            // its nought fell through and the card showed NO price at all,
+            // beside a product selling three sizes for millions. WooCommerce's
+            // own templates derive a variable parent's displayed price from
+            // its children for exactly this reason.
+            //
+            // The range is read by the caller, once for the whole page. Three
+            // answers and no fourth: a range, a single price, or nothing —
+            // and «nothing» is also what an unreadable read prints, because a
+            // shopper reading «نامشخص» on a shop front learns nothing they can
+            // act on and a nought would be a lie. The vendor's own panel is
+            // where «نامشخص» belongs, and says it there.
+            $range = $ranges[$wcId] ?? null;
+            $shopPrice = $product->details->type === ProductType::VARIABLE && $range !== null && $range->hasPrice()
+                ? self::priceRange($range, $fa)
+                : null;
+            if ($shopPrice !== null) {
+                $html .= '<p class="tmc-store__price"><strong>' . esc_html($shopPrice) . '</strong></p>';
+            } elseif ($product->details->priceMinor > 0) {
                 $sale = $product->details->salePriceMinor;
                 $hasSale = $sale !== null && $sale > 0 && $sale < $product->details->priceMinor;
                 $html .= '<p class="tmc-store__price">';
@@ -400,6 +439,66 @@ final class StorePageView
      * Found by running the install guide on a site built that morning, which
      * is the only place the two numbers are ever seen side by side.
      */
+    /**
+     * What a variable product costs, as the shop holds it: one price when
+     * every child agrees, «از X تا Y» when they do not.
+     *
+     * ⛔ FORMATTED THROUGH `MoneyText`, not `number_format()`. The range
+     * carries its own exponent — `wc_product_meta_lookup` stores a decimal
+     * and the reader converts it with `DecimalAmount` — so printing it with
+     * the exponent-zero helper below would move the decimal point. Returns
+     * null rather than a guess when either end cannot be rendered.
+     */
+    private static function priceRange(StorefrontPriceRange $range, callable $fa): ?string
+    {
+        $unit = ' ' . __('تومان', 'tecteb-marketplace-core');
+        $min = self::amount($range->minMinor, $range->priceExponent, $fa);
+        if ($min === null) {
+            return null;
+        }
+        if ($range->isSinglePrice()) {
+            return $min . $unit;
+        }
+        $max = self::amount($range->maxMinor, $range->priceExponent, $fa);
+        if ($max === null) {
+            return null;
+        }
+        return sprintf(
+            /* translators: 1: lowest price, 2: highest price, both already formatted */
+            __('از %1$s تا %2$s', 'tecteb-marketplace-core'),
+            $min,
+            $max
+        ) . $unit;
+    }
+
+    /**
+     * One amount from the shop, grouped the way THIS page groups numbers.
+     *
+     * ⛔ ONE SEPARATOR PER PAGE. `toman()` below groups with
+     * `number_format()` and then rewrites the digits, which leaves a Latin
+     * comma; `MoneyText` groups with «٬». Printing a range through one and a
+     * simple product's price through the other would put both on the same
+     * shelf — measured, and the reason this helper exists rather than a
+     * direct `MoneyText` call.
+     *
+     * So an exponent of zero — what `wc_get_price_decimals()` answers on this
+     * installation, and therefore every product on it — goes through the
+     * page's own formatter. A currency with places cannot: `number_format()`
+     * takes a float and this codebase refuses floats for money, so that case
+     * uses `MoneyText` and differs in its separator. Stated rather than
+     * hidden, and it is not reachable on a shop priced in تومان.
+     */
+    private static function amount(?int $minor, int $exponent, callable $fa): ?string
+    {
+        if ($minor === null) {
+            return null;
+        }
+        if ($exponent === 0) {
+            return $fa(number_format($minor));
+        }
+        return MoneyText::format($minor, $exponent);
+    }
+
     private static function toman(int $price, callable $fa): string
     {
         return $fa(number_format($price)) . ' ' . __('تومان', 'tecteb-marketplace-core');

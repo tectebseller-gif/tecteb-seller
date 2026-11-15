@@ -11,7 +11,10 @@ use Tecteb\Marketplace\Modules\Operations\Application\RecordEvent;
 use Tecteb\Marketplace\Modules\Order\Application\OrderItemRepositoryInterface;
 use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Vendor\Application\StaffAccess;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffArea;
 use Tecteb\Marketplace\Modules\Vendor\Domain\StaffLevel;
@@ -169,17 +172,87 @@ final class MarketplaceController
         $all = $products->allForVendor($vendorUserId);
         $slice = array_slice($all, ($page - 1) * $perPage, $perPage);
 
-        $items = array_map(static fn (Product $product): array => [
-            'id' => $product->id,
-            'title' => $product->details->title,
-            'sku' => $product->details->sku,
-            'price_minor' => $product->details->priceMinor,
-            'stock' => $product->details->stock,
-            'status' => $product->status->value,
-            'wc_product_id' => $product->wcProductId,
-        ], $slice);
+        // ⛔ WHOSE NUMBER IS `price_minor`?
+        //
+        // Until this round it was printed with no qualification, and for a
+        // VARIABLE product it is the parent row's own field — which is nought,
+        // because a variable product's price is on its combinations. A
+        // consumer reading this endpoint had no way to tell «this costs
+        // nothing» from «ask the variations», and the two could not be more
+        // different.
+        //
+        // The existing keys are UNCHANGED, so nothing that reads this today
+        // breaks. What is added is the means to tell: `type`,
+        // `figures_live_in`, and the real range when there is one. Read in ONE
+        // indexed query for the page, never a product load per row
+        // (`alpha.91`).
+        $ranges = $this->variationRanges($slice);
+
+        $items = array_map(static function (Product $product) use ($ranges): array {
+            $variable = $product->details->type === ProductType::VARIABLE;
+            $range = $ranges[(int) ($product->wcProductId ?? 0)] ?? null;
+            return [
+                'id' => $product->id,
+                'title' => $product->details->title,
+                'sku' => $product->details->sku,
+                // Kept byte for byte: this is the marketplace ROW's own field.
+                // It is the product's price only when `figures_live_in` is
+                // `row`; otherwise it is a column that nobody has filled in.
+                'price_minor' => $product->details->priceMinor,
+                'stock' => $product->details->stock,
+                'status' => $product->status->value,
+                'wc_product_id' => $product->wcProductId,
+                'type' => $product->details->type,
+                'figures_live_in' => match (true) {
+                    !$variable => 'row',
+                    $range !== null && $range->readable => 'variations',
+                    // Not "nought" and not "variations": the read did not
+                    // answer, and saying either would be inventing a fact.
+                    default => 'unknown',
+                },
+                'price_range' => $variable && $range !== null && $range->hasPrice()
+                    ? [
+                        'min_minor' => $range->minMinor,
+                        'max_minor' => $range->maxMinor,
+                        'exponent' => $range->priceExponent,
+                    ]
+                    : null,
+            ];
+        }, $slice);
 
         return $this->page($items, $page, $perPage, count($all));
+    }
+
+    /**
+     * Price ranges for the variable products in this page, keyed by
+     * WooCommerce id.
+     *
+     * ⛔ READ ONLY, and absent rather than invented: without WooCommerce
+     * there is no reader, so every variable product reports
+     * `figures_live_in => unknown` and no range. That is the honest answer on
+     * an install where nothing can be read, and it is not «nought».
+     *
+     * @param list<Product> $products
+     * @return array<int,StorefrontPriceRange>
+     */
+    private function variationRanges(array $products): array
+    {
+        $wanted = [];
+        foreach ($products as $product) {
+            if ($product->details->type !== ProductType::VARIABLE) {
+                continue;
+            }
+            $wcId = (int) ($product->wcProductId ?? 0);
+            if ($wcId > 0) {
+                $wanted[$wcId] = $wcId;
+            }
+        }
+        if ($wanted === [] || !$this->container->has(StorefrontVariationReaderInterface::class)) {
+            return [];
+        }
+        /** @var StorefrontVariationReaderInterface $reader */
+        $reader = $this->container->get(StorefrontVariationReaderInterface::class);
+        return $reader->rangesFor(array_values($wanted));
     }
 
     public function orders(\WP_REST_Request $request): \WP_REST_Response

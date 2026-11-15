@@ -242,6 +242,32 @@ final class ManageProducts
         if ($brandProblem !== null) {
             return $brandProblem;
         }
+        // ⛔ THE PARENT'S PRICE AND STOCK, WHEN THEY ARE NOT OURS TO SET.
+        //
+        // An imported variable parent keeps both on its WooCommerce children.
+        // Our row's nought is the ABSENCE of a figure, not a figure — so a
+        // submission that moves it is refused here, BEFORE `updateDetails()`
+        // or `updatePrice()` has written anything. That placement is the whole
+        // requirement: «اگر تغییر واقعیِ والد مجاز نیست، با پیام دقیق و بدون
+        // partial write رد کن».
+        //
+        // Measured on the `alpha.105` bytes with the fixture in
+        // `ImportedParentFiguresTest`: a hand-made POST carrying 999,000 moved
+        // the recorded price and answered `revision_requested`.
+        //
+        // A submission that leaves them WHERE THEY ARE goes through untouched,
+        // and that is not a loophole — it is the ordinary save of a title, a
+        // description, a category, an image or a brand, which §۱-ب requires to
+        // keep working. The old form carried the nought in a hidden input and
+        // still lands here equal to the row.
+        $figures = $this->parentFiguresRefusal($product, $details);
+        if ($figures !== null) {
+            return $figures;
+        }
+        $typeChange = $this->typeChangeRefusal($product, $details);
+        if ($typeChange !== null) {
+            return $typeChange;
+        }
         // The version's VALUE is still not compared here — that belongs in the
         // UPDATE's WHERE clause, because a comparison between a read and a
         // write is a check two concurrent editors both pass.
@@ -265,6 +291,81 @@ final class ManageProducts
             $product->status->isEditableByVendor() => $this->saveInPlace($product, $details, $specs, $imageIds, $mainImageId, $revision),
             default => $this->saveAsRevision($product, $details, $specs, $imageIds, $mainImageId, $revision),
         };
+    }
+
+    /**
+     * WHETHER THIS SUBMISSION MOVES FIGURES THAT ARE NOT OURS — and which.
+     *
+     * Named field by field, because «ذخیره نشد» about a form with nine boxes
+     * sends the vendor to look at all nine. The sale window counts: a sale
+     * price and its two dates are facts about a price, and a parent that has
+     * no price cannot have a sale on it.
+     */
+    private function parentFiguresRefusal(Product $product, ProductDetails $details): ?OperationResult
+    {
+        $origin = $this->catalog->priceAndStockOrigin($product->id);
+        if ($origin->mayWriteParentFigures()) {
+            return null;
+        }
+        $moved = [];
+        if ($details->priceMinor !== $product->details->priceMinor) {
+            $moved[] = 'price';
+        }
+        if ($details->salePriceMinor !== $product->details->salePriceMinor
+            || $details->saleFrom !== $product->details->saleFrom
+            || $details->saleTo !== $product->details->saleTo
+        ) {
+            $moved[] = 'sale_price';
+        }
+        if ($details->stock !== $product->details->stock) {
+            $moved[] = 'stock';
+        }
+        if ($moved === []) {
+            return null;
+        }
+        return OperationResult::failure('parent_figures_live_in_shop', [
+            'product_id' => $product->id,
+            'fields' => implode('، ', $moved),
+            'origin' => $origin->reason,
+        ]);
+    }
+
+    /**
+     * ⛔ CHANGING THE TYPE OF A PRODUCT WHOSE COMBINATIONS LIVE IN THE SHOP.
+     *
+     * `detailsFromPost()` builds the model from the submitted `type` and
+     * `validate()` only asks whether it is one of the known values — not
+     * whether this product may become it. `SensitiveChange` does flag the
+     * change, which makes it a PROPOSAL on a published product; that is not
+     * the same as making it safe, and on a draft it is not even that.
+     *
+     * Flipping an imported variable parent to `simple` would leave three
+     * WooCommerce children hanging off a product that no longer admits it has
+     * any — and the next projection would write a simple product over a
+     * variable one. §P0-ت asks for a refusal «بدون طرح انتقال/تصمیم صریح
+     * مدیر», so this is a refusal and not a silent correction.
+     *
+     * ⛔ The freedom is kept everywhere it belongs: a NEW product (no row yet,
+     * so this method is never reached), a simple product, and a variable
+     * product whose combinations are ours. `isOurs()` is false for exactly
+     * the products that have children we did not create, plus the ones whose
+     * shop we could not read — where guessing is the thing to avoid.
+     */
+    private function typeChangeRefusal(Product $product, ProductDetails $details): ?OperationResult
+    {
+        if ($details->type === $product->details->type) {
+            return null;
+        }
+        $origin = $this->catalog->priceAndStockOrigin($product->id);
+        if ($origin->isOurs()) {
+            return null;
+        }
+        return OperationResult::failure('type_change_not_allowed', [
+            'product_id' => $product->id,
+            'from' => $product->details->type,
+            'to' => $details->type,
+            'origin' => $origin->reason,
+        ]);
     }
 
     /**
@@ -319,6 +420,25 @@ final class ManageProducts
         if ($stock < 0) {
             return OperationResult::failure('bad_stock');
         }
+        // ⛔ THE INDEPENDENT PATH, which never renders a form — and in
+        // `alpha.105` pushed the nought outward on exactly the same arithmetic
+        // as the save, answering `inventory_saved`.
+        //
+        // The split is deliberate and it is §D's: the SKU and the three
+        // purchase limits ARE the parent's own on WooCommerce, so an edit to
+        // those still goes through. Only the STOCK is refused, and only when
+        // it is actually being moved — refusing the whole verb would close the
+        // inventory screen for a product whose SKU a vendor may legitimately
+        // fix, which is a guard wider than the defect (`alpha.60`).
+        $stockOrigin = $this->catalog->priceAndStockOrigin($productId);
+        $stockBelongsToUs = $stockOrigin->mayWriteParentFigures();
+        if (!$stockBelongsToUs && $stock !== $product->details->stock) {
+            return OperationResult::failure('parent_figures_live_in_shop', [
+                'product_id' => $productId,
+                'fields' => 'stock',
+                'origin' => $stockOrigin->reason,
+            ]);
+        }
         $quantities = $this->validateQuantities($minPurchase, $maxPurchase, $purchaseStep);
         if ($quantities !== null) {
             return $quantities;
@@ -347,10 +467,17 @@ final class ManageProducts
         )) {
             return OperationResult::failure('storage_failed');
         }
-        if (!$stockProposed) {
+        if (!$stockProposed && $stockBelongsToUs) {
             // Write-through, not a mirror write: this is the one direction
             // stock is allowed to travel outward, because it is the vendor
             // saying so rather than a sync remembering (ADR-008).
+            //
+            // ⛔ And not at all when the figure is not ours. An unchanged
+            // nought is still a nought, and `writeStock()` would turn it into
+            // `manage_stock = true` on a parent that sells through its
+            // children. `SyncCatalog` refuses this too; asking here as well is
+            // what keeps the answer below honest instead of reporting a
+            // refusal the vendor did not cause.
             $this->catalog->pushStock($productId, $stock);
         }
         // The selling rule, written through on the SAME save. Reported, not
@@ -974,7 +1101,11 @@ final class ManageProducts
         if (!$inventoryWritten) {
             return OperationResult::failure('storage_failed');
         }
-        if (!$stockProposed) {
+        // ⛔ THE LINE THE MEASUREMENT CAUGHT. On the `alpha.105` bytes a
+        // title-only save arrived here with `$stockProposed === false` — our
+        // nought equals the nought `effectiveStock()` fell back to — and
+        // pushed it outward unconditionally.
+        if (!$stockProposed && $this->catalog->priceAndStockOrigin($product->id)->mayWriteParentFigures()) {
             $this->catalog->pushStock($product->id, $details->stock);
         }
         // The selling rule goes out with this save, on a published product

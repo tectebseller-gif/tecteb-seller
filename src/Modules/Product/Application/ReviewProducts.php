@@ -167,6 +167,21 @@ final class ReviewProducts
         if ($product === null) {
             return OperationResult::failure('not_found');
         }
+        // ⛔ AND A REVISION CANNOT CHANGE WHAT KIND OF PRODUCT THIS IS.
+        //
+        // `ManageProducts::save()` refuses the flip on the way in from this
+        // round, and that is not enough on its own: a revision recorded on
+        // `alpha.105` bytes can already be sitting in the queue carrying
+        // `type => simple` for a parent whose combinations live in the shop,
+        // and approval is the one path that writes a payload onto a live
+        // product. A guard that holds only because the earlier verb asks first
+        // is an ordering, not a guard (`alpha.98`), so both ends refuse — and
+        // this one refuses BEFORE any write, so there is no half-applied
+        // revision to clean up afterwards.
+        $typeChange = $this->typeChangeRefusal($product, $revision->payload, $revisionId);
+        if ($typeChange !== null) {
+            return $typeChange;
+        }
         // The same lock the queue's approval carries, on the same side. A
         // manager can fix a typo in WooCommerce while the revision page is
         // open, and this is the path that writes over the shop without ever
@@ -1274,6 +1289,53 @@ final class ReviewProducts
      *
      * @param array<string,mixed> $payload
      */
+    /**
+     * Does this payload ask to change the product's TYPE, and may it?
+     *
+     * Asked of the SAME key `detailsFromPayload()` reads, with the same
+     * `isset()` coercion, so the two cannot disagree about what the payload
+     * says: a null under `type` is «not carried» to that method, and must be
+     * «not carried» here too, or this would refuse a revision that changes
+     * nothing.
+     *
+     * The answer comes from `PriceAndStockOrigin`, the one rule four callers
+     * read (`alpha.78`). `OURS` covers every ordinary product — simple, or
+     * variable with OUR combination tables, or not linked to the shop at all —
+     * and those keep the behaviour they have always had. What is refused is
+     * the one shape where a type flip would strand real data: a parent whose
+     * variations exist only in WooCommerce. Turning that into a simple product
+     * would leave its children parented to something that no longer has
+     * children, and nothing in this plugin would write them back.
+     *
+     * ⛔ It refuses rather than converting, by name, and touches nothing:
+     * moving an imported parent to another type is a migration decision with a
+     * plan behind it, not a side effect of a title fix.
+     *
+     * @param array<string,mixed> $payload
+     */
+    private function typeChangeRefusal(Product $product, array $payload, int $revisionId): ?OperationResult
+    {
+        $details = $payload['details'] ?? [];
+        if (!is_array($details) || !isset($details['type'])) {
+            return null;
+        }
+        $proposed = (string) $details['type'];
+        if ($proposed === $product->details->type) {
+            return null;
+        }
+        $origin = $this->catalog->priceAndStockOrigin($product->id);
+        if ($origin->isOurs()) {
+            return null;
+        }
+        return OperationResult::failure('type_change_not_allowed', [
+            'product_id' => $product->id,
+            'revision_id' => $revisionId,
+            'from' => $product->details->type,
+            'to' => $proposed,
+            'origin' => $origin->reason,
+        ]);
+    }
+
     private function detailsFromPayload(
         array $payload,
         ProductDetails $current,

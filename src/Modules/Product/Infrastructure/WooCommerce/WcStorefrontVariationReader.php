@@ -79,7 +79,7 @@ final class WcStorefrontVariationReader implements StorefrontVariationReaderInte
                 $unreadable++;
                 continue;
             }
-            $variations[] = $this->variation($child, $childId, $exponent);
+            $variations[] = $this->variation($child, $childId, $exponent, $parent);
         }
 
         return StorefrontVariationSet::read($variations, $exponent, $unreadable);
@@ -137,14 +137,19 @@ final class WcStorefrontVariationReader implements StorefrontVariationReaderInte
 
     // ------------------------------------------------------------ internals
 
-    private function variation(\WC_Product_Variation $child, int $childId, int $exponent): StorefrontVariation
+    private function variation(
+        \WC_Product_Variation $child,
+        int $childId,
+        int $exponent,
+        \WC_Product_Variable $parent
+    ): StorefrontVariation
     {
         $manageStock = (bool) $child->get_manage_stock();
         $quantity = $child->get_stock_quantity();
 
         return new StorefrontVariation(
             $childId,
-            $this->attributesOf($child),
+            $this->attributesOf($child, $parent),
             (string) $child->get_sku(),
             $this->minor($child->get_regular_price(), $exponent),
             $this->minor($child->get_sale_price(), $exponent),
@@ -171,7 +176,7 @@ final class WcStorefrontVariationReader implements StorefrontVariationReaderInte
      *
      * @return array<string,string>
      */
-    private function attributesOf(\WC_Product_Variation $child): array
+    private function attributesOf(\WC_Product_Variation $child, \WC_Product_Variable $parent): array
     {
         $out = [];
         foreach ((array) $child->get_attributes() as $key => $value) {
@@ -180,7 +185,20 @@ final class WcStorefrontVariationReader implements StorefrontVariationReaderInte
             if ($key === '') {
                 continue;
             }
-            $label = function_exists('wc_attribute_label') ? (string) wc_attribute_label($key) : $key;
+            // ⛔ THE PARENT IS PASSED, and that is the whole of the fix
+            // for a custom Persian attribute name.
+            //
+            // `wc_attribute_label($name)` with no product can only answer for
+            // a TAXONOMY; for a custom attribute it hands back the stored key,
+            // which `sanitize_title()` percent-encoded. Given the parent,
+            // WooCommerce looks the original name up in that product's own
+            // attribute list and answers «اندازه». This is resolution by the
+            // platform, not a guess by us — and where it still cannot answer,
+            // the display layer decodes the key for reading only
+            // (`AttributeLabel`). Nothing stored is rewritten either way.
+            $label = function_exists('wc_attribute_label')
+                ? (string) wc_attribute_label($key, $parent)
+                : $key;
             if ($label === '') {
                 $label = $key;
             }

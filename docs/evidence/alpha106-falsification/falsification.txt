@@ -34,3 +34,8 @@ tree: 9f81ed5 (+ uncommitted work)
 
 --- 21/21  the panel prints the stored key
     file: src/Modules/Product/Presentation/VariationsView.php
+    expected red in: contract
+    measured: contract:2
+    falsified
+
+problems: 0

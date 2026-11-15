@@ -293,7 +293,14 @@ final class VariationsView
         foreach ($set->variations as $variation) {
             $parts = [];
             foreach ($variation->attributes as $label => $value) {
-                $parts[] = $label . ': ' . $value;
+                // ⛔ DECODED HERE, where it is printed, and nowhere else.
+                // `sanitize_title()` percent-encodes Persian, so a custom
+                // attribute the vendor typed as «اندازه» is stored as
+                // `%d8%a7%d9%86%d8%af%d8%a7%d8%b2%d9%87` and was printed that
+                // way. The stored key is untouched: it is what joins this
+                // child to its parent's axis.
+                $parts[] = AttributeLabel::forDisplay((string) $label)
+                    . ': ' . AttributeLabel::forDisplay($value);
             }
             $html .= '<li class="tv-variations__item"><div class="tv-variations__body">'
                 . '<strong>' . esc_html($parts === []

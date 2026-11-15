@@ -644,6 +644,21 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         if ($wcProduct === null) {
             return false;
         }
+        // ⛔ THE LAST LINE, and it is here rather than only in the Application
+        // layer on purpose. `SyncCatalog` refuses this write and names the
+        // reason, which is the layer that can; but a guard that holds because
+        // its callers happen to ask first is an ordering, not a guard
+        // (`alpha.98`). Four callers reach `pushStock()` today and the fifth
+        // one somebody adds next year will not know to ask.
+        //
+        // What it refuses: a variable parent whose children this plugin did
+        // not create. The three lines below would make WooCommerce manage the
+        // PARENT's stock — and a variable parent with `manage_stock = true`
+        // and a quantity of nought is out of stock for every one of its
+        // variations, however well they are selling.
+        if ($this->shopHoldsTheCombinations($wcProduct)) {
+            return false;
+        }
         $wcProduct->set_manage_stock(true);
         $wcProduct->set_stock_quantity(max(0, $stock));
         $wcProduct->set_stock_status($stock > 0 ? 'instock' : 'outofstock');
@@ -693,6 +708,14 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         $wcProduct = $this->linkedProduct($product);
         if ($wcProduct === null) {
             return ['outcome' => 'not_linked', 'found' => null];
+        }
+        // The approval path needs the same refusal, and for a reason the save
+        // paths do not have: a proposal recorded by an EARLIER version of this
+        // plugin can be sitting in the queue right now carrying
+        // `details.stock = 0` for one of these parents. Approving it must not
+        // do what creating it is no longer allowed to.
+        if ($this->shopHoldsTheCombinations($wcProduct)) {
+            return ['outcome' => 'parent_figures_live_in_shop', 'found' => null];
         }
         if (!$wcProduct->managing_stock()) {
             // WooCommerce is not keeping a number for this product, so there
@@ -1939,6 +1962,38 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         }
         \WC_Product_Variable::sync($wcProductId);
         return $links;
+    }
+
+    /**
+     * Does the SHOP hold this parent's combinations rather than us?
+     *
+     * Answered from WooCommerce alone, so this object needs nothing injected
+     * and cannot be made to answer differently by a caller. Three facts, all
+     * the shop's: it is a variable parent, it has children, and not one of
+     * those children carries the stamp projection writes
+     * (`_tmc_variation_id`). The stamp is the only thing that distinguishes a
+     * child this marketplace made from a child it found — the same reading
+     * `existingVariationIds()` has always done, and the reason `alpha.90`
+     * could name this risk without closing it.
+     *
+     * FALSE for a simple product, for a parent with no children, and for a
+     * parent whose children are ours: those keep today's behaviour exactly.
+     */
+    private function shopHoldsTheCombinations(mixed $wcProduct): bool
+    {
+        if (!$wcProduct instanceof \WC_Product_Variable) {
+            return false;
+        }
+        $children = $wcProduct->get_children();
+        if ($children === []) {
+            return false;       // a real, empty answer — nothing to own
+        }
+        foreach ($children as $childId) {
+            if ((int) get_post_meta((int) $childId, self::VARIATION_META, true) > 0) {
+                return false;   // ours, and the shop is the mirror
+            }
+        }
+        return true;
     }
 
     /** @return array<int,int> tmc variation id => WooCommerce variation id */

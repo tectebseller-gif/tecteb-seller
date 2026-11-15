@@ -275,7 +275,11 @@ final class ProductModule implements ModuleInterface
         });
         $c->bind(ProductReadiness::class, static fn (ContainerInterface $c) => new ProductReadiness(
             $c->get(SpecTemplateRepositoryInterface::class),
-            $c->get(VariationRepositoryInterface::class)
+            $c->get(VariationRepositoryInterface::class),
+            // So readiness can see an IMPORTED parent's combinations. Without
+            // it this class sees only our own tables, which hold nothing for
+            // such a product, and refuses it for having no price of its own.
+            $c->get(StorefrontVariationReaderInterface::class)
         ));
         $c->bind(ManageVariations::class, static fn (ContainerInterface $c) => new ManageVariations(
             $c->get(ProductRepositoryInterface::class),
@@ -323,7 +327,11 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductRepositoryInterface::class),
             $c->get(VariationRepositoryInterface::class),
             $c->get(CatalogProjectorInterface::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            // So `priceAndStockOrigin()` can tell an imported parent from one
+            // we built. Unbound it answers `UNKNOWN`, which refuses the write
+            // — the fail-closed direction, not a silent fall back to «ours».
+            $c->get(StorefrontVariationReaderInterface::class)
         ));
         $c->bind(UnpaidOrderGuardInterface::class, static function (ContainerInterface $c) {
             return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()

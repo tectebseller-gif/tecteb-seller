@@ -148,6 +148,31 @@ final class ManageWholesale
         if ($product === null || $product->vendorUserId !== $vendorUserId) {
             return OperationResult::failure('not_found');
         }
+        // ⛔ IS THE PARENT'S PRICE A CEILING AT ALL?
+        //
+        // Every step is compared against `$product->details->priceMinor`
+        // below, and for a VARIABLE product that field is nought: the price is
+        // on the combinations. So the comparison `$unitPrice > 0` was true for
+        // every positive ladder, and a vendor who typed a perfectly sensible
+        // ۲٬۰۰۰٬۰۰۰ got `tier_price_invalid` — a message that says their
+        // number is wrong when the truth is that this version has no wholesale
+        // ladder for a product whose price lives on its variations.
+        //
+        // Named rather than redesigned. Per-variation wholesale is a decision
+        // with a data model behind it, not something to infer from a nought,
+        // and the instruction for this round is explicit that the wholesale
+        // system is not to be rebuilt here.
+        //
+        // ⛔ AND CLEARING STAYS POSSIBLE. An empty `$steps` removes the
+        // ladder, and refusing that would leave a product whose tiers can
+        // never be taken off — a guard that builds a dead end is worse than
+        // the defect it came for (`alpha.68`).
+        if ($steps !== [] && $product->details->priceMinor <= 0) {
+            return OperationResult::failure('tier_ceiling_unavailable', [
+                'product_id' => $productId,
+                'type' => $product->details->type,
+            ]);
+        }
         ksort($steps);
         $tiers = [];
         $previousPrice = null;

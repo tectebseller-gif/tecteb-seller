@@ -11,12 +11,14 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDecision;
 use Tecteb\Marketplace\Modules\Product\Domain\LongDescription;
 use Tecteb\Marketplace\Modules\Product\Domain\Brand;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandProposal;
+use Tecteb\Marketplace\Modules\Product\Domain\PriceAndStockOrigin;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
@@ -272,10 +274,26 @@ final class ProductFormView
             . self::carryOver($step, $details, $specs, $template, (string) ($brands['value'] ?? $details->brand))
             . self::gallery($images, $mainImageId, $step, $maxImageBytes)
             . match ($step) {
-                '2' => self::stepPrice($details, $status, $proposedStock, $effectiveStock),
+                '2' => self::stepPrice(
+                    $details,
+                    $status,
+                    $proposedStock,
+                    $effectiveStock,
+                    $variable['origin'] ?? null,
+                    $variable['storefront'] ?? null
+                ),
                 '3' => self::stepTechnical($details, $specs, $template),
-                '4' => self::stepReview($details, $readiness, $share, $mayPublishDirectly, $status, $categories),
-                default => self::stepIntro($details, $categories, $brands),
+                '4' => self::stepReview(
+                    $details,
+                    $readiness,
+                    $share,
+                    $mayPublishDirectly,
+                    $status,
+                    $categories,
+                    $variable['origin'] ?? null,
+                    $variable['storefront'] ?? null
+                ),
+                default => self::stepIntro($details, $categories, $brands, $variable['origin'] ?? null),
             }
             . '<p class="tv-form__actions">'
             . VendorUi::submit(__('ذخیره و ادامه', 'tecteb-marketplace-core'))
@@ -482,14 +500,57 @@ final class ProductFormView
         return $html;
     }
 
-    /** @param array<string,mixed> $categories the picker's state */
-    private static function stepIntro(ProductDetails $d, array $categories, array $brands = []): string
+    /**
+     * The type control — a chooser, except for the one shape where choosing
+     * cannot be honoured.
+     *
+     * `ManageProducts::save()` and `ReviewProducts::approveRevision()` both
+     * refuse a type change on a parent whose variations exist only in
+     * WooCommerce, and that refusal is the protection. This is the other half
+     * of §1-A: a control that offers a choice the service will not take is a
+     * control that wastes the vendor's time and teaches them the panel is
+     * broken, so here the type is stated and carried instead.
+     *
+     * ⛔ NARROW ON PURPOSE. Every other product — simple, or variable with
+     * OUR combinations, or not yet linked to a shop product — keeps the
+     * chooser it has always had; locking all of them would be the wider guard
+     * that is the bigger defect (`alpha.60`). And this is presentation only:
+     * the stored value is untouched and nothing here decides anything.
+     */
+    private static function typeControl(ProductDetails $d, ?PriceAndStockOrigin $origin): string
     {
+        $types = ProductMessages::types();
+        if ($origin === null || $origin->isOurs()) {
+            return VendorUi::select(
+                'type',
+                __('نوع محصول', 'tecteb-marketplace-core'),
+                $types,
+                $d->type,
+                __('محصول خارجی و گروهی در این نسخه ساخته نمی‌شود.', 'tecteb-marketplace-core')
+            );
+        }
+        return '<input type="hidden" name="type" value="' . esc_attr($d->type) . '">'
+            . '<div class="tv-field"><span class="tv-label">'
+            . esc_html__('نوع محصول', 'tecteb-marketplace-core')
+            . '</span><p class="tv-note">'
+            . esc_html($types[$d->type] ?? $d->type)
+            . '</p><p class="tv-hint">'
+            . esc_html__('تنوع‌های این محصول در ووکامرس هستند، پس نوع آن از این فرم عوض نمی‌شود. تغییر نوع یک تصمیم مدیر بازارگاه با برنامهٔ انتقال است، نه یک ویرایش در پنل فروشنده.', 'tecteb-marketplace-core')
+            . '</p></div>';
+    }
+
+    /** @param array<string,mixed> $categories the picker's state */
+    private static function stepIntro(
+        ProductDetails $d,
+        array $categories,
+        array $brands = [],
+        ?PriceAndStockOrigin $origin = null
+    ): string {
         /** @var list<\Tecteb\Marketplace\Modules\Product\Domain\ProductCategory> $results */
         $results = is_array($categories['results'] ?? null) ? $categories['results'] : [];
         return '<fieldset class="tv-fieldset"><legend>' . esc_html__('معرفی محصول', 'tecteb-marketplace-core') . '</legend>'
             . VendorUi::input('title', __('عنوان محصول', 'tecteb-marketplace-core'), $d->title)
-            . VendorUi::select('type', __('نوع محصول', 'tecteb-marketplace-core'), ProductMessages::types(), $d->type, __('محصول خارجی و گروهی در این نسخه ساخته نمی‌شود.', 'tecteb-marketplace-core'))
+            . self::typeControl($d, $origin)
             . ProductCategoryPickerView::render(
                 // EVERY category this product is in, keyed by term id. The
                 // single `selected` the picker took until `alpha.81` could
@@ -638,17 +699,47 @@ final class ProductFormView
         ProductDetails $d,
         ProductStatus $status = ProductStatus::Draft,
         ?int $proposedStock = null,
-        ?int $effectiveStock = null
+        ?int $effectiveStock = null,
+        ?PriceAndStockOrigin $origin = null,
+        ?StorefrontVariationSet $set = null
     ): string
     {
+        // ⛔ NO MADE-UP NOUGHT, and this is the requirement §۴ calls the most
+        // important one: «هیچ صفرِ ساختگی به‌عنوان قیمت یا موجودی قابل
+        // ویرایش/ذخیره نمایش داده نشود».
+        //
+        // An imported variable parent keeps its price and its stock on its
+        // WooCommerce children. Our row holds nought for both, and until this
+        // round this method rendered that nought as the vendor's own editable
+        // price — «۰ تومان» and «ناموجود» on a product selling three sizes at
+        // between ۲٬۵۹۳٬۷۰۰ and ۱۰٬۳۷۴٬۸۰۰ تومان.
+        //
+        // The three figures travel on as HIDDEN inputs carrying exactly what
+        // the row holds. That is not a loophole — it is what makes the round
+        // trip the identity, so an ordinary save of the title or the category
+        // is not refused for «moving» a price nobody touched. Any value that
+        // does differ is refused in the Application layer, below the form,
+        // where a hand-made POST meets it too.
+        //
+        // The SKU and the three purchase limits stay editable: those ARE the
+        // parent's own on WooCommerce (§D), and taking them away would be a
+        // guard wider than the defect (`alpha.60`).
+        $figuresAreOurs = $origin === null || $origin->offersParentFigures();
+        $figures = $figuresAreOurs
+            ? VendorUi::input('price', __('قیمت (تومان)', 'tecteb-marketplace-core'), (string) $d->priceMinor, true, 'text', 'ltr')
+                . VendorUi::input('sale_price', __('قیمت با تخفیف (اختیاری)', 'tecteb-marketplace-core'), $d->salePriceMinor === null ? '' : (string) $d->salePriceMinor, true, 'text', 'ltr')
+                . VendorUi::input('sale_from', __('شروع تخفیف', 'tecteb-marketplace-core'), $d->saleFrom ?? '', true, 'date', 'ltr')
+                . VendorUi::input('sale_to', __('پایان تخفیف', 'tecteb-marketplace-core'), $d->saleTo ?? '', true, 'date', 'ltr')
+            : self::shopFiguresPanel($d, $set, $origin);
+        $stockField = $figuresAreOurs
+            ? VendorUi::input('stock', __('موجودی', 'tecteb-marketplace-core'), (string) $d->stock, true, 'text', 'ltr', self::stockHint($status))
+                . self::stockProposalNotice($proposedStock, $effectiveStock)
+            : '';
+
         return '<fieldset class="tv-fieldset"><legend>' . esc_html__('قیمت و موجودی', 'tecteb-marketplace-core') . '</legend>'
-            . VendorUi::input('price', __('قیمت (تومان)', 'tecteb-marketplace-core'), (string) $d->priceMinor, true, 'text', 'ltr')
-            . VendorUi::input('sale_price', __('قیمت با تخفیف (اختیاری)', 'tecteb-marketplace-core'), $d->salePriceMinor === null ? '' : (string) $d->salePriceMinor, true, 'text', 'ltr')
-            . VendorUi::input('sale_from', __('شروع تخفیف', 'tecteb-marketplace-core'), $d->saleFrom ?? '', true, 'date', 'ltr')
-            . VendorUi::input('sale_to', __('پایان تخفیف', 'tecteb-marketplace-core'), $d->saleTo ?? '', true, 'date', 'ltr')
+            . $figures
             . VendorUi::input('sku', __('کد SKU', 'tecteb-marketplace-core'), $d->sku, true, 'text', 'ltr', __('در همین فروشگاه یکتا است.', 'tecteb-marketplace-core'))
-            . VendorUi::input('stock', __('موجودی', 'tecteb-marketplace-core'), (string) $d->stock, true, 'text', 'ltr', self::stockHint($status))
-            . self::stockProposalNotice($proposedStock, $effectiveStock)
+            . $stockField
             // The three purchase-quantity rules, each with the sentence that
             // says what empty means. Until `alpha.45` the first two were
             // stored and read by nothing at all, and there was no third —
@@ -689,6 +780,83 @@ final class ProductFormView
                 )
             )
             . '</fieldset>';
+    }
+
+    /**
+     * THE READ-ONLY TRUTH ABOUT A PARENT WHOSE FIGURES ARE NOT OURS.
+     *
+     * Four things the vendor needs and the nought told them none of: what the
+     * variations actually cost, how many of them can be bought, what the
+     * parent's own stock number means, and WHERE to change any of it.
+     *
+     * ⛔ «نامشخص», never nought and never «ناموجود», when the read failed.
+     * `null` stock on a WooCommerce parent means «this product does not keep a
+     * number of its own», which is the normal and correct state for a variable
+     * parent — reading it as nought is what produced «ناموجود» about a product
+     * with stock on every child.
+     *
+     * The three figures ride along as hidden inputs so the form's round trip
+     * is the identity. They are the ROW's values, not new ones.
+     */
+    private static function shopFiguresPanel(
+        ProductDetails $d,
+        ?StorefrontVariationSet $set,
+        ?PriceAndStockOrigin $origin
+    ): string {
+        $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
+        $carry = '<input type="hidden" name="price" value="' . esc_attr((string) $d->priceMinor) . '">'
+            . '<input type="hidden" name="sale_price" value="'
+            . esc_attr($d->salePriceMinor === null ? '' : (string) $d->salePriceMinor) . '">'
+            . '<input type="hidden" name="sale_from" value="' . esc_attr($d->saleFrom ?? '') . '">'
+            . '<input type="hidden" name="sale_to" value="' . esc_attr($d->saleTo ?? '') . '">'
+            . '<input type="hidden" name="stock" value="' . esc_attr((string) $d->stock) . '">';
+
+        if ($set === null || !$set->isRead()) {
+            // The read failed, or nobody asked. Say so — and say what it is
+            // NOT, because a vendor who reads «نامشخص» beside a product they
+            // know sells will otherwise assume the worst.
+            return $carry . VendorUi::notice('warning', sprintf(
+                /* translators: %s: the machine-readable reason, for support */
+                __('قیمت و موجودی این محصول روی تنوع‌های ووکامرس است و این بار خوانده نشد (%s). عدد نمایش داده نمی‌شود، چون «نامشخص» با «صفر» و «ناموجود» یکی نیست. چیزی از این فرم روی قیمت یا موجودی نوشته نمی‌شود؛ صفحه را دوباره باز کنید یا به مدیر بازارگاه بگویید.', 'tecteb-marketplace-core'),
+                $origin?->reason ?? 'not_read'
+            ));
+        }
+
+        $min = $set->minPriceMinor();
+        $max = $set->maxPriceMinor();
+        $price = $min === null
+            ? __('هیچ تنوعی قیمت خواندنی نداشت', 'tecteb-marketplace-core')
+            : ($min === $max
+                ? (MoneyText::format($min, $set->priceExponent) ?? '')
+                : sprintf(
+                    /* translators: 1: lowest price, 2: highest price */
+                    __('از %1$s تا %2$s', 'tecteb-marketplace-core'),
+                    MoneyText::format($min, $set->priceExponent) ?? '',
+                    MoneyText::format($max, $set->priceExponent) ?? ''
+                ));
+
+        return $carry
+            . '<div class="tv-note">'
+            . '<h3 class="tv-review__title">' . esc_html__('قیمت و موجودی روی تنوع‌ها (فقط خواندنی)', 'tecteb-marketplace-core') . '</h3>'
+            . '<dl class="tv-review">'
+            . self::reviewRow(__('قیمت تنوع‌ها', 'tecteb-marketplace-core'), $price)
+            . self::reviewRow(__('قابل خرید', 'tecteb-marketplace-core'), sprintf(
+                /* translators: 1: buyable variations, 2: variations read */
+                __('%1$s از %2$s تنوع', 'tecteb-marketplace-core'),
+                $fa($set->buyableCount()),
+                $fa($set->count())
+            ))
+            . self::reviewRow(__('موجودی والد', 'tecteb-marketplace-core'), $set->totalStock() === null
+                ? __('والد عدد موجودی خودش را نگه نمی‌دارد؛ موجودی روی هر تنوع است.', 'tecteb-marketplace-core')
+                : $fa((int) $set->totalStock()))
+            . '</dl>'
+            . ($set->isComplete() ? '' : VendorUi::notice('warning', sprintf(
+                /* translators: %s: how many children could not be read */
+                __('%s تنوع که فروشگاه اعلام کرده خوانده نشد، پس ارقام بالا کل ماجرا نیست.', 'tecteb-marketplace-core'),
+                $fa($set->unreadableChildren)
+            )))
+            . '<p class="tv-hint">' . esc_html__('این ارقام مال والد نیستند و از این فرم تغییر نمی‌کنند. قیمت و موجودی هر تنوع فعلاً در ووکامرس ویرایش می‌شود؛ فهرست کامل تنوع‌ها پایین همین صفحه است.', 'tecteb-marketplace-core') . '</p>'
+            . '</div>';
     }
 
     /** @param array<string,string> $specs */
@@ -783,7 +951,9 @@ final class ProductFormView
         ?CommissionOutcome $share,
         bool $mayPublishDirectly,
         ProductStatus $status,
-        array $categories = []
+        array $categories = [],
+        ?PriceAndStockOrigin $origin = null,
+        ?StorefrontVariationSet $set = null
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('بازبینی', 'tecteb-marketplace-core') . '</legend>'
@@ -796,8 +966,11 @@ final class ProductFormView
                 __('دسته', 'tecteb-marketplace-core'),
                 ($categories['selected'] ?? null)?->path ?? $d->categoryKey
             )
-            . self::reviewRow(__('قیمت', 'tecteb-marketplace-core'), sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($d->priceMinor))))
-            . self::reviewRow(__('موجودی', 'tecteb-marketplace-core'), $fa($d->stock))
+            // ⛔ THE SAME NOUGHT, ON THE LAST STEP. Step 4 read the row too,
+            // so «۰ تومان» and «۰» followed the vendor all the way to the
+            // review — and this is the screen they read just before pressing
+            // submit.
+            . self::reviewFigures($d, $origin, $set, $fa)
             . '</dl>';
 
         if ($readiness !== null && !$readiness->ok) {
@@ -814,6 +987,49 @@ final class ProductFormView
             $html .= '<p class="tv-hint">' . esc_html__('این محصول در وضعیتی است که ارسال دوباره ندارد.', 'tecteb-marketplace-core') . '</p>';
         }
         return $html . '</fieldset>';
+    }
+
+    /**
+     * The price and stock rows of the review, from whichever side owns them.
+     *
+     * @param callable(string|int):string $fa
+     */
+    private static function reviewFigures(
+        ProductDetails $d,
+        ?PriceAndStockOrigin $origin,
+        ?StorefrontVariationSet $set,
+        callable $fa
+    ): string {
+        if ($origin === null || $origin->parentFiguresAreReal()) {
+            return self::reviewRow(
+                __('قیمت', 'tecteb-marketplace-core'),
+                sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($d->priceMinor)))
+            ) . self::reviewRow(__('موجودی', 'tecteb-marketplace-core'), $fa($d->stock));
+        }
+        if ($set === null || !$set->isRead()) {
+            $unknown = __('نامشخص — روی تنوع‌های ووکامرس است و خوانده نشد', 'tecteb-marketplace-core');
+            return self::reviewRow(__('قیمت', 'tecteb-marketplace-core'), $unknown)
+                . self::reviewRow(__('موجودی', 'tecteb-marketplace-core'), $unknown);
+        }
+        $min = $set->minPriceMinor();
+        $max = $set->maxPriceMinor();
+        $price = $min === null
+            ? __('هیچ تنوعی قیمت خواندنی نداشت', 'tecteb-marketplace-core')
+            : ($min === $max
+                ? (MoneyText::format($min, $set->priceExponent) ?? '')
+                : sprintf(
+                    /* translators: 1: lowest price, 2: highest price */
+                    __('از %1$s تا %2$s', 'tecteb-marketplace-core'),
+                    MoneyText::format($min, $set->priceExponent) ?? '',
+                    MoneyText::format($max, $set->priceExponent) ?? ''
+                ));
+        return self::reviewRow(__('قیمت تنوع‌ها', 'tecteb-marketplace-core'), $price)
+            . self::reviewRow(__('قابل خرید', 'tecteb-marketplace-core'), sprintf(
+                /* translators: 1: buyable variations, 2: variations read */
+                __('%1$s از %2$s تنوع', 'tecteb-marketplace-core'),
+                $fa($set->buyableCount()),
+                $fa($set->count())
+            ));
     }
 
     /** @param callable(string|int):string $fa */

@@ -106,6 +106,10 @@ final class MarketplaceMessages
             ),
             'tier_quantity_invalid' => __('هر پله باید از تعداد ۲ به بالا شروع شود؛ پلهٔ یک همان قیمت عادی است.', 'tecteb-marketplace-core'),
             'tier_price_invalid' => __('قیمت هر پله باید بزرگ‌تر از صفر و کمتر از قیمت عادی محصول باشد.', 'tecteb-marketplace-core'),
+            // The product has no single price to compare a ladder against —
+            // a variable product keeps its price on its combinations. Say
+            // that, rather than calling the vendor's number invalid.
+            'tier_ceiling_unavailable' => __('این محصول قیمت واحد ندارد؛ قیمت آن روی تنوع‌هاست. در این نسخه نردبان عمده برای محصول متنوع تعریف نمی‌شود — برای تعیین قیمت عمدهٔ هر تنوع با مدیر بازارگاه تماس بگیرید.', 'tecteb-marketplace-core'),
             'tier_not_descending' => __('با افزایش تعداد، قیمت هر واحد باید کمتر شود.', 'tecteb-marketplace-core'),
 
             'ticket_opened' => __('تیکت ثبت شد. پاسخ در همین صفحه نمایش داده می‌شود.', 'tecteb-marketplace-core'),
