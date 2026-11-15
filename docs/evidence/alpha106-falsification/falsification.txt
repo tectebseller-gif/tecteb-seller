@@ -10,3 +10,9 @@ tree: 9f81ed5 (+ uncommitted work)
 
 --- 17/21  the wholesale ceiling guard is removed
     file: src/Modules/Marketplace/Application/ManageWholesale.php
+    expected red in: database
+    measured: database:1
+    falsified
+
+--- 18/21  the wholesale guard also refuses an empty ladder (the dead end)
+    file: src/Modules/Marketplace/Application/ManageWholesale.php
