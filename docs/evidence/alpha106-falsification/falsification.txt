@@ -27,3 +27,15 @@ tree: 532244c (+ uncommitted work)
 
 --- 5/21  parentFiguresRefusal always answers null
     file: src/Modules/Product/Application/ManageProducts.php
+    expected red in: database
+    measured: database:1
+    falsified
+
+--- 6/21  typeChangeRefusal in save() always answers null
+    file: src/Modules/Product/Application/ManageProducts.php
+    expected red in: database
+    measured: database:1
+    falsified
+
+--- 7/21  updateInventory pushes the stock regardless of where it lives
+    file: src/Modules/Product/Application/ManageProducts.php
