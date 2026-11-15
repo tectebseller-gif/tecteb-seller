@@ -857,4 +857,65 @@ final class ImportedParentFiguresTest extends DatabaseTestCase
     {
         return $this->revisions->create($productId, self::VENDOR, ['details' => $details]);
     }
+    /**
+     * ⛔ THE CALLER THAT FORGETS TO ASK — written because falsification said
+     * the guard beneath it was unreachable.
+     *
+     * Every test above enters through `ManageProducts`, which refuses FIRST,
+     * so `SyncCatalog`'s own refusal was never executed: mutation 3 of this
+     * round's loop deleted it and the database suite stayed green. A guard
+     * that holds because its callers happen to ask first is an ordering, not
+     * a guard (`alpha.98`), and a guard no fixture can reach is
+     * indistinguishable from an absent one (`alpha.95`).
+     *
+     * `pushStock()` is public and documented as the vendor's explicit edit, so
+     * a fifth caller added next round reaches it without asking anything.
+     */
+    public function testPushStockRefusesTheParentsFiguresOnItsOwn(): void
+    {
+        $productId = $this->importedParent();
+        $before = $this->parentFigures($productId);
+
+        self::assertFalse(
+            $this->catalog->pushStock($productId, 0),
+            'the service refuses on its own, not because a caller asked first'
+        );
+        self::assertSame([], $this->projector->unguardedStockWrites);
+        self::assertSame($before, $this->parentFigures($productId));
+    }
+
+    /** The price half of the same reachability gap (mutation 4). */
+    public function testPushPriceRefusesTheParentsFiguresOnItsOwn(): void
+    {
+        $productId = $this->importedParent();
+
+        $result = $this->catalog->pushPrice($productId);
+
+        self::assertFalse($result->ok);
+        self::assertSame('parent_figures_live_in_shop', $result->code);
+        self::assertSame('shop_combinations', $result->context['origin'] ?? '');
+    }
+
+    /**
+     * AND THE CONTROL, because a refusal for every product would be the wider
+     * guard that is the bigger defect (`alpha.60`). A simple product may be
+     * refused here for other reasons — it is not projected in this fixture —
+     * but never for THIS reason.
+     */
+    public function testPushPriceOnASimpleProductIsNotRefusedForTheParentRule(): void
+    {
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'باند کشی سادهٔ کنترل',
+            type: ProductType::SIMPLE,
+            categoryKey: '9559',
+            priceMinor: 450_000,
+            sku: 'SIMPLE-PUSH',
+            stock: 9
+        ));
+        $productId = (int) $created->context['product_id'];
+
+        $origin = $this->catalog->priceAndStockOrigin($productId);
+        self::assertSame(PriceAndStockOrigin::OURS, $origin->state);
+        self::assertNotSame('parent_figures_live_in_shop', $this->catalog->pushPrice($productId)->code);
+    }
 }

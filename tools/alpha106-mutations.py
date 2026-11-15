@@ -12,6 +12,25 @@ import io
 import sys
 
 # (name, path, old, new, expected red suites)
+# ⛔ THREE MUTATIONS NAME A DIFFERENT SUITE THAN THEY FIRST DID, AND IT IS NOT
+# A LOWERED BAR. The first run measured 7, 8 and 9 against the database suite
+# and all three survived, for two reasons that are facts about where the code
+# runs rather than about how hard it is to test:
+#
+#   7, 8  the caller's condition on the outward push is invisible while
+#         SyncCatalog refuses behind it and the return value is discarded at
+#         the call site. SyncCatalog is `final` and injected concretely, so
+#         there is no spy to count the call. Asserted in source instead, and
+#         the mutation moved to `architecture` (`alpha.77`, `alpha.95`,
+#         `alpha.99`).
+#   9     the database suite binds FakeCatalogProjector, so the real
+#         WooCommerceProjector is not on that path at all — a stub that does
+#         not model a verb puts the verb outside the tests (`alpha.59`). Moved
+#         to `contract`, where the real class runs against the WooCommerce
+#         product stub.
+#
+# 3 and 4 were NOT moved: they are reachable behaviourally and now have tests
+# that call SyncCatalog directly.
 MUTATIONS = [
     (
         "a failed read becomes permission to write",
@@ -60,21 +79,21 @@ MUTATIONS = [
         "src/Modules/Product/Application/ManageProducts.php",
         "        if (!$stockProposed && $stockBelongsToUs) {",
         "        if (!$stockProposed) {",
-        "database",
+        "architecture",
     ),
     (
         "saveAsRevision pushes the stock regardless",
         "src/Modules/Product/Application/ManageProducts.php",
         "        if (!$stockProposed && $this->catalog->priceAndStockOrigin($product->id)->mayWriteParentFigures()) {",
         "        if (!$stockProposed) {",
-        "database",
+        "architecture",
     ),
     (
         "the projector loses its own guard",
         "src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php",
         "        if ($this->shopHoldsTheCombinations($wcProduct)) {\n            return false;\n        }",
         "",
-        "database",
+        "contract",
     ),
     (
         "readiness keeps `price` missing for an imported parent",

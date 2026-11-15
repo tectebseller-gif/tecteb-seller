@@ -10,6 +10,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\Product;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductSeo;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecField;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecFieldType;
 use Tecteb\Marketplace\Modules\Product\Domain\SpecTemplate;
@@ -1405,6 +1406,141 @@ final class ProjectedFactsTest extends ContractTestCase
             LinkOwnership::MARKETPLACE_VALUE,
             null,
             $imported
+        );
+    }
+    /**
+     * ⛔ THE PROJECTOR'S OWN REFUSAL, DRIVEN THROUGH THE REAL CLASS.
+     *
+     * Mutation 9 of this round's loop deletes it and the DATABASE suite stayed
+     * green — because that suite binds `FakeCatalogProjector`, so the real
+     * `WooCommerceProjector` is not on the path at all. A stub that does not
+     * model a verb puts the whole verb outside the tests (`alpha.59`), and the
+     * answer is to assert it where the real class runs: here, against the
+     * WooCommerce product stub.
+     *
+     * The three lines this refusal stands in front of would make WooCommerce
+     * manage the PARENT's stock, and a variable parent with
+     * `manage_stock = true` and a quantity of nought is out of stock for every
+     * variation under it, however well they are selling.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWriteStockRefusesAParentWhoseChildrenAreNotOurs(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $parent = new \WC_Product_Variable();
+        $wcId = $parent->save();
+        update_post_meta($wcId, WooCommerceProjector::PRODUCT_META, 41);
+        update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
+        // Two children with NO `_tmc_variation_id`: the shop made them, not us.
+        \WC_Product_Variable::setChildren($wcId, [7701, 7702]);
+        $parent->wrote = [];
+
+        self::assertFalse(
+            $this->projector()->writeStock($this->variableProduct($wcId), 0),
+            'the projector refuses on its own, whatever the caller asked'
+        );
+        self::assertSame([], $parent->wrote, 'and writes nothing at all to the parent');
+    }
+
+    /** The guarded verb answers by name rather than silently. */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWriteStockIfUnchangedNamesTheReasonForSuchAParent(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $parent = new \WC_Product_Variable();
+        $wcId = $parent->save();
+        update_post_meta($wcId, WooCommerceProjector::PRODUCT_META, 41);
+        update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
+        \WC_Product_Variable::setChildren($wcId, [7701, 7702]);
+        $parent->wrote = [];
+
+        $outcome = $this->projector()->writeStockIfUnchanged($this->variableProduct($wcId), 0, 0);
+
+        self::assertSame('parent_figures_live_in_shop', $outcome['outcome']);
+        self::assertNull($outcome['found']);
+        self::assertSame([], $parent->wrote);
+    }
+
+    /**
+     * AND THE CONTROLS, both of them, because a refusal for every variable
+     * product would be the wider guard that is the bigger defect
+     * (`alpha.60`): a parent whose children WE created is a mirror we may
+     * write, and a parent with no children at all is a real, empty answer
+     * rather than an unknown one.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWriteStockStillWritesAParentWhoseChildrenAreOurs(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $parent = new \WC_Product_Variable();
+        $wcId = $parent->save();
+        update_post_meta($wcId, WooCommerceProjector::PRODUCT_META, 41);
+        update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
+        \WC_Product_Variable::setChildren($wcId, [7703]);
+        update_post_meta(7703, WooCommerceProjector::VARIATION_META, 77);
+        $parent->wrote = [];
+
+        self::assertTrue($this->projector()->writeStock($this->variableProduct($wcId), 4));
+        self::assertContains('manage_stock', $parent->wrote);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWriteStockStillWritesAParentWithNoChildrenAtAll(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        $parent = new \WC_Product_Variable();
+        $wcId = $parent->save();
+        update_post_meta($wcId, WooCommerceProjector::PRODUCT_META, 41);
+        update_post_meta($wcId, WooCommerceProjector::VENDOR_META, self::VENDOR);
+        $parent->wrote = [];
+
+        self::assertTrue($this->projector()->writeStock($this->variableProduct($wcId), 4));
+        // The stub records WooCommerce's own property name: `set_stock_quantity()`
+        // writes `stock`, which is what the first run of this test taught me.
+        self::assertContains('stock', $parent->wrote);
+    }
+
+    /** A projected, marketplace-owned variable row pointing at $wcId. */
+    private function variableProduct(int $wcId): Product
+    {
+        return new Product(
+            41,
+            self::VENDOR,
+            new ProductDetails(
+                title: 'ست کامل تجهیزات نمونه',
+                type: ProductType::VARIABLE,
+                categoryKey: 'gloves',
+                priceMinor: 0,
+                sku: 'BPI-PARENT',
+                stock: 0
+            ),
+            ProductStatus::Published,
+            [],
+            [],
+            0,
+            '',
+            0,
+            null,
+            '',
+            $wcId,
+            new ProductSeo(),
+            '',
+            null,
+            LinkOwnership::MARKETPLACE_VALUE,
+            null,
+            true
         );
     }
 }
