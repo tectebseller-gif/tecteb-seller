@@ -54,18 +54,45 @@ count_failures() {
     printf '%s' "$n"
 }
 
+# ⛔ RESTORE ON THE WAY OUT, NOT ONLY AFTER JUDGING.
+#
+# Measured the hard way this round: the harness stopped this script at its
+# two-hour background cap, in the middle of mutation 16, and the tree was left
+# holding `true => 'row'` in MarketplaceController with a log that simply
+# stopped. A script that moves code must put the restore in a `trap`
+# (`alpha.82`), and a run that dies must SAY so rather than end quietly —
+# a log whose last line is a mutation name reads exactly like a pass.
+CURRENT_FILE=""
+on_exit() {
+    local code=$?
+    if [ -n "$CURRENT_FILE" ] && [ -f "$OUT/.restore" ]; then
+        if ! cmp -s "$OUT/.restore" "$CURRENT_FILE"; then
+            cp "$OUT/.restore" "$CURRENT_FILE"
+            say "    INTERRUPTED — restored $CURRENT_FILE from .restore"
+            say "    sha256 now: $(sha256sum "$CURRENT_FILE" | cut -d' ' -f1)"
+        else
+            say "    INTERRUPTED — $CURRENT_FILE was already pristine"
+        fi
+        say "RUN DID NOT FINISH (exit $code). The mutations after this one were not measured."
+    fi
+}
+trap on_exit EXIT INT TERM
+
 TOTAL=$(python3 -I "$MUT" count)
+START="${2:-1}"
 say "mutations: $TOTAL"
+[ "$START" != 1 ] && say "continuing from mutation $START — the earlier ones were measured in a previous run of this same log"
 say "tree: $(git rev-parse --short HEAD) (+ uncommitted work)"
 say ""
 
 problems=0
-for i in $(seq 1 "$TOTAL"); do
+for i in $(seq "$START" "$TOTAL"); do
     name=$(python3 -I "$MUT" name "$i")
     file=$(python3 -I "$MUT" file "$i")
     expect=$(python3 -I "$MUT" expect "$i")
     before=$(sha256sum "$file" | cut -d' ' -f1)
     cp "$file" "$OUT/.restore"
+    CURRENT_FILE="$file"
 
     say "--- $i/$TOTAL  $name"
     say "    file: $file"
@@ -107,6 +134,7 @@ for i in $(seq 1 "$TOTAL"); do
     say ""
 done
 
+CURRENT_FILE=""
 rm -f "$OUT/.restore"
 say "problems: $problems"
 [ "$problems" -eq 0 ]
