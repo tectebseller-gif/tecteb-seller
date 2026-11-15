@@ -47,3 +47,21 @@ MUTATION 3 writeAndVerifyStock drops the refusal (second run)
     restored byte-for-byte: b6705df38393f7f5228ec0cc748a87cc57df04a6dd77c8dbd28d1728c1b7f070
     falsified
 
+MUTATION 4 pushPrice drops the refusal (second run)
+    expected red in: database
+    measured: database:1
+    restored byte-for-byte: b6705df38393f7f5228ec0cc748a87cc57df04a6dd77c8dbd28d1728c1b7f070
+    falsified
+
+MUTATION 7 updateInventory pushes the stock regardless of where it lives (second run)
+    expected red in: architecture
+    measured: architecture:1
+    restored byte-for-byte: c054da510f903e2436530dda8988d20f6725e3d274f9d1a6958c8747ac97e4c8
+    falsified
+
+MUTATION 8 saveAsRevision pushes the stock regardless (second run)
+    expected red in: architecture
+    measured: architecture:1
+    restored byte-for-byte: c054da510f903e2436530dda8988d20f6725e3d274f9d1a6958c8747ac97e4c8
+    falsified
+
