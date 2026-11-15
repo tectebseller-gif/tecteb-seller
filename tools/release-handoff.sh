@@ -26,7 +26,9 @@ fi
 # because that instruction's §2-B, §6 and §8 asked for them by content — plus
 # the five `alpha.104` added for the same reason: its §7 names them, and a
 # bundle the owner receives without them is a bundle that cannot answer
-# «what is left to do».
+# «what is left to do» — plus the five `alpha.105` added, which are the only
+# place this round's verdict, its Not Run rows and its measured figures are
+# written down.
 REQUIRED_DOCS="
 FINAL-RELEASE-CLOSURE-FA.md
 FEATURE-COMPLETENESS-MATRIX-FA.md
@@ -47,6 +49,11 @@ RELEASE-NOTES-FA.md
 CAPTURE-FAILURE-AND-REPAIR-FA.md
 ENVIRONMENT-SEPARATION-FA.md
 RELEASE-CRITICAL-SWEEP-FA.md
+CHANGELOG-FOCUSED-FA.md
+STAGING-ACCEPTANCE-NEXT-FA.md
+PRODUCTION-GO-NOGO-FA.md
+FIELD-EVIDENCE-RECONCILIATION-FA.md
+TEST-EVIDENCE-ALPHA105-FA.md
 "
 
 # Read-only tools only, and the list is the one the tests vouch for.
@@ -89,10 +96,18 @@ for tool in ${TOOLS}; do cp "tools/${tool}" "${OUTDIR}/tools/"; done
 
 # Evidence this cycle produced, as text — the falsification log, which is the
 # one file that says whether the guards were measured rather than asserted.
-if [ -d docs/evidence/alpha103-falsification ]; then
-  mkdir -p "${OUTDIR}/evidence/alpha103-falsification"
-  cp docs/evidence/alpha103-falsification/*.txt "${OUTDIR}/evidence/alpha103-falsification/" 2>/dev/null || true
+# ⛔ Derived from the version, not typed. A pinned folder name ships the
+# PREVIOUS round's falsification log — or silently none — and that log is the
+# one file saying whether this round's guards were measured rather than
+# asserted. A round whose log is missing is a failure, not a quiet omission.
+EV_DIR="docs/evidence/$(printf '%s' "${VERSION}" | sed 's|^0\.1\.0-||; s|\.||g')-falsification"
+if [ ! -d "${EV_DIR}" ]; then
+  echo "refusing to build ${NAME}: ${EV_DIR} is not here" >&2
+  echo "  the falsification log is what says the guards were measured." >&2
+  exit 1
 fi
+mkdir -p "${OUTDIR}/evidence/$(basename "${EV_DIR}")"
+cp "${EV_DIR}"/*.txt "${OUTDIR}/evidence/$(basename "${EV_DIR}")/"
 
 cat > "${OUTDIR}/RUN-COMMANDS.txt" <<TXT
 فرمان‌های هر ابزار — همه فقط‌خواندنی
@@ -131,8 +146,13 @@ wp eval-file tools/payment-readiness.php
 # ۵) وابستگی‌های یک فروشگاه، پیش از تصمیم آرشیو
 wp eval-file tools/shop-dependency-census.php <vendor_user_id>
 
-# ترتیب خواندن اسناد:
-#   1. FINAL-RELEASE-AUDIT-FA.md        ← جدول GO/NO-GO و موانع
+# ترتیب خواندن اسناد — ⛔ پنج سند اول مالِ همین دور اند:
+#   0-الف. PRODUCTION-GO-NOGO-FA.md        ← حکم این دور: ❌ NO-GO
+#   0-ب.  CHANGELOG-FOCUSED-FA.md          ← چه عوض شد، و چه عمداً نشد
+#   0-پ.  STAGING-ACCEPTANCE-NEXT-FA.md    ← ⛔ تنها دستورالعمل اجرایی، ۲۹ ردیف
+#   0-ت.  TEST-EVIDENCE-ALPHA105-FA.md     ← PASS / Not Run، با برچسب هر ردیف
+#   0-ث.  FIELD-EVIDENCE-RECONCILIATION-FA.md
+#   1. FINAL-RELEASE-AUDIT-FA.md        ← جدول GO/NO-GO و موانعِ دورهای قبل
 #   2. PRODUCTION-PREFLIGHT-FA.md       ← فقط خواندن، پیش از هر تصمیمی
 #   3. STAGING-ACCEPTANCE-FINAL-FA.md   ← تنها دستورالعمل اجرایی روی staging
 #   4. PRODUCT-OWNERSHIP-RECONCILIATION-FA.md

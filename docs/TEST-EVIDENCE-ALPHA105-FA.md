@@ -19,7 +19,7 @@
 | unit | **PASS** — ۹۱۴ آزمون، ۶۰۶٬۳۰۲ assertion | **PASS** — همان اعداد |
 | architecture | **PASS** — ۳۵۳ آزمون، ۷٬۰۷۲ assertion | **PASS** — همان اعداد |
 | contract | **PASS** — ۴۱۳ آزمون، ۲٬۵۸۶ assertion | **PASS** — ۴۱۳ آزمون، ۲ skip با نام |
-| database | **PASS** — @@DB83@@ | **PASS** — @@DB81@@ |
+| database | **PASS** — ۱۲۶۵ آزمون، ۱۴٬۴۹۴ assertion | **PASS** — ۱۲۶۵ آزمون، ۱۴٬۴۹۴ assertion — **صفر تفاوت به ازای هر آزمون** |
 | packaging | **PASS** — @@PKG@@ | ⛔ **`Not Run`** — ایمیج `git`/`zip`/`unzip` ندارد |
 
 ⛔ **و سوییت database هر بار تنها دوانده شد** (`alpha.40`/`alpha.98`)، با این
