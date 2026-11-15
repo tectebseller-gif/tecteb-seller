@@ -51,3 +51,9 @@ tree: 532244c (+ uncommitted work)
 
 --- 9/21  the projector loses its own guard
     file: src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php
+    expected red in: database
+    measured: database:0
+    SURVIVED — a hole in the tests, not a guard that cannot break
+
+--- 10/21  readiness keeps `price` missing for an imported parent
+    file: src/Modules/Product/Application/ProductReadiness.php
