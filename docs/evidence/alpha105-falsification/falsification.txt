@@ -171,3 +171,58 @@ problems: 1
     The clean figures are in docs/TEST-EVIDENCE-ALPHA105-FA.md, measured with
     the database suite ALONE on the quiet tree, twice: once on PHP 8.3.6 and
     once on real PHP 8.1.34 in the container.
+
+=== third finding, from the final measurement run: the figure that did not
+=== repeat, and the two guards that earned their keep
+
+(3) THE DATABASE SUITE'S ASSERTION COUNT DID NOT REPEAT, AND THE INTERPRETER
+    IS NOT THE VARIABLE.
+
+    first run on 8.3.6   : OK (1265 tests, 14498 assertions)
+    second run on 8.3.6  : OK (1265 tests, 14494 assertions)  --log-junit
+    run on real 8.1.34   : OK (1265 tests, 14494 assertions)  --log-junit
+
+    The two logged runs were compared TEST BY TEST: 1265 tests on each side,
+    14494 assertions on each side, and ZERO per-test difference. So the four
+    assertions did not come from PHP 8.1 versus 8.3.
+
+    The first run has no per-test log, so its test is NOT named here and NOT
+    guessed at. What is on the record is this: those four assertions were in
+    the run that started immediately after this falsification loop, whose own
+    closing baseline was the two-runner collision recorded above; and this
+    suite's shared setUp() truncates the options table, drops the audit table
+    and resets postmeta, but does NOT truncate the plugin's own tables — each
+    class resets what it needs. A row-conditional assertion in a class that
+    does not reset can therefore move with what a previous run left behind.
+    That is a statement about test isolation, not about the package, and it is
+    written as an open observation rather than a cause.
+
+    The figure carried into the documents is 14,494, because two independent
+    measurements agree on it.
+
+(4) AND TWO GUARDS CAUGHT REAL MISTAKES OF MINE DURING THE BUILD.
+
+    testMainFileHeaderDeclaresTheAgreedIdentity refused the first alpha.105
+    package: the version is declared in THREE places — the plugin header, the
+    TMC_PLUGIN_VERSION constant and readme.txt's Stable tag — and I had bumped
+    only the header. The package was discarded and rebuilt, so its hash
+    changed, which is the whole reason that test exists.
+
+    And dist/DELIVERED.txt was written too early. build.sh refuses to rebuild
+    a name the ledger holds with different bytes, so the premature line turned
+    the corrected build into a refusal. Nobody held those bytes; the line was
+    removed and written again after the final build. The ledger is written
+    LAST.
+
+(5) THE HANDOFF BUNDLE'S EVIDENCE FOLDER WAS PINNED, AND NOW IS NOT.
+
+    tools/release-handoff.sh copied docs/evidence/alpha103-falsification by
+    name, so from alpha.104 on it shipped the WRONG round's log or silently
+    none. The path is now derived from the version, and a missing folder is a
+    refusal with the path printed. Falsified by moving the folder aside:
+
+        refusing to build tecteb-marketplace-release-handoff:
+        docs/evidence/alpha105-falsification is not here
+          the falsification log is what says the guards were measured.
+
+    and the folder was put back, with both .txt files intact.
