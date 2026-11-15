@@ -65,3 +65,10 @@ MUTATION 8 saveAsRevision pushes the stock regardless (second run)
     restored byte-for-byte: c054da510f903e2436530dda8988d20f6725e3d274f9d1a6958c8747ac97e4c8
     falsified
 
+MUTATION 9 the projector loses its own guard (second run)
+    expected red in: contract
+    measured: contract:1
+    restored byte-for-byte: 477027478e097a69b3731407c33514fa733d7de9ce953178b68593b6fecd6f41
+    falsified
+
+=== baseline after the second run (unfiltered) ===
