@@ -4,3 +4,9 @@ tree: 9f81ed5 (+ uncommitted work)
 
 --- 16/21  the REST row always claims the figures are its own
     file: src/Modules/Operations/Infrastructure/Rest/MarketplaceController.php
+    expected red in: database
+    measured: database:2
+    falsified
+
+--- 17/21  the wholesale ceiling guard is removed
+    file: src/Modules/Marketplace/Application/ManageWholesale.php
