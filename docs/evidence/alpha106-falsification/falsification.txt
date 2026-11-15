@@ -1,0 +1,29 @@
+mutations: 21
+tree: 532244c (+ uncommitted work)
+
+--- 1/21  a failed read becomes permission to write
+    file: src/Modules/Product/Domain/PriceAndStockOrigin.php
+    expected red in: unit,database
+    measured: unit:1 database:2
+    falsified
+
+--- 2/21  a confirmed-empty shop reads as unknown (the over-reach control)
+    file: src/Modules/Product/Domain/PriceAndStockOrigin.php
+    expected red in: unit,database
+    measured: unit:1 database:0
+    falsified
+
+--- 3/21  writeAndVerifyStock drops the refusal
+    file: src/Modules/Product/Application/SyncCatalog.php
+    expected red in: database
+    measured: database:0
+    SURVIVED — a hole in the tests, not a guard that cannot break
+
+--- 4/21  pushPrice drops the refusal
+    file: src/Modules/Product/Application/SyncCatalog.php
+    expected red in: database
+    measured: database:0
+    SURVIVED — a hole in the tests, not a guard that cannot break
+
+--- 5/21  parentFiguresRefusal always answers null
+    file: src/Modules/Product/Application/ManageProducts.php
