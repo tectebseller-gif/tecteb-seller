@@ -16,3 +16,21 @@ tree: 9f81ed5 (+ uncommitted work)
 
 --- 18/21  the wholesale guard also refuses an empty ladder (the dead end)
     file: src/Modules/Marketplace/Application/ManageWholesale.php
+    expected red in: database
+    measured: database:1
+    falsified
+
+--- 19/21  the label decodes in a loop
+    file: src/Modules/Product/Presentation/AttributeLabel.php
+    expected red in: unit
+    measured: unit:1
+    falsified
+
+--- 20/21  the label accepts broken bytes
+    file: src/Modules/Product/Presentation/AttributeLabel.php
+    expected red in: unit
+    measured: unit:2
+    falsified
+
+--- 21/21  the panel prints the stored key
+    file: src/Modules/Product/Presentation/VariationsView.php
