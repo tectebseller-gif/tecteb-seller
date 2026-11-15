@@ -72,3 +72,5 @@ MUTATION 9 the projector loses its own guard (second run)
     falsified
 
 === baseline after the second run (unfiltered) ===
+baseline: unit:0 architecture:0 contract:0 database:0
+second run: 5 mutations   problems: 0
