@@ -39,3 +39,9 @@ tree: 532244c (+ uncommitted work)
 
 --- 7/21  updateInventory pushes the stock regardless of where it lives
     file: src/Modules/Product/Application/ManageProducts.php
+    expected red in: database
+    measured: database:0
+    SURVIVED — a hole in the tests, not a guard that cannot break
+
+--- 8/21  saveAsRevision pushes the stock regardless
+    file: src/Modules/Product/Application/ManageProducts.php
