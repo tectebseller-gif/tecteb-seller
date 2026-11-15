@@ -25,6 +25,9 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductPublishPolicy;
 use Tecteb\Marketplace\Modules\Product\Application\ProductReadiness;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
@@ -257,6 +260,67 @@ final class EngagementFlowTest extends DatabaseTestCase
         self::assertSame('tier_price_invalid', $aboveRetail->code);
 
         self::assertSame([], $this->repository->tiersFor($productId), 'and none of them wrote a row');
+    }
+
+    /**
+     * ⛔ A PRODUCT WITH NO SINGLE PRICE IS TOLD SO, not told its number is
+     * wrong.
+     *
+     * Every step is compared against the product row's own `price_minor`, and
+     * a variable product keeps its price on its combinations — so that field
+     * is nought and `$unitPrice > 0` was true for every sensible ladder. The
+     * vendor read «قیمت هر پله باید … کمتر از قیمت عادی محصول باشد» about a
+     * product that has no ordinary price at all.
+     *
+     * Named, and NOT redesigned: per-variation wholesale is a decision with a
+     * data model behind it.
+     */
+    public function testAProductWhosePriceIsOnItsVariationsIsRefusedByName(): void
+    {
+        $productId = $this->publish('ست تجهیزات متنوع', 'W-4');
+        // The imported shape, as only an import can produce it: variable, and
+        // the parent's own price nought.
+        self::assertTrue($this->products->updateDetails(
+            $productId,
+            $this->products->find($productId)->details->with(['type' => ProductType::VARIABLE, 'priceMinor' => 0]),
+            ProductRowVersion::UNGUARDED
+        ));
+
+        $result = $this->wholesale->setTiers(self::VENDOR, self::VENDOR, $productId, [5 => 2_000_000]);
+
+        self::assertFalse($result->ok);
+        self::assertSame('tier_ceiling_unavailable', $result->code);
+        self::assertSame(ProductType::VARIABLE, $result->context['type']);
+        self::assertSame([], $this->repository->tiersFor($productId), 'and nothing was written');
+        // The sentence a vendor reads says what is true, and does not call
+        // their number invalid.
+        $text = MarketplaceMessages::notice($result->code) ?? '';
+        self::assertStringContainsString('قیمت آن روی تنوع‌هاست', $text);
+        self::assertStringNotContainsString('قیمت عادی محصول', $text);
+    }
+
+    /**
+     * AND THE DEAD END THAT WAS NOT BUILT: an empty ladder still clears.
+     *
+     * A guard that refuses the verb outright would leave a product whose
+     * existing tiers can never be removed (`alpha.68`).
+     */
+    public function testTheLadderOfSuchAProductCanStillBeCleared(): void
+    {
+        $productId = $this->publish('ست تجهیزات متنوع دیگر', 'W-5');
+        self::assertTrue($this->wholesale->setTiers(self::VENDOR, self::VENDOR, $productId, [5 => 180_000])->ok);
+        self::assertCount(1, $this->repository->tiersFor($productId));
+
+        self::assertTrue($this->products->updateDetails(
+            $productId,
+            $this->products->find($productId)->details->with(['type' => ProductType::VARIABLE, 'priceMinor' => 0]),
+            ProductRowVersion::UNGUARDED
+        ));
+
+        $cleared = $this->wholesale->setTiers(self::VENDOR, self::VENDOR, $productId, []);
+
+        self::assertTrue($cleared->ok, $cleared->code);
+        self::assertSame([], $this->repository->tiersFor($productId));
     }
 
     public function testAnotherShopsProductCannotBeGivenALadder(): void

@@ -1,0 +1,52 @@
+PHPUnit 10.5.64 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.3.6
+Configuration: /home/user/tecteb-seller/phpunit.xml.dist
+
+
+title-only save  code=revision_requested ok=yes unguarded_stock_writes=[0] shop_stock=0
+.
+updateInventory  code=inventory_saved ok=yes unguarded_stock_writes=[0] shop_stock=0
+.
+hand-made POST  code=revision_requested ok=yes unguarded_stock_writes=[] row_after={"price":999000,"stock":0,"type":"variable","wc":7700}
+..                                                                4 / 4 (100%)
+
+Time: 00:01.879, Memory: 30.00 MB
+
+OK (4 tests, 8 assertions)
+
+--------------------------------------------------------------------------
+WHAT THIS IS
+--------------------------------------------------------------------------
+Measured on the alpha.105 bytes (commit 532244c), on real MariaDB 10.11, with
+a SYNTHETIC fixture: a marketplace row saying `variable` with price_minor = 0
+and stock = 0, published, linked to storefront parent 7700, our own attribute
+and variation tables empty, and the shop double holding three priced children.
+
+⛔ No live id appears anywhere in it. §3 of the instruction forbids writing
+tests against #11955/#11965 or order #12316, and nothing here can reach a site.
+
+READ IT LIKE THIS
+
+  title-only save   unguarded_stock_writes=[0]
+      The vendor changed a word in the title. `saveAsRevision()` read
+      `effectiveStock()`, WooCommerce answered `null` for a parent that leaves
+      stock to its children, the fallback was our own nought, so
+      `$stockProposed` was FALSE and the nought went outward unconditionally.
+      On real WooCommerce `writeStock()` is
+      set_manage_stock(true) + set_stock_quantity(0) + set_stock_status('outofstock')
+      on the PARENT — which stops the whole product selling, all three
+      variations with it. The answer the vendor got was `revision_requested`.
+
+  updateInventory   unguarded_stock_writes=[0]  code=inventory_saved
+      The same arithmetic on the independent path, which never renders a form.
+      Reported as a success.
+
+  hand-made POST    row_after price=999000
+      A forged submission moved the parent's recorded price from nought to
+      999,000 and answered `revision_requested`. Nothing asked whether this
+      product's price is ours to set.
+
+⛔ CONFIRMED DEFECT IN THE CODE PATH, NOT OBSERVED DAMAGE ON THE OWNER'S SITE.
+No save of this shape has been performed on staging or production by this
+session, and the three figures above are this fixture's, not #11955's.

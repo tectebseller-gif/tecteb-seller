@@ -136,6 +136,20 @@ function _e(string $text, string $domain = 'default'): void
 {
     echo $text;
 }
+/**
+ * ⛔ ADDED BECAUSE A STUB THAT LACKS A FUNCTION PUTS A WHOLE RENDER PATH
+ * OUTSIDE THE TESTS (`alpha.59`).
+ *
+ * `StorePageView::policySection()` has called `_n()` since the page existed,
+ * and no test had ever rendered that section — so the first one to do it
+ * failed with «undefined function», about a page that works. Core's own
+ * behaviour for the English locale is the one this models: no plural rule to
+ * apply, so the singular for one and the plural for everything else.
+ */
+function _n(string $single, string $plural, int $number, string $domain = 'default'): string
+{
+    return $number === 1 ? $single : $plural;
+}
 function esc_html__(string $text, string $domain = 'default'): string
 {
     return esc_html($text);
@@ -856,6 +870,18 @@ function get_post_status(int $postId): string|false
     return TmcWpStubs\State::$posts[$postId]['status'] ?? false;
 }
 
+/**
+ * The post's title, from `State::$posts` if this test planted one.
+ *
+ * ⛔ Added for the same reason `_n()` above was: the store page's thumbnail
+ * fallback has called it since the page existed, and the first test to render
+ * a product CARD found the function missing. An unknown id answers the empty
+ * string, which is what core does.
+ */
+function get_the_title(int $postId = 0): string
+{
+    return (string) (\TmcWpStubs\State::$posts[$postId]['post_title'] ?? '');
+}
 function get_permalink(int $postId, bool $leavename = false): string|false
 {
     if (!isset(TmcWpStubs\State::$posts[$postId])) {
