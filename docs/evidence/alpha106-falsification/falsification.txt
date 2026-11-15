@@ -57,3 +57,27 @@ tree: 532244c (+ uncommitted work)
 
 --- 10/21  readiness keeps `price` missing for an imported parent
     file: src/Modules/Product/Application/ProductReadiness.php
+    expected red in: database
+    measured: database:5
+    falsified
+
+--- 11/21  approveRevision drops the type refusal
+    file: src/Modules/Product/Application/ReviewProducts.php
+    expected red in: database
+    measured: database:2
+    falsified
+
+--- 12/21  the form offers the editable figures regardless
+    file: src/Modules/Product/Presentation/ProductFormView.php
+    expected red in: contract
+    measured: contract:3
+    falsified
+
+--- 13/21  the form offers the type chooser regardless
+    file: src/Modules/Product/Presentation/ProductFormView.php
+    expected red in: contract
+    measured: contract:1
+    falsified
+
+--- 14/21  the shop page never prints the range
+    file: src/Modules/Vendor/Presentation/StorePageView.php
