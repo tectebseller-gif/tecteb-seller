@@ -62,3 +62,11 @@ dist/evidence-parts/
 # Python bytecode from the evidence/mutation tools
 __pycache__/
 docs/evidence/*/.restore
+# ...and the rest of the mutation loop's scratch, for the same reason as
+# `.restore` — plus one measured this round. When the harness killed the
+# `alpha.106` loop mid-mutation it left the tree holding `true => 'row'`, and a
+# `git add` taken in that window would have committed a mutated file beside its
+# own `.snapshot` behind a diff that looked deliberate. The script restores in a
+# `trap` now; this is the second lock on the same door.
+*.snapshot
+docs/evidence/*/.remeasure-*.txt
