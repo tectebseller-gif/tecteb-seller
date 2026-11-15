@@ -17,6 +17,17 @@ class wpdb
      * imitation. The table itself is created by whichever test needs it.
      */
     public string $postmeta;
+    /**
+     * `wp_posts`'s name, for the readers that JOIN it.
+     *
+     * The shop side of a product is a POST, and a reconciliation that asks
+     * «does the shop have this id» asks this table. The stub keeps posts in
+     * an array for the contract suite; the table itself is created by
+     * whichever test needs it, the same way `postmeta` is — and until
+     * `alpha.105` there was no name here at all, which is why every statement
+     * that joined it was outside the suites (`alpha.59`).
+     */
+    public string $posts;
     public string $last_error = '';
     public int $num_queries = 0;
     /** @var list<string> */
@@ -27,6 +38,7 @@ class wpdb
     {
         $this->options = $this->prefix . 'options';
         $this->postmeta = $this->prefix . 'postmeta';
+        $this->posts = $this->prefix . 'posts';
         // Connect lazily: the contract suite loads these stubs but never
         // touches the database, and an unreachable server must not stop it.
         // The database suite gets its connection on the first pdo() call.

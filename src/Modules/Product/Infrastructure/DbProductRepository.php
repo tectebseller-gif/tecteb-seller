@@ -24,6 +24,7 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0023ProductDes
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0032ProductMirroredStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0024PurchaseStep;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WooCommerceProjector;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WpProductCategoryLinkReader;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0036DefaultCategoryAcceptance;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
@@ -367,11 +368,10 @@ final class DbProductRepository implements ProductRepositoryInterface
             $where .= ' AND status = %s';
             $params[] = $status->value;
         }
-        $search = trim($search);
-        if ($search !== '') {
-            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
-            $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
-            array_push($params, $like, $like, $like);
+        [$searchClause, $searchParams] = self::searchClause($search);
+        if ($searchClause !== '') {
+            $where .= $searchClause;
+            array_push($params, ...$searchParams);
         }
         if ($onlyNeedsReview) {
             // THE SAME FRAGMENT THE BADGE AND THE COUNTER USE, from
@@ -412,11 +412,10 @@ final class DbProductRepository implements ProductRepositoryInterface
             $where .= ' AND status = %s';
             $params[] = $status->value;
         }
-        $search = trim($search);
-        if ($search !== '') {
-            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
-            $where .= ' AND (title LIKE %s OR sku LIKE %s OR brand LIKE %s)';
-            array_push($params, $like, $like, $like);
+        [$searchClause, $searchParams] = self::searchClause($search);
+        if ($searchClause !== '') {
+            $where .= $searchClause;
+            array_push($params, ...$searchParams);
         }
         return [$where, $params];
     }
@@ -2457,6 +2456,150 @@ final class DbProductRepository implements ProductRepositoryInterface
         return '';
     }
 
+    /**
+     * ONE PAGE OF THE RECONCILIATION — read only, keyset, both ownerships.
+     *
+     * ⛔ `link_ownership` IS NOT FILTERED, and that is the whole reason this
+     * method exists next to `forVendor()`: every imported row is `observed`,
+     * so the screens that correctly scope themselves to `marketplace` can
+     * never see the rows an imported shop is made of.
+     *
+     * The shop side is a LEFT JOIN rather than a product load per row: the
+     * manager asks for fifty rows at a time and `wc_get_product()` fifty
+     * times is the shape `alpha.91` had to go back and undo.
+     *
+     * `rows_naming_it` is derived from the data, not from a list: on a healthy
+     * schema `M0006CatalogAndOrders`'s `tmc_product_wc` unique key makes two
+     * rows naming one product impossible — but that `ALTER` FAILS on data that
+     * was already duplicated when it ran (`alpha.74`), so the one site where
+     * the answer matters is the one site where the index is not there.
+     *
+     * `shop_readable` is `true` for every row a page returns, because the
+     * shop side here is one join: either the statement worked for the whole
+     * page or the page is `null`. The per-row `false` belongs to
+     * `tools/production-audit.php`, which asks `wc_get_product()` row by row
+     * and can be told «no» about one product.
+     *
+     * @return ?list<array{id:int, wc_product_id:?int, title:string, sku:string,
+     *     type:string, status:string, link_ownership:string, price_minor:int,
+     *     stock:int, post_type:?string, post_status:?string,
+     *     rows_naming_it:int, shop_readable:bool}>
+     */
+    public function reconciliationPage(int $vendorUserId, int $limit, int $afterId = 0): ?array
+    {
+        $limit = max(1, min(200, $limit));
+        $posts = $this->db->prefix() . 'posts';
+        $table = $this->products();
+
+        // Counted FIRST and separately: `getResults()` answers «no rows» and
+        // «the statement failed» with the same empty array (`alpha.8`), and a
+        // reconciliation that silently drops rows is worse than one that says
+        // it could not read them.
+        $remaining = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $table . '` WHERE vendor_user_id = %d AND id > %d',
+            [$vendorUserId, $afterId]
+        );
+        if ($remaining === null) {
+            return null;
+        }
+        $expected = min($limit, (int) $remaining);
+
+        $rows = $this->db->getResults(
+            'SELECT p.id, p.wc_product_id, p.title, p.sku, p.type, p.status, p.price_minor, p.stock,
+                    p.' . M0010LinkOwnership::COLUMN . ' AS link_ownership,
+                    wp.post_type, wp.post_status,
+                    (SELECT COUNT(*) FROM `' . $table . '` d
+                      WHERE d.wc_product_id = p.wc_product_id) AS rows_naming_it
+               FROM `' . $table . '` p
+               LEFT JOIN `' . $posts . '` wp ON wp.ID = p.wc_product_id
+              WHERE p.vendor_user_id = %d AND p.id > %d
+              ORDER BY p.id ASC
+              LIMIT ' . $limit,
+            [$vendorUserId, $afterId]
+        );
+        if (count($rows) !== $expected) {
+            return null;
+        }
+
+        $out = [];
+        foreach ($rows as $row) {
+            $wc = $row['wc_product_id'] === null ? null : (int) $row['wc_product_id'];
+            $out[] = [
+                'id' => (int) $row['id'],
+                'wc_product_id' => $wc,
+                'title' => (string) $row['title'],
+                'sku' => (string) $row['sku'],
+                'type' => (string) $row['type'],
+                'status' => (string) $row['status'],
+                'link_ownership' => (string) $row['link_ownership'],
+                'price_minor' => (int) $row['price_minor'],
+                'stock' => (int) $row['stock'],
+                'post_type' => $row['post_type'] === null ? null : (string) $row['post_type'],
+                'post_status' => $row['post_status'] === null ? null : (string) $row['post_status'],
+                // A row that names nothing is named by nothing: the subquery
+                // counts `wc_product_id = NULL`, which matches no row, so the
+                // answer would be 0 and «0 rows name it» is not a duplicate.
+                'rows_naming_it' => $wc === null ? 1 : max(1, (int) $row['rows_naming_it']),
+                'shop_readable' => true,
+            ];
+        }
+        return $out;
+    }
+
+    public function countForReconciliation(int $vendorUserId): ?int
+    {
+        $count = $this->db->getVar(
+            'SELECT COUNT(*) FROM `' . $this->products() . '` WHERE vendor_user_id = %d',
+            [$vendorUserId]
+        );
+        return $count === null ? null : (int) $count;
+    }
+
+    /**
+     * The other direction: a shop product stamped for this vendor with no row.
+     *
+     * ⛔ `post_author` IS NOT READ. §۴ keeps four facts apart — `post_author`,
+     * Dokan's own ownership data, our `vendor_user_id` and `link_ownership` —
+     * and a product authored by a Dokan seller is evidence about Dokan, not
+     * about a missing marketplace row. The only mark this plugin writes on a
+     * shop product is `WooCommerceProjector::VENDOR_META`, so that is the
+     * only claim this reads.
+     *
+     * @return ?list<array{wc_product_id:int, post_status:string}>
+     */
+    public function shopProductsWithoutRow(int $vendorUserId, int $limit = 200): ?array
+    {
+        $limit = max(1, min(500, $limit));
+        $posts = $this->db->prefix() . 'posts';
+        $meta = $this->db->prefix() . 'postmeta';
+        $where = ' FROM `' . $meta . '` m
+                   INNER JOIN `' . $posts . '` wp ON wp.ID = m.post_id AND wp.post_type = %s
+                   LEFT JOIN `' . $this->products() . '` t ON t.wc_product_id = wp.ID
+                   WHERE m.meta_key = %s AND m.meta_value = %s AND t.id IS NULL';
+        $params = ['product', WooCommerceProjector::VENDOR_META, (string) $vendorUserId];
+
+        $expected = $this->db->getVar('SELECT COUNT(*)' . $where, $params);
+        if ($expected === null) {
+            return null;
+        }
+        $rows = $this->db->getResults(
+            'SELECT wp.ID AS wc_product_id, wp.post_status' . $where
+            . ' ORDER BY wp.ID ASC LIMIT ' . $limit,
+            $params
+        );
+        if (count($rows) !== min($limit, (int) $expected)) {
+            return null;
+        }
+        $out = [];
+        foreach ($rows as $row) {
+            $out[] = [
+                'wc_product_id' => (int) $row['wc_product_id'],
+                'post_status' => (string) $row['post_status'],
+            ];
+        }
+        return $out;
+    }
+
     private function products(): string
     {
         return T::table($this->db, T::PRODUCTS);
@@ -2475,5 +2618,48 @@ final class DbProductRepository implements ProductRepositoryInterface
     private function now(): string
     {
         return $this->clock->now()->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * «این محصول را پیدا نکرد» — one clause, both callers, and the fold on
+     * both sides.
+     *
+     * ⛔ THE DEFECT, MEASURED. `tmc_products.title` is
+     * `utf8mb4_unicode_520_ci`, and that collation does NOT equate Arabic ي
+     * with Persian ی, Arabic ك with Persian ک, or two spaces with one — asked
+     * of the real MariaDB, those three comparisons answer 0. It DOES ignore
+     * the zero-width joiner and the combining hamza (1). So a plain
+     * `title LIKE %needle%` found the owner's product by «پنبه», a word that
+     * contains none of the characters the collation is strict about, and found
+     * nothing at all for the full phrase — exactly the behaviour reported.
+     *
+     * Both sides now go through `PersianCollation`: the needle through
+     * `foldForSearch()` and the column through `sqlFold()`, which is generated
+     * from the same constants so the two cannot drift apart (`alpha.78`).
+     *
+     * The cost is nothing new: `LIKE '%…%'` could never use an index, so this
+     * scan was always a scan. `sku` is deliberately NOT folded — a stock code
+     * is an identifier, its spaces and its letters are part of it, and folding
+     * one would make two different codes match.
+     *
+     * @return array{0:string, 1:list<string>}
+     */
+    private static function searchClause(string $search): array
+    {
+        $needle = PersianCollation::foldForSearch($search);
+        if ($needle === '') {
+            return ['', []];
+        }
+        // Escaped for LIKE after the fold, never before: a `%` a vendor typed
+        // is a percent sign they are looking for, not a wildcard that quietly
+        // matches everything — the rule this method inherited from `scope()`.
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $needle) . '%';
+        $raw = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], trim($search)) . '%';
+        return [
+            ' AND (' . PersianCollation::sqlFold('title') . ' LIKE %s'
+                . ' OR sku LIKE %s'
+                . ' OR ' . PersianCollation::sqlFold('brand') . ' LIKE %s)',
+            [$like, $raw, $like],
+        ];
     }
 }

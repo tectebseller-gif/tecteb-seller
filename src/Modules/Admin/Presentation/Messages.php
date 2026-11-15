@@ -191,7 +191,7 @@ final class Messages
             case 'schema':
                 if (!empty($facts['ahead'])) {
                     return sprintf(
-                        __('نسخه ساختار داده %1$s است، اما این نسخه افزونه فقط تا %2$s را می‌شناسد. یعنی دیتابیس با نسخه جدیدتری از افزونه نوشته شده است. افزونه ساختار را پایین نمی‌آورد؛ نسخه افزونه را به‌روز کنید یا از بک‌آپ متناسب بازگردانید.', 'tecteb-marketplace-core'),
+                        __('نسخه ساختار داده %1$s است، اما این نسخه افزونه فقط تا %2$s را می‌شناسد. یعنی دیتابیس با نسخه جدیدتری از افزونه نوشته شده است. افزونه ساختار را پایین نمی‌آورد؛', 'tecteb-marketplace-core') . ' ' . __('نسخه افزونه را به‌روز کنید یا از بک‌آپ متناسب بازگردانید.', 'tecteb-marketplace-core'),
                         $fa($facts['stored'] ?? 0),
                         $fa($facts['target'] ?? 0)
                     );
@@ -203,7 +203,7 @@ final class Messages
                     // Recorded failure + schema already at target: the failure
                     // itself is over; only its record could not be removed.
                     return sprintf(
-                        __('نسخه ذخیره‌شده %1$s از %2$s؛ ساختار داده کامل است. یک رکورد خطای قدیمی از اجرای پیشین (مرحله %3$s، زمان %4$s) هنوز پاک نشده و دیگر وضعیت فعلی را توصیف نمی‌کند. فعال‌سازی دوباره افزونه آن را پاک می‌کند.', 'tecteb-marketplace-core'),
+                        __('نسخه ذخیره‌شده %1$s از %2$s؛ ساختار داده کامل است. یک رکورد خطای قدیمی از اجرای پیشین (مرحله %3$s، زمان %4$s) هنوز پاک نشده و دیگر وضعیت فعلی را توصیف نمی‌کند.', 'tecteb-marketplace-core') . ' ' . __('فعال‌سازی دوباره افزونه آن را پاک می‌کند.', 'tecteb-marketplace-core'),
                         $fa($facts['stored'] ?? 0),
                         $fa($facts['target'] ?? 0),
                         (string) $facts['last_error_step'],

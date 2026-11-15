@@ -493,9 +493,29 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         if ($this->wroteSlug) {
             $this->stampSlug($wcProductId);
         }
-        // The author is the vendor, so WordPress' own "posts by this user"
-        // views and any theme byline attribute the product correctly.
-        wp_update_post(['ID' => $wcProductId, 'post_author' => $product->vendorUserId]);
+        // ⛔ **ONLY FOR A POST THIS RUN CREATED.**
+        //
+        // The author is the vendor on a product the marketplace built, so
+        // WordPress' own «posts by this user» views and a theme byline
+        // attribute it correctly. On a product that was ALREADY THERE it is
+        // somebody else's attribution and §۴ forbids touching it by name:
+        // «`wp_posts.post_author`, دادهٔ مالکیت خودِ دکان، `vendor_user_id` ما
+        // و `link_ownership` را از هم جدا نگه دار؛ هیچ‌وقت `post_author` را
+        // خودکار عوض نکن.»
+        //
+        // Until `alpha.105` this line was unconditional, and that mattered on
+        // the owner's own install: Dokan attributes a product BY
+        // `post_author` (`OrderOperationsGate`'s docblock says so, and
+        // `DokanPresenceInterface`'s), so the first projection after an
+        // ownership transfer rewrote the one fact Dokan reads about 184
+        // imported products. Two true sentences made a false outcome —
+        // «`TransferOwnership` deliberately leaves `post_author` alone» was
+        // true of that class, and the projection a moment later did it
+        // anyway. The same shape as `alpha.27`'s stamping rule, one field
+        // further on: do not write what this run did not create.
+        if ($isNew) {
+            wp_update_post(['ID' => $wcProductId, 'post_author' => $product->vendorUserId]);
+        }
 
         $variationLinks = $details->type === ProductType::VARIABLE
             ? $this->projectVariations($wcProductId, $product, $attributes, $variations)
@@ -1805,9 +1825,19 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         foreach ($attributes as $attribute) {
             $labels[$attribute->key] = $attribute->label;
         }
-        $existing = $this->existingVariationIds($wcProductId);
+        $matched = $this->matchVariations($wcProductId, $variations);
+        $existing = $matched['map'];
 
         foreach ($variations as $variation) {
+            // ⛔ AMBIGUOUS ROWS ARE SKIPPED, not guessed at. Two marketplace
+            // rows pointing at one storefront child is a state only a person
+            // can resolve, and both of the obvious machine answers are
+            // destructive: overwrite the child with one of them, or create a
+            // second child beside it. Neither happens — the combination is
+            // left exactly as the shop holds it and the id is reported.
+            if (in_array($variation->id, $matched['ambiguous'], true)) {
+                continue;
+            }
             $wcVariationId = $existing[$variation->id] ?? 0;
             $isNew = $wcVariationId <= 0;
             $wcVariation = $isNew ? new \WC_Product_Variation() : wc_get_product($wcVariationId);
@@ -1926,5 +1956,68 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             }
         }
         return $out;
+    }
+
+    /**
+     * Which storefront child each marketplace variation IS — from both records
+     * that can say so.
+     *
+     * ⛔ THE SECOND RECORD IS THE POINT, and `alpha.90` named the risk without
+     * closing it: `existingVariationIds()` recognises only children carrying
+     * `_tmc_variation_id`, so a child that this plugin did not create — the
+     * only kind an imported product has — matched nothing, and a marketplace
+     * row that nonetheless pointed at it by `wc_variation_id` would have had a
+     * SECOND variation created beside it on the next projection. The stamp is
+     * written by projection; the column is written by the marketplace. Both
+     * mean the same thing and only one of them was being read.
+     *
+     * The stamp still wins where both exist, because it is the shop's own
+     * record of what we did. The column is only believed when the id really is
+     * a child of THIS parent: a pointer left behind by a product that was
+     * re-created, or copied from another shop, must not reach `set_*` on
+     * somebody else's variation.
+     *
+     * No matching on names, options or combination text — «از ترکیب متن/نام
+     * به‌تنهایی شناسه نساز». Two ids or nothing.
+     *
+     * @param list<ProductVariation> $variations
+     * @return array{map:array<int,int>, ambiguous:list<int>}
+     */
+    private function matchVariations(int $wcProductId, array $variations): array
+    {
+        $map = $this->existingVariationIds($wcProductId);
+        $parent = wc_get_product($wcProductId);
+        if (!$parent instanceof \WC_Product_Variable) {
+            return ['map' => $map, 'ambiguous' => []];
+        }
+        $children = array_map('intval', (array) $parent->get_children());
+        $claimedBy = [];
+        foreach ($map as $tmcId => $wcId) {
+            $claimedBy[(int) $wcId] = (int) $tmcId;
+        }
+
+        $ambiguous = [];
+        foreach ($variations as $variation) {
+            $tmcId = $variation->id;
+            $wanted = (int) ($variation->wcVariationId ?? 0);
+            if ($tmcId <= 0 || $wanted <= 0 || isset($map[$tmcId])) {
+                continue;
+            }
+            if (!in_array($wanted, $children, true)) {
+                continue;       // a pointer at something that is not ours
+            }
+            $owner = $claimedBy[$wanted] ?? 0;
+            if ($owner > 0 && $owner !== $tmcId) {
+                // Two rows, one child. Neither is written.
+                $ambiguous[] = $tmcId;
+                $ambiguous[] = $owner;
+                unset($map[$owner]);
+                continue;
+            }
+            $map[$tmcId] = $wanted;
+            $claimedBy[$wanted] = $tmcId;
+        }
+
+        return ['map' => $map, 'ambiguous' => array_values(array_unique($ambiguous))];
     }
 }

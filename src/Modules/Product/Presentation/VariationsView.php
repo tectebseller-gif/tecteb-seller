@@ -4,8 +4,11 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariation;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
@@ -30,7 +33,8 @@ final class VariationsView
         array $variations,
         array $thumbnails,
         VendorUrls $urls,
-        string $nonceField
+        string $nonceField,
+        ?StorefrontVariationSet $storefront = null
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('ویژگی‌ها و ترکیب‌ها', 'tecteb-marketplace-core') . '</legend>';
@@ -38,6 +42,26 @@ final class VariationsView
         if ($productId <= 0) {
             return $html . VendorUi::notice('info', __('اول محصول را ذخیره کنید، بعد ویژگی‌ها و ترکیب‌ها را اینجا تعریف کنید.', 'tecteb-marketplace-core'))
                 . '</fieldset>';
+        }
+
+        // ⛔ THE SHOP'S COMBINATIONS, when the marketplace holds none.
+        //
+        // This is the screen the owner photographed: product #189 showed
+        // «هنوز ویژگی‌ای تعریف نشده است» while WooCommerce held variations
+        // #11966, #11965 and #11967 at ۵۰، ۱۰۰ and ۲۰۰ عددی. The sentence was
+        // true about `tmc_product_attributes` and false about the product, and
+        // a vendor reading it would conclude the combinations were lost and
+        // build them again — producing a second set that the next projection
+        // would push into the shop beside the first.
+        //
+        // So when the shop has them, the shop's are shown, read-only, with
+        // their real ids; and the «define an attribute» form is NOT offered,
+        // because here it is an invitation to duplicate.
+        if ($storefront !== null && $storefront->hasVariations()) {
+            return $html . self::storefrontPanel($storefront, $fa) . '</fieldset>';
+        }
+        if ($storefront !== null && !$storefront->isRead()) {
+            $html .= self::unreadNotice($storefront);
         }
 
         $html .= '<p class="tv-hint">' . esc_html__('محصول متغیر تا وقتی دست‌کم یک ترکیب فعال با قیمت نداشته باشد، آمادهٔ فروش شمرده نمی‌شود و ارسال نمی‌شود.', 'tecteb-marketplace-core') . '</p>';
@@ -196,5 +220,149 @@ final class VariationsView
             $html .= '<input type="hidden" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '">';
         }
         return $html . VendorUi::submit($label, 'secondary') . '</form>';
+    }
+
+    /**
+     * The shop's own combinations, read and shown — and nothing more.
+     *
+     * No form, no button, no id of ours: there is nothing on this panel a
+     * press could write, which is how «از ویرایش تنوعِ پرخطر پیشگیری کن» is
+     * enforced rather than promised. What the vendor gets is the thing they
+     * could not see at all before: which combinations exist, what each costs,
+     * what WooCommerce says about its stock, and the real id to quote.
+     *
+     * Editing these from the marketplace panel is a separate, later step and
+     * the sentence at the bottom says so — including WHERE the change can be
+     * made today, because a screen that only says «you cannot» teaches people
+     * to look for a way around it.
+     */
+    private static function storefrontPanel(StorefrontVariationSet $set, callable $fa): string
+    {
+        $money = static function (?int $minor, int $exponent) use ($fa): string {
+            if ($minor === null) {
+                return __('نامشخص', 'tecteb-marketplace-core');
+            }
+            return sprintf(
+                __('%s تومان', 'tecteb-marketplace-core'),
+                MoneyText::format($minor, $exponent) ?? $fa(number_format($minor))
+            );
+        };
+
+        $html = VendorUi::notice('info', sprintf(
+            /* translators: %s: how many variations WooCommerce holds */
+            __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند: %s ترکیب. این فهرست فقط خوانده می‌شود.', 'tecteb-marketplace-core'),
+            $fa($set->count())
+        ));
+        if ($set->unreadableChildren > 0) {
+            $html .= VendorUi::notice('warning', sprintf(
+                /* translators: %s: how many children could not be read */
+                __('%s ترکیب در ووکامرس هست که خوانده نشد. عددهای زیر دربارهٔ بقیه است، نه دربارهٔ همه.', 'tecteb-marketplace-core'),
+                $fa($set->unreadableChildren)
+            ));
+        }
+
+        $min = $set->minPriceMinor();
+        $max = $set->maxPriceMinor();
+        $html .= '<dl class="tv-product__facts">'
+            . '<div><dt>' . esc_html__('بازهٔ قیمت', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html(
+                $min === null
+                    ? __('هیچ ترکیبی قیمت خواندنی ندارد', 'tecteb-marketplace-core')
+                    : ($min === $max
+                        ? $money($min, $set->priceExponent)
+                        : sprintf(
+                            /* translators: 1: lowest price, 2: highest price */
+                            __('از %1$s تا %2$s', 'tecteb-marketplace-core'),
+                            $money($min, $set->priceExponent),
+                            $money($max, $set->priceExponent)
+                        ))
+            ) . '</dd></div>'
+            . '<div><dt>' . esc_html__('قابل خرید', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html(sprintf(
+                /* translators: 1: buyable variations, 2: variations read */
+                __('%1$s از %2$s', 'tecteb-marketplace-core'),
+                $fa($set->buyableCount()),
+                $fa($set->count())
+            )) . '</dd></div>'
+            . '<div><dt>' . esc_html__('جمع موجودی', 'tecteb-marketplace-core') . '</dt><dd>' . esc_html(
+                $set->totalStock() === null
+                    ? __('به‌ازای تنوع — جمع‌شدنی نیست', 'tecteb-marketplace-core')
+                    : $fa((int) $set->totalStock())
+            ) . '</dd></div>'
+            . '</dl>';
+
+        $html .= '<ul class="tv-variations">';
+        foreach ($set->variations as $variation) {
+            $parts = [];
+            foreach ($variation->attributes as $label => $value) {
+                $parts[] = $label . ': ' . $value;
+            }
+            $html .= '<li class="tv-variations__item"><div class="tv-variations__body">'
+                . '<strong>' . esc_html($parts === []
+                    ? __('بدون ویژگی اعلام‌شده', 'tecteb-marketplace-core')
+                    : implode(' · ', $parts)) . '</strong> '
+                . VendorUi::chip(
+                    $variation->isBuyable() ? 'success' : 'neutral',
+                    $variation->isBuyable()
+                        ? __('قابل خرید', 'tecteb-marketplace-core')
+                        : __('قابل خرید نیست', 'tecteb-marketplace-core')
+                )
+                . '<dl class="tv-product__facts">'
+                . '<div><dt>' . esc_html__('شناسهٔ ووکامرس', 'tecteb-marketplace-core') . '</dt><dd><bdi>'
+                . esc_html($fa($variation->wcVariationId)) . '</bdi></dd></div>'
+                . '<div><dt>' . esc_html__('قیمت', 'tecteb-marketplace-core') . '</dt><dd>'
+                . esc_html($money($variation->currentPriceMinor, $set->priceExponent)) . '</dd></div>'
+                . '<div><dt>' . esc_html__('موجودی', 'tecteb-marketplace-core') . '</dt><dd>'
+                . esc_html(self::stockText($variation, $fa)) . '</dd></div>'
+                . '<div><dt>' . esc_html__('کد SKU', 'tecteb-marketplace-core') . '</dt><dd><bdi>'
+                . esc_html($variation->sku !== '' ? $variation->sku : '—') . '</bdi></dd></div>'
+                . '<div><dt>' . esc_html__('وضعیت', 'tecteb-marketplace-core') . '</dt><dd>'
+                . esc_html($variation->enabled
+                    ? __('فعال', 'tecteb-marketplace-core')
+                    : __('غیرفعال در ووکامرس', 'tecteb-marketplace-core')) . '</dd></div>'
+                . '</dl></div></li>';
+        }
+        $html .= '</ul>';
+
+        return $html . VendorUi::notice('info', __('تغییر قیمت یا موجودی این ترکیب‌ها فعلاً از ووکامرس انجام می‌شود؛ ویرایش آن‌ها از این پنل مرحلهٔ بعدی مهاجرت است. ساختن ترکیب تازه در این پنل، نسخهٔ دومی از همین ترکیب‌ها می‌سازد، پس در دسترس نیست.', 'tecteb-marketplace-core'));
+    }
+
+    /**
+     * «نمی‌دانم», with the reason — four situations that used to arrive as one.
+     *
+     * A build with no WooCommerce is not a fault, a marketplace row with no
+     * storefront product is a different fault from a read that failed, and a
+     * simple product reaching this panel at all is a third. One sentence for
+     * all four is what let «no variations» be printed about a product that
+     * had three.
+     */
+    private static function unreadNotice(StorefrontVariationSet $set): string
+    {
+        $message = match ($set->state) {
+            StorefrontVariationSet::NO_WOOCOMMERCE =>
+                __('ووکامرس روی این سایت در دسترس نیست، پس ترکیب‌های سمت فروشگاه خوانده نشد.', 'tecteb-marketplace-core'),
+            StorefrontVariationSet::NO_STOREFRONT_PRODUCT =>
+                __('این محصول هنوز محصولی در ووکامرس ندارد، پس ترکیبی برای خواندن نیست.', 'tecteb-marketplace-core'),
+            StorefrontVariationSet::NOT_VARIABLE =>
+                __('محصول متناظر در ووکامرس متغیر نیست. تا این ناهماهنگی بررسی نشود، ترکیب‌ها از این پنل خوانده نمی‌شوند.', 'tecteb-marketplace-core'),
+            default =>
+                __('ترکیب‌های سمت فروشگاه خوانده نشد. این «ترکیبی ندارد» نیست؛ یعنی پاسخی نگرفتیم.', 'tecteb-marketplace-core'),
+        };
+        return VendorUi::notice(
+            $set->state === StorefrontVariationSet::NO_WOOCOMMERCE ? 'info' : 'warning',
+            $message
+        );
+    }
+
+    /** @param callable(string|int):string $fa */
+    private static function stockText(StorefrontVariation $variation, callable $fa): string
+    {
+        if ($variation->manageStock && $variation->stockQuantity !== null) {
+            return $fa($variation->stockQuantity);
+        }
+        return match ($variation->stockStatus) {
+            'instock' => __('موجود (ووکامرس عدد نگه نمی‌دارد)', 'tecteb-marketplace-core'),
+            'outofstock' => __('ناموجود', 'tecteb-marketplace-core'),
+            'onbackorder' => __('پیش‌خرید', 'tecteb-marketplace-core'),
+            default => __('نامشخص', 'tecteb-marketplace-core'),
+        };
     }
 }

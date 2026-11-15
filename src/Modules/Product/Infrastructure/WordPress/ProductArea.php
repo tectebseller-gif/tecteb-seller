@@ -162,7 +162,8 @@ final class ProductArea
             $mayEdit,
             $this->publishing()->mayPublishDirectly($vendorUserId),
             $search,
-            $this->listThumbnails($products)
+            $this->listThumbnails($products),
+            $this->listVariableRanges($products)
         );
     }
 
@@ -294,7 +295,7 @@ final class ProductArea
             $share,
             $this->publishing()->mayPublishDirectly($vendorUserId),
             $pending !== null,
-            $this->variableData($productId, $details->type),
+            $this->variableData($productId, $details->type, (int) ($product?->wcProductId ?? 0)),
             $product?->rowVersion ?? '',
             $draftSavedAt,
             $mayEdit ? admin_url('admin-ajax.php') : '',
@@ -1055,12 +1056,13 @@ final class ProductArea
      *
      * @return array{attributes?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute>,variations?:list<\Tecteb\Marketplace\Modules\Product\Domain\ProductVariation>,thumbnails?:array<int,string>}
      */
-    private function variableData(int $productId, string $type): array
+    private function variableData(int $productId, string $type, int $wcProductId = 0): array
     {
         if ($type !== \Tecteb\Marketplace\Modules\Product\Domain\ProductType::VARIABLE) {
             return [];
         }
         $variations = $productId > 0 ? $this->variationRepository()->variations($productId) : [];
+        $attributes = $productId > 0 ? $this->variationRepository()->attributes($productId) : [];
         $library = $this->container->get(ProductImageLibraryInterface::class);
         $thumbnails = [];
         foreach ($variations as $variation) {
@@ -1069,10 +1071,62 @@ final class ProductArea
             }
         }
         return [
-            'attributes' => $productId > 0 ? $this->variationRepository()->attributes($productId) : [],
+            'attributes' => $attributes,
             'variations' => $variations,
             'thumbnails' => $thumbnails,
+            // ⛔ ASKED ONLY WHEN OUR OWN TABLES HOLD NOTHING, and that is the
+            // whole rule for which side is the truth (§3-۲): a variable
+            // product the marketplace built has its axes here and the shop is
+            // its mirror; a product that came in from Dokan has none, and then
+            // WooCommerce is the only place the combinations exist.
+            //
+            // One read, for one product, on a form — not on the list, where it
+            // would be a product load per row (`alpha.91`).
+            'storefront' => $attributes === [] && $variations === []
+                ? $this->storefrontVariations()->setFor($wcProductId)
+                : null,
         ];
+    }
+
+    /**
+     * The imported variable parent's real price range, for the LIST.
+     *
+     * One query for the whole page rather than a `wc_get_product()` per row:
+     * `rangesFor()` reads `wc_product_meta_lookup`, which WooCommerce keeps up
+     * to date itself. Only variable products are asked about — a simple
+     * product's own row already carries its price.
+     *
+     * @param list<\Tecteb\Marketplace\Modules\Product\Domain\Product> $products
+     * @return array<int,\Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange>
+     */
+    private function listVariableRanges(array $products): array
+    {
+        $wanted = [];
+        foreach ($products as $product) {
+            if ($product->details->type !== \Tecteb\Marketplace\Modules\Product\Domain\ProductType::VARIABLE) {
+                continue;
+            }
+            $wcId = (int) ($product->wcProductId ?? 0);
+            if ($wcId > 0) {
+                $wanted[$product->id] = $wcId;
+            }
+        }
+        if ($wanted === []) {
+            return [];
+        }
+        $ranges = $this->storefrontVariations()->rangesFor(array_values(array_unique($wanted)));
+        $out = [];
+        foreach ($wanted as $productId => $wcId) {
+            if (isset($ranges[$wcId])) {
+                $out[$productId] = $ranges[$wcId];
+            }
+        }
+        return $out;
+    }
+
+    private function storefrontVariations(): \Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface
+    {
+        return $this->container->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface::class);
     }
 
     /**

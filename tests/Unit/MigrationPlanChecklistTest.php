@@ -388,6 +388,81 @@ final class MigrationPlanChecklistTest extends TestCase
         }
     }
 
+    /**
+     * The records-only shop finishes — and the four ways it must not.
+     *
+     * §5 forbids both of the exits that suggest themselves for shop #40: it
+     * may not be made to sell in order to tidy a menu, and its `DONE` may not
+     * be forged. So the exception is modelled, and the controls are what make
+     * it an exception rather than a hole: take away any one of the facts the
+     * snapshot carries and the two steps go straight back to TODO with the
+     * gate named.
+     */
+    public function testARecordsOnlyShopFinishesTheLastTwoStepsWithItsOwnName(): void
+    {
+        $steps = $this->steps([
+            'gates_missing' => ['vendor_can_sell'],
+            'records_only_settled' => true,
+            'ownership_state' => OwnershipState::NOTHING_TO_TRANSFER,
+            'marketplace' => 0,
+        ]);
+        foreach ([Plan::STEP_VALIDATE, Plan::STEP_EXIT_READY] as $key) {
+            self::assertSame(Plan::DONE, $steps[$key]['status'], $key);
+            self::assertSame(Plan::RECORDS_ONLY, $steps[$key]['detail'], $key);
+            self::assertSame('', $steps[$key]['blocker'], $key);
+        }
+        self::assertTrue(Plan::tally(Plan::steps(array_merge(self::COMPLETE, [
+            'gates_missing' => ['vendor_can_sell'],
+            'records_only_settled' => true,
+            'ownership_state' => OwnershipState::NOTHING_TO_TRANSFER,
+            'marketplace' => 0,
+        ])))['ready']);
+    }
+
+    /** @return iterable<string,array{0:array<string,mixed>}> */
+    public static function notRecordsOnly(): iterable
+    {
+        // The fact itself is false — a shop with products, an unread tally, a
+        // shop that sells: `MigrationCompleteness` answers `false` for each
+        // and this class must not second-guess it.
+        yield 'the fact is false' => [[
+            'gates_missing' => ['vendor_can_sell'],
+            'records_only_settled' => false,
+        ]];
+        // Nothing said; an older snapshot shape must not land on «done».
+        yield 'the fact is absent' => [[
+            'gates_missing' => ['vendor_can_sell'],
+        ]];
+        // A SECOND open gate. The permission is the only one this branch
+        // forgives, so an undecided finance row keeps the shop unfinished.
+        yield 'a second gate is open' => [[
+            'gates_missing' => ['vendor_can_sell', 'finance_decided'],
+            'records_only_settled' => true,
+        ]];
+        // And a different single gate is not this case at all.
+        yield 'another gate alone' => [[
+            'gates_missing' => ['staff_decided'],
+            'records_only_settled' => true,
+        ]];
+    }
+
+    /**
+     * @param array<string,mixed> $overrides
+     * @dataProvider notRecordsOnly
+     */
+    public function testEveryOtherShapeKeepsTheLastTwoStepsOpen(array $overrides): void
+    {
+        $steps = $this->steps(array_merge([
+            'ownership_state' => OwnershipState::NOTHING_TO_TRANSFER,
+            'marketplace' => 0,
+        ], $overrides));
+        foreach ([Plan::STEP_VALIDATE, Plan::STEP_EXIT_READY] as $key) {
+            self::assertSame(Plan::TODO, $steps[$key]['status'], $key);
+            self::assertSame('gates_open', $steps[$key]['blocker'], $key);
+            self::assertNotSame(Plan::RECORDS_ONLY, $steps[$key]['detail'], $key);
+        }
+    }
+
     /** An empty snapshot must not produce a single `DONE`. */
     public function testAnEmptySnapshotClaimsNothing(): void
     {

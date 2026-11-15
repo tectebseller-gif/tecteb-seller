@@ -66,28 +66,28 @@ final class AdminProseIsShortOrFoldedTest extends TestCase
      * @var array<string,int>
      */
     private const BUDGET = [
-        'src/Modules/Admin/Presentation/Messages.php' => 2,
-        'src/Modules/Admin/Presentation/Views/health.php' => 3,
-        'src/Modules/Admin/Presentation/Views/settings.php' => 1,
-        'src/Modules/Finance/Presentation/Admin/CommissionRulesPage.php' => 1,
-        'src/Modules/Finance/Presentation/Admin/SupplierPaymentsPage.php' => 4,
-        'src/Modules/Finance/Presentation/SupplierPaymentMessages.php' => 5,
-        'src/Modules/Migration/Presentation/Admin/MigrationPage.php' => 5,
-        'src/Modules/Migration/Presentation/Admin/MinMaxExitPage.php' => 9,
-        'src/Modules/Operations/Presentation/Admin/EventsPage.php' => 1,
-        'src/Modules/Operations/Presentation/Admin/QueuePage.php' => 5,
-        'src/Modules/Operations/Presentation/Admin/SetupWizardPage.php' => 1,
-        'src/Modules/Operations/Presentation/OperationsMessages.php' => 1,
-        'src/Modules/Operations/Presentation/SetupMessages.php' => 1,
-        'src/Modules/Product/Presentation/Admin/ProductCatalogueView.php' => 3,
-        'src/Modules/Product/Presentation/Admin/ProductReviewPage.php' => 4,
-        'src/Modules/Product/Presentation/Admin/SpecTemplatesPage.php' => 1,
-        'src/Modules/Product/Presentation/Admin/StorefrontPage.php' => 10,
-        'src/Modules/Vendor/Presentation/Admin/DocumentTypesPage.php' => 2,
+        // ⛔ EMPTY, AND THAT IS THE MEASUREMENT.
+        //
+        // §۵ of the owner's instruction asked for the admin surface to read
+        // short and operational — «متن‌های بلند کنترلی/تاریخی را کوتاه و
+        // عملیاتی کن: پیام یک یا دو جمله‌ای + «جزئیات بیشتر» در صورت نیاز؛
+        // خطر، تصمیم و اقدام پیشنهادی را حفظ کن». In `alpha.104` this table
+        // carried 59 lines across 18 files. Every one of them was CUT, NOT
+        // REWRITTEN (`alpha.85`): the first sentence stayed where it was and
+        // the continuation went either into `Components::moreDetails()` or
+        // into a second short string beside it, word for word.
+        //
+        // Nothing was deleted. A live safety warning was never folded — §۵ is
+        // explicit that it is not «اضافی» — so those were split into two short
+        // sentences instead, which keeps them in view and under the cap.
+        //
+        // The ratchet still works in BOTH directions: a file that gains a long
+        // line fails this test, and so would a file that silently stopped
+        // having one without this table saying so.
     ];
 
     /** What the budget adds up to. Stated so one number tells the story. */
-    private const BUDGET_TOTAL = 59;
+    private const BUDGET_TOTAL = 0;
 
     public function testNoInternalIdentifierIsShownOnAnAdminPage(): void
     {

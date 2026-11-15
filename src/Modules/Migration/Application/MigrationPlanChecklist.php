@@ -50,6 +50,13 @@ final class MigrationPlanChecklist
     public const STEP_VALIDATE = 'validate';
     public const STEP_EXIT_READY = 'exit_ready';
 
+    /**
+     * The detail steps 11 and 12 carry for a shop whose migration finished
+     * with records and no catalogue. A name, because there is no number to
+     * print — see `recordsOnlyIsSettled()` for what it asserts.
+     */
+    public const RECORDS_ONLY = 'records_only';
+
     /** @var list<string> the order a manager works through them */
     public const ORDER = [
         self::STEP_ENVIRONMENT,
@@ -342,9 +349,39 @@ final class MigrationPlanChecklist
         if (!is_array($missing)) {
             return [self::UNKNOWN, 'completeness_unreadable', ''];
         }
+        if (self::recordsOnlyIsSettled($state, $missing)) {
+            return [self::DONE, '', self::RECORDS_ONLY];
+        }
         return $missing === []
             ? [self::DONE, '', '0']
             : [self::TODO, 'gates_open', implode('، ', array_map('strval', $missing))];
+    }
+
+    /**
+     * The records-only shop, finished — and the one gate it is allowed to
+     * leave open.
+     *
+     * ⛔ **This is not «ignore `vendor_can_sell`».** The answer comes from
+     * `MigrationCompleteness`, where it is three READ facts at once: the
+     * archive landed, there is nothing to transfer (`alpha.97`'s own positive
+     * fact, stamp included) and nobody has let the shop sell. Here only two
+     * further conditions are added, and both narrow it:
+     *
+     *   • the permission is the ONLY gate still open, so a shop with an
+     *     unread staff list or an undecided finance row is still unfinished;
+     *   • and that is checked against the list, not against a count, so a
+     *     second open gate cannot hide behind this branch.
+     *
+     * The detail is a NAME and `explain()` has a sentence for it — an
+     * internal identifier must never reach an admin screen (`alpha.85`).
+     *
+     * @param array<string,mixed> $state
+     * @param array<int,mixed> $missing
+     */
+    private static function recordsOnlyIsSettled(array $state, array $missing): bool
+    {
+        return ($state['records_only_settled'] ?? false) === true
+            && array_values(array_map('strval', $missing)) === ['vendor_can_sell'];
     }
 
     /** @param array<string,mixed> $state @return array{0:string, 1:string, 2:string} */
@@ -353,6 +390,9 @@ final class MigrationPlanChecklist
         $missing = $state['gates_missing'] ?? null;
         if (!is_array($missing)) {
             return [self::UNKNOWN, 'completeness_unreadable', ''];
+        }
+        if (self::recordsOnlyIsSettled($state, $missing)) {
+            return [self::DONE, '', self::RECORDS_ONLY];
         }
         if ($missing !== []) {
             return [self::TODO, 'gates_open', implode('، ', array_map('strval', $missing))];

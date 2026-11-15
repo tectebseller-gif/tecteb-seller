@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
+
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
@@ -37,8 +38,48 @@ final class ManageVariations
         private readonly VariationRepositoryInterface $variations,
         private readonly ProductImageLibraryInterface $images,
         private readonly StaffAccess $access,
-        private readonly AuditLogger $audit
+        private readonly AuditLogger $audit,
+        /**
+         * Only to ASK whether the shop already holds this product's
+         * combinations. Nullable so every existing caller and every test that
+         * builds this service by hand keeps working (`alpha.32`); when it is
+         * absent the guard below stands down, which is the pre-`alpha.105`
+         * behaviour and is correct on a build with no storefront.
+         */
+        private readonly ?StorefrontVariationReaderInterface $storefront = null
     ) {
+    }
+
+    /**
+     * ⛔ THE COMBINATIONS ARE IN WOOCOMMERCE, SO THIS PANEL MAY NOT MAKE MORE.
+     *
+     * An imported product has no row in `tmc_product_attributes` or
+     * `tmc_product_variations` — `ImportFromDokan` writes neither — while
+     * WooCommerce holds the real children. Before `alpha.105` the vendor's
+     * panel said «هنوز ویژگی‌ای تعریف نشده است» about such a product, which is
+     * an invitation to define the axes again; and had they accepted it, the
+     * next projection would have created a SECOND set of variations beside the
+     * first, because `existingVariationIds()` can only recognise children this
+     * plugin stamped.
+     *
+     * So the five writing verbs refuse by name while that is the situation:
+     * our tables are empty AND the shop's parent has children. One guard, in
+     * the service, rather than one per route — a route that forgot to ask
+     * would otherwise be a route that could still duplicate.
+     *
+     * It is deliberately NOT a permission and NOT a capability: the vendor may
+     * edit this product, and will be able to edit these combinations once the
+     * marketplace has adopted them. It is «not through this door yet».
+     */
+    private function shopOwnsTheCombinations(int $productId, ?int $wcProductId): bool
+    {
+        if ($this->storefront === null || $wcProductId === null || $wcProductId <= 0) {
+            return false;
+        }
+        if ($this->variations->attributes($productId) !== [] || $this->variations->variations($productId) !== []) {
+            return false;       // ours, and the shop is the mirror
+        }
+        return $this->storefront->setFor($wcProductId)->hasVariations();
     }
 
     /** @param list<string> $options */
@@ -226,8 +267,22 @@ final class ManageVariations
         if (!$this->access->can($actorId, $vendorUserId, StaffArea::Inventory, StaffLevel::Edit)) {
             return OperationResult::failure('forbidden');
         }
-        if ($this->products->findOwned($productId, $vendorUserId) === null) {
+        $product = $this->products->findOwned($productId, $vendorUserId);
+        if ($product === null) {
             return OperationResult::failure('not_found');
+        }
+        // ⛔ REPEATED HERE ON PURPOSE. This verb does not go through
+        // `editable()`: it asks for the Inventory area, not Product (A.1), so
+        // a guard that only sat in `editable()` would cover four verbs out of
+        // five — which is no guard (`alpha.22`). And it is reachable: the
+        // panel now PRINTS the shop's real child ids, so a stock update
+        // naming 7701 would otherwise be answered «پیدا نشد» about a
+        // combination that plainly exists.
+        if (
+            $product->details->type === ProductType::VARIABLE
+            && $this->shopOwnsTheCombinations($productId, $product->wcProductId)
+        ) {
+            return OperationResult::failure('variations_live_in_shop', ['product_id' => $productId]);
         }
         if ($stock < 0) {
             return OperationResult::failure('bad_stock');
@@ -291,6 +346,15 @@ final class ManageVariations
         }
         if ($product->status === ProductStatus::Archived) {
             return OperationResult::failure('product_archived');
+        }
+        // After the other refusals, because «you may not edit this at all» is
+        // a different sentence from «these combinations live in the shop», and
+        // the first one is the one to say when both are true.
+        if (
+            $product->details->type === ProductType::VARIABLE
+            && $this->shopOwnsTheCombinations($productId, $product->wcProductId)
+        ) {
+            return OperationResult::failure('variations_live_in_shop', ['product_id' => $productId]);
         }
         return $product;
     }

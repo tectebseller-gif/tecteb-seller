@@ -1,0 +1,54 @@
+=== falsification: the imported variable-product path ==========
+date 2026-11-15T13:49:14Z · php 8.3.6
+contract: ImportedVariationsAreReadOnlyTest (10)
+database: VariationFlowTest + ProductFormPostTest (29), run ALONE (alpha.40/alpha.98)
+
+-- baseline on the quiet tree
+OK (10 tests, 72 assertions)
+OK (29 tests, 187 assertions)
+
+-- mutation 1: the panel stops reading the shop
+   [src/Modules/Product/Infrastructure/WordPress/ProductArea.php]
+applied 1
+OK (10 tests, 72 assertions)
+FAILURES!
+Tests: 29, Assertions: 183, Failures: 1.
+
+-- mutation 2: two rows claiming one child are no longer both skipped
+   [src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php]
+applied 2
+FAILURES!
+Tests: 10, Assertions: 70, Failures: 1.
+OK (29 tests, 187 assertions)
+
+-- mutation 3: the stamp-only matching comes back
+   [src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php]
+applied 3
+FAILURES!
+Tests: 10, Assertions: 68, Failures: 2.
+OK (29 tests, 187 assertions)
+
+-- mutation 4: the whole guard goes: the vendor may edit combinations the shop owns
+   [src/Modules/Product/Application/ManageVariations.php]
+applied 4
+OK (10 tests, 72 assertions)
+FAILURES!
+Tests: 29, Assertions: 180, Failures: 1.
+
+-- mutation 5: the guard sits on four verbs out of five (the stock verb loses it)
+   [src/Modules/Product/Application/ManageVariations.php]
+applied 5
+OK (10 tests, 72 assertions)
+FAILURES!
+Tests: 29, Assertions: 187, Failures: 1.
+
+-- restored byte-for-byte:
+src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php: OK
+src/Modules/Product/Infrastructure/WordPress/ProductArea.php: OK
+src/Modules/Product/Application/ManageVariations.php: OK
+
+-- baseline again
+OK (10 tests, 72 assertions)
+OK (29 tests, 187 assertions)
+
+problems: 0 survived, 0 unapplied

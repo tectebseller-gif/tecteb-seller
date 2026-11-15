@@ -81,6 +81,19 @@ final class State
     public static array $notices = [];
 
     /**
+     * Parents whose price range WooCommerce was asked to recalculate.
+     *
+     * `WC_Product_Variable::sync()` is the real call `projectVariations()` ends
+     * on. Recorded rather than imitated: a stub that computed the range would
+     * be asserting about itself, and what the no-write test needs to know is
+     * only WHETHER the shop was asked to recompute — if it was not, a price
+     * range the panel reads from the lookup table would go stale.
+     *
+     * @var list<int>
+     */
+    public static array $variableSyncs = [];
+
+    /**
      * Codes that exist as real `shop_coupon` posts: code (lowercased) => id.
      *
      * This is the native-coupon question in one array. A code in here is the
@@ -325,6 +338,10 @@ final class State
         // The mirror's answer, so a suite that creates or drops the real
         // `postmeta` table between tests is not answered from a stale cache.
         self::$metaMirror = null;
+        self::$variableSyncs = [];
+        if (class_exists('WC_Product_Variable')) {
+            \WC_Product_Variable::resetChildren();
+        }
         self::$options = [];
         self::$transients = [];
         self::$cache = [];

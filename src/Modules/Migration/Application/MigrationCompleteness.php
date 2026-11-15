@@ -468,6 +468,45 @@ final class MigrationCompleteness
                 // «grant», and a gate that is closed still needs a way back,
                 // because a decision with no reverse is not a decision.
                 'can_sell' => $profile?->canSell === true,
+                // ⛔ **THE RECORDS-ONLY SHOP, as a positive fact.**
+                //
+                // §5 asks for this exception to be MODELLED rather than
+                // forged: shop #40 on the owner's install must never be made
+                // to sell in order to tidy a menu, and its records must not be
+                // deleted either — so the two ways out that suggest themselves
+                // are both forbidden. Without a third answer the arithmetic is
+                // simply stuck: the only open gate is `vendor_can_sell`, every
+                // other one is closed, and the checklist's last two steps stay
+                // TODO for ever, which means the temporary tools can never
+                // leave the everyday menu for ANY shop on the install.
+                //
+                // Three things must hold at once, and each is something that
+                // was READ rather than something that is absent:
+                //
+                //   1. the archive really landed — `records_imported` is one
+                //      of the two successful reads, never a count (`alpha.79`);
+                //   2. there is nothing to transfer — `NOTHING_TO_TRANSFER` is
+                //      itself `alpha.97`'s positive fact: both tallies read,
+                //      both nought, AND the import stamp on the profile, so a
+                //      stranger's id cannot read as «finished»;
+                //   3. nobody has let it sell.
+                //
+                // Take any one away and this is false. A shop with products is
+                // not in this case; a shop whose records could not be read is
+                // not in this case; and a shop that sells is an ordinary
+                // migrated shop whose gate is already closed. It is therefore
+                // not «vendor_can_sell doesn't count» — it is «this shop
+                // finished its migration with no catalogue and no permission,
+                // and there is nothing left for anyone to do».
+                //
+                // ⛔ And it is a FACT here, not a decision: this class writes
+                // nothing, grants nothing and does not touch `can_sell`. The
+                // selling permission still has exactly one door
+                // (`DecideImportedShopSelling`) and it stays shut.
+                'records_only_settled' => $gates['records_imported']
+                    && $gates['categories_mapped']
+                    && $ownershipState === OwnershipState::NOTHING_TO_TRANSFER
+                    && $profile?->canSell !== true,
             ],
         ];
     }

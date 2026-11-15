@@ -33,13 +33,13 @@ final class SupplierPaymentMessages
                 __('پرداخت ثبت شد و در دفترکل هم ثبت شد، چون مبلغ پرداختی با سهم ثبت‌شدهٔ همان اقلام یکی بود.', 'tecteb-marketplace-core'),
             RecordSupplierPayment::RECORDED_UNPOSTED => sprintf(
                 /* translators: 1: the amount paid, 2: the recorded share */
-                __('پرداخت ثبت شد، ولی در دفترکل ثبت نشد: مبلغ پرداختی %1$s است و سهم ثبت‌شدهٔ همان اقلام %2$s. این پرداخت در فهرست «پرداخت‌هایی که در دفترکل ثبت نشده‌اند» می‌آید و تا تعیین قاعده، هیچ عددی حدس زده نمی‌شود.', 'tecteb-marketplace-core'),
+                __('پرداخت ثبت شد، ولی در دفترکل ثبت نشد: مبلغ پرداختی %1$s است و سهم ثبت‌شدهٔ همان اقلام %2$s.', 'tecteb-marketplace-core') . ' ' . __('این پرداخت در فهرست «پرداخت‌هایی که در دفترکل ثبت نشده‌اند» می‌آید و تا تعیین قاعده، هیچ عددی حدس زده نمی‌شود.', 'tecteb-marketplace-core'),
                 $fa((string) ($context['amount_minor'] ?? '')),
                 $fa((string) ($context['share_minor'] ?? ''))
             ),
             RecordSupplierPayment::RECORDED_SHARE_UNKNOWN => sprintf(
                 /* translators: 1: the order items whose share is unknown, 2: the amount paid */
-                __('پرداخت ثبت شد، ولی در دفترکل ثبت نشد و «تسویه‌شده» هم اعلام نمی‌شود: سهم قلم سفارش %1$s ثبت نشده است، پس مقایسهٔ مبلغ %2$s با سهم این اقلام انجام‌دادنی نبود. این پرداخت در فهرست «پرداخت‌هایی که در دفترکل ثبت نشده‌اند» می‌آید و هیچ عددی به‌جای سهم نامعلوم گذاشته نمی‌شود.', 'tecteb-marketplace-core'),
+                __('پرداخت ثبت شد، ولی در دفترکل ثبت نشد و «تسویه‌شده» هم اعلام نمی‌شود: سهم قلم سفارش %1$s ثبت نشده است، پس مقایسهٔ مبلغ %2$s با سهم این اقلام انجام‌دادنی نبود.', 'tecteb-marketplace-core') . ' ' . __('این پرداخت در فهرست «پرداخت‌هایی که در دفترکل ثبت نشده‌اند» می‌آید و هیچ عددی به‌جای سهم نامعلوم گذاشته نمی‌شود.', 'tecteb-marketplace-core'),
                 $fa(implode('، ', array_map('strval', (array) ($context['unknown_share_items'] ?? [])))),
                 $fa((string) ($context['amount_minor'] ?? ''))
             ),
@@ -69,7 +69,7 @@ final class SupplierPaymentMessages
             // §5 — the void.
             RecordSupplierPayment::VOIDED => sprintf(
                 /* translators: %s: the payment id */
-                __('ثبت پرداخت #%s ابطال شد. سابقه حذف نشده و اگر این پرداخت در دفترکل ثبت شده بود، سند معکوس در همان واحد کار نوشته شد. ابطال به‌معنای بازگشت واقعی پول نیست؛ اگر پولی واقعاً برگشته، آن را به‌عنوان وصول طلب ثبت کنید.', 'tecteb-marketplace-core'),
+                __('ثبت پرداخت #%s ابطال شد. سابقه حذف نشده و اگر این پرداخت در دفترکل ثبت شده بود، سند معکوس در همان واحد کار نوشته شد.', 'tecteb-marketplace-core') . ' ' . __('ابطال به‌معنای بازگشت واقعی پول نیست؛ اگر پولی واقعاً برگشته، آن را به‌عنوان وصول طلب ثبت کنید.', 'tecteb-marketplace-core'),
                 $fa((string) ($context['payment_id'] ?? ''))
             ),
             RecordSupplierPayment::VOID_REASON_REQUIRED =>
@@ -98,7 +98,7 @@ final class SupplierPaymentMessages
                 __('این ثبت ابطال شده است و بررسی نمی‌شود؛ به‌جایش پرداخت صحیح را ثبت کنید.', 'tecteb-marketplace-core'),
             RecordSupplierPayment::ITEM_HELD_BY_WITHDRAWAL => sprintf(
                 /* translators: 1: the order item id, 2: the withdrawal request id */
-                __('قلم سفارش %1$s در چرخهٔ برداشت فروشنده است (درخواست برداشت %2$s)، پس پرداخت دستی برای آن ثبت نمی‌شود — یک قلم دو بار تسویه نمی‌شود. هیچ‌چیز ثبت نشد و هیچ رزروی آزاد نشد؛ اگر آن درخواست را اشتباه می‌دانید، اول خودش را تعیین تکلیف کنید.', 'tecteb-marketplace-core'),
+                __('قلم سفارش %1$s در چرخهٔ برداشت فروشنده است (درخواست برداشت %2$s)، پس پرداخت دستی برای آن ثبت نمی‌شود — یک قلم دو بار تسویه نمی‌شود.', 'tecteb-marketplace-core') . ' ' . __('هیچ‌چیز ثبت نشد و هیچ رزروی آزاد نشد؛ اگر آن درخواست را اشتباه می‌دانید، اول خودش را تعیین تکلیف کنید.', 'tecteb-marketplace-core'),
                 $fa((string) ($context['order_item_id'] ?? '')),
                 $fa((string) ($context['withdrawal_id'] ?? ''))
             ),
@@ -206,6 +206,29 @@ final class SupplierPaymentMessages
      */
     public static function conflictExplanation(): string
     {
-        return __('این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد. سهم، از فروش ثبت‌شده و کمیسیون همان لحظه حساب شده است؛ مبلغ پرداختی، قیمتی است که تک‌طب توافق کرده. تا وقتی تعیین نشده که اختلاف این دو چه معنایی دارد، بازارگاه خطی در دفترکل نمی‌نویسد — چون خط دفترکل می‌گوید «این، طلب تأمین‌کننده را تسویه کرد» و درباره مبلغی که با آن طلب فرق دارد، این جمله تصمیمی است که کسی نگرفته. و دستهٔ دوم اصلاً مقایسه‌شدنی نبوده: سهم دست‌کم یکی از اقلامشان ثبت نشده است، و سهمِ نامعلوم با سهمِ صفر یکی گرفته نمی‌شود — ستون «چرا ثبت نشده» می‌گوید هر ردیف کدام است.', 'tecteb-marketplace-core');
+        return __('این‌ها پرداخت‌هایی هستند که انجام و ثبت شده‌اند، ولی مبلغشان با سهم ثبت‌شدهٔ همان اقلام فرق دارد.', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * The same explanation's continuation, for the disclosure beneath it.
+     *
+     * ⛔ CUT, NOT REWRITTEN. Every sentence below was on the screen before
+     * `alpha.105`, word for word: why the marketplace writes no ledger line,
+     * and why an unknown share is not a zero. It was moved one click away,
+     * which is what §۵ asks for and the only safe way to do it (`alpha.85`).
+     *
+     * @return list<string>
+     */
+    public static function conflictDetails(): array
+    {
+        return [
+            __('سهم، از فروش ثبت‌شده و کمیسیون همان لحظه حساب شده است؛ مبلغ پرداختی، قیمتی است که تک‌طب توافق کرده.', 'tecteb-marketplace-core'),
+            // ⛔ Two entries, not one long line: the fold is in the PAGE, and a
+            // catalogue in another file is outside the span the rule can see,
+            // so the cap applies here on its own terms.
+            __('تا وقتی تعیین نشده که اختلاف این دو چه معنایی دارد، بازارگاه خطی در دفترکل نمی‌نویسد.', 'tecteb-marketplace-core'),
+            __('چون خط دفترکل می‌گوید «این، طلب تأمین‌کننده را تسویه کرد» و درباره مبلغی که با آن طلب فرق دارد، این جمله تصمیمی است که کسی نگرفته.', 'tecteb-marketplace-core'),
+            __('و دستهٔ دوم اصلاً مقایسه‌شدنی نبوده: سهم دست‌کم یکی از اقلامشان ثبت نشده است، و سهمِ نامعلوم با سهمِ صفر یکی گرفته نمی‌شود — ستون «چرا ثبت نشده» می‌گوید هر ردیف کدام است.', 'tecteb-marketplace-core'),
+        ];
     }
 }

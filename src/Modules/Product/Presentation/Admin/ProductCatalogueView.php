@@ -664,7 +664,7 @@ final class ProductCatalogueView
         $inWcTab = $posts - $hidden;
         return '<p class="tmc-hint">' . esc_html(sprintf(
             /* translators: 1: this list's total, 2: products WooCommerce's own «all» tab counts, 3: auto-draft and trashed products, 4: marketplace rows with no WooCommerce product */
-            __('این فهرست %1$s ردیف دارد: %2$s محصولی که در فهرست «همه»ی ووکامرس هم شمرده می‌شوند، به‌علاوهٔ %3$s محصول پیش‌نویس خودکار یا در زباله‌دان که آن فهرست نشانشان نمی‌دهد، به‌علاوهٔ %4$s ردیف بازارگاه که هنوز محصول ووکامرسی ندارند. اگر عدد این صفحه با عدد صفحهٔ محصولات ووکامرس فرق دارد، تفاوت همین دو دستهٔ آخر است.', 'tecteb-marketplace-core'),
+            __('این فهرست %1$s ردیف دارد: %2$s محصولی که در فهرست «همه»ی ووکامرس هم شمرده می‌شوند، به‌علاوهٔ %3$s محصول پیش‌نویس خودکار یا در زباله‌دان که آن فهرست نشانشان نمی‌دهد،', 'tecteb-marketplace-core') . ' ' . __('به‌علاوهٔ %4$s ردیف بازارگاه که هنوز محصول ووکامرسی ندارند. اگر عدد این صفحه با عدد صفحهٔ محصولات ووکامرس فرق دارد، تفاوت همین دو دستهٔ آخر است.', 'tecteb-marketplace-core'),
             self::fa($state->total),
             self::fa($inWcTab),
             self::fa($hidden),
@@ -802,7 +802,7 @@ final class ProductCatalogueView
         $html = '<div class="tmc-catalogue__intakebox">'
             . '<h3 class="tmc-card__subtitle">'
             . esc_html__('ورود محصول‌های انتخاب‌شده به بازارگاه', 'tecteb-marketplace-core') . '</h3>'
-            . '<p class="tmc-hint">' . esc_html__('«ورود» یک ردیف بازارگاه می‌سازد که به همان محصول ووکامرس اشاره می‌کند، با مالکیت «مشاهده‌شده». محصول ووکامرس عوض نمی‌شود: شناسه، نشانی، وضعیت انتشار، نویسنده، قیمت، موجودی، تصویرها و سفارش‌های قبلی دست‌نخورده می‌مانند. پذیرش مدیریت بازارگاه اقدام جداگانه‌ای روی صفحهٔ خودِ محصول است.', 'tecteb-marketplace-core') . '</p>';
+            . '<p class="tmc-hint">' . esc_html__('«ورود» یک ردیف بازارگاه می‌سازد که به همان محصول ووکامرس اشاره می‌کند، با مالکیت «مشاهده‌شده». محصول ووکامرس عوض نمی‌شود: شناسه، نشانی، وضعیت انتشار، نویسنده، قیمت، موجودی،', 'tecteb-marketplace-core') . ' ' . esc_html__('تصویرها و سفارش‌های قبلی دست‌نخورده می‌مانند. پذیرش مدیریت بازارگاه اقدام جداگانه‌ای روی صفحهٔ خودِ محصول است.', 'tecteb-marketplace-core') . '</p>';
 
         // The shop search: its own GET-like submit inside the same form, which
         // is why the button has a name of its own. A manager who types a name
@@ -860,7 +860,7 @@ final class ProductCatalogueView
 
         return $html
             . '<p class="tmc-card__note">'
-            . esc_html__('اگر فروشگاهی انتخاب نشود، محصولی که فروشنده‌اش از شواهد معلوم است وارد می‌شود و بقیه با ذکر دلیل رد می‌شوند. این افزونه هیچ‌وقت محصول فروشگاه اصلی را به مدیر واردشده یا یک فروشندهٔ تصادفی نسبت نمی‌دهد.', 'tecteb-marketplace-core')
+            . esc_html__('اگر فروشگاهی انتخاب نشود، محصولی که فروشنده‌اش از شواهد معلوم است وارد می‌شود و بقیه با ذکر دلیل رد می‌شوند.', 'tecteb-marketplace-core') . ' ' . esc_html__('این افزونه هیچ‌وقت محصول فروشگاه اصلی را به مدیر واردشده یا یک فروشندهٔ تصادفی نسبت نمی‌دهد.', 'tecteb-marketplace-core')
             . '</p>'
             . '<p><button type="submit" class="tmc-button" name="intake_action" value="preview">'
             . esc_html__('پیش‌نمایش (هیچ نوشتنی)', 'tecteb-marketplace-core') . '</button> '

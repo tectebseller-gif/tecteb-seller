@@ -1,0 +1,173 @@
+alpha.105 falsification — 14 mutations
+database filter inside the loop: VariationFlowTest|ProductFormPostTest|CatalogueReconciliationTest|EmptyShopAndUnreadableGateTest
+the closing baseline runs the database suite UNFILTERED
+tree: a52ed01 (plus the uncommitted round)
+
+=== 1/14 the panel stops asking WooCommerce about an imported parent
+    file:   src/Modules/Product/Infrastructure/WordPress/ProductArea.php
+    expect: database
+    applied to src/Modules/Product/Infrastructure/WordPress/ProductArea.php (now d24d9a53cdb7)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 2/14 the list stops asking for the parent's real price range
+    file:   src/Modules/Product/Infrastructure/WordPress/ProductArea.php
+    expect: database
+    applied to src/Modules/Product/Infrastructure/WordPress/ProductArea.php (now 74bd6dc8b84d)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 3/14 the four editing verbs stop refusing the shop's own combinations
+    file:   src/Modules/Product/Application/ManageVariations.php
+    expect: database
+    applied to src/Modules/Product/Application/ManageVariations.php (now d7becb532ef5)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 4/14 the stock verb alone stops refusing them (the fifth door)
+    file:   src/Modules/Product/Application/ManageVariations.php
+    expect: database
+    applied to src/Modules/Product/Application/ManageVariations.php (now 5e4bf0c7fdaf)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 5/14 a shop side nobody could read is reported as linked
+    file:   src/Modules/Product/Domain/CatalogueLink.php
+    expect: unit,database
+    applied to src/Modules/Product/Domain/CatalogueLink.php (now c6289e059995)
+    unit: 1
+    database: 0
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 6/14 a page that came up short is reported as the whole page
+    file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+    expect: database
+    applied to src/Modules/Product/Infrastructure/DbProductRepository.php (now 2058de87d7c7)
+    database: 0
+    RESULT: SURVIVED — measure why before calling it a guard
+    restored byte for byte: yes
+
+=== 7/14 the report drops the imported rows it exists to reconcile
+    file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+    expect: database
+    applied to src/Modules/Product/Infrastructure/DbProductRepository.php (now c1e821b0e599)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 8/14 the other direction reads post_author instead of our own mark
+    file:   src/Modules/Product/Infrastructure/DbProductRepository.php
+    expect: architecture,database
+    applied to src/Modules/Product/Infrastructure/DbProductRepository.php (now 788cb644c76d)
+    architecture: 1
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 9/14 any shop that does not sell reads as a finished migration
+    file:   src/Modules/Migration/Application/MigrationCompleteness.php
+    expect: database
+    applied to src/Modules/Migration/Application/MigrationCompleteness.php (now 7215889a0392)
+    database: 3
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 10/14 an archive nobody could read still finishes the migration
+    file:   src/Modules/Migration/Application/MigrationCompleteness.php
+    expect: database
+    applied to src/Modules/Migration/Application/MigrationCompleteness.php (now 3d159c9a5780)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 11/14 a second open gate hides behind the records-only answer
+    file:   src/Modules/Migration/Application/MigrationPlanChecklist.php
+    expect: unit,database
+    applied to src/Modules/Migration/Application/MigrationPlanChecklist.php (now 22b117504adf)
+    unit: 1
+    database: 0
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 12/14 the identifier reaches the admin screen instead of a sentence
+    file:   src/Modules/Migration/Presentation/MigrationWizardText.php
+    expect: database
+    applied to src/Modules/Migration/Presentation/MigrationWizardText.php (now c518d3556c3b)
+    database: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 13/14 post_author is rewritten on a product that was already there
+    file:   src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php
+    expect: contract
+    applied to src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php (now d034ac36a06c)
+    contract: 1
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== 14/14 the sidebar is printed in registration order, not the defined one
+    file:   src/Modules/Admin/Presentation/MenuRegistrar.php
+    expect: contract
+    applied to src/Modules/Admin/Presentation/MenuRegistrar.php (now 0df9446b26cc)
+    contract: 2
+    RESULT: falsified
+    restored byte for byte: yes
+
+=== the quiet tree, afterwards
+    unit: 0
+    architecture: 0
+    contract: 0
+    database-all: 7
+
+problems: 1
+
+=== second pass — the one mutation that survived, and the two readings of
+=== `database-all: 7` in the baseline above
+
+⛔ TWO SEPARATE FINDINGS, and neither is a defect in the package.
+
+(1) MUTATION 6 SURVIVED THE FIRST PASS, and it was a hole in MY OWN tests.
+    «a page that came up short is reported as the whole page» removes
+
+        if (count($rows) !== $expected) { return null; }
+
+    from `DbProductRepository::reconciliationPage()`. Every test in
+    `CatalogueReconciliationTest` read a HEALTHY database, where the count and
+    the list always agree — so the guard was unreachable, and an unreachable
+    guard is byte for byte indistinguishable from an absent one (`alpha.80`).
+
+    Closed with a behavioural test that injects the refusal into the LIST
+    statement by name and leaves the `COUNT(*)` beside it working, plus the
+    control that the same call answers the whole page once the refusal stops:
+
+        CatalogueReconciliationTest::testAPageWhoseRowsCouldNotBeReadIsNullRatherThanEmpty
+
+    Re-measured on the quiet tree, mutation 6 alone:
+
+        applied to src/Modules/Product/Infrastructure/DbProductRepository.php
+        database (CatalogueReconciliationTest): 1 failure
+        RESULT: falsified
+        restored byte for byte: yes
+
+    So: 14 mutations, 14 falsified — the fourteenth on the second pass.
+
+(2) `database-all: 7` IN THE CLOSING BASELINE IS NOT A RESULT ABOUT THIS TREE.
+    While that unfiltered run was in progress I started a SECOND database
+    runner on the same database to check the new test. That is `alpha.40`'s
+    collision, for the fourth time in this repository, and the answer belongs
+    to neither tree.
+
+    ⛔ And the reason I started it is worth writing down, because the check I
+    used was wrong rather than missing: `pgrep -cf phpunit` answered `1` and I
+    read that as «the loop is finished». One is not zero — it was the loop's
+    own runner. The condition to wait on is `= 0` AND the log carrying its
+    verdict, which is what the later wait actually did.
+
+    The clean figures are in docs/TEST-EVIDENCE-ALPHA105-FA.md, measured with
+    the database suite ALONE on the quiet tree, twice: once on PHP 8.3.6 and
+    once on real PHP 8.1.34 in the container.

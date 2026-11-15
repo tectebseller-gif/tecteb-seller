@@ -296,7 +296,11 @@ final class ProductFormView
                 $variable['variations'] ?? [],
                 $variable['thumbnails'] ?? [],
                 $urls,
-                $nonceField
+                $nonceField,
+                // `null` when the marketplace holds its own axes: then this is
+                // a variable product the marketplace built and the shop is its
+                // mirror, not its source (§3-۲).
+                $variable['storefront'] ?? null
             );
         }
 

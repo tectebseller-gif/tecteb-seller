@@ -75,6 +75,14 @@ final class MigrationWizardText
             if ($detail === OwnershipState::NOTHING_TO_TRANSFER) {
                 return __('این فروشگاه محصولی ندارد، پس چیزی برای انتقال نبود.', 'tecteb-marketplace-core');
             }
+            // The same shape one step further on: steps 11 and 12 report
+            // `records_only` for a shop that finished with records and no
+            // catalogue, and the sentence says BOTH halves — what is settled
+            // and what stays shut — so nobody reads it as «this shop may
+            // sell now».
+            if ($detail === Plan::RECORDS_ONLY) {
+                return __('سوابق این فروشگاه آمده و محصولی ندارد؛ اجازهٔ فروش هم به آن داده نشده و همان‌طور می‌مانَد. کار دیگری نمانده.', 'tecteb-marketplace-core');
+            }
             return $detail === '' ? '' : $fa($detail);
         }
         $sentence = match ($blocker) {

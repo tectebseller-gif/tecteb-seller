@@ -809,6 +809,12 @@ final class ProductMessages
             'variation_saved' => __('ترکیب ذخیره شد.', 'tecteb-marketplace-core'),
             'variation_deleted' => __('ترکیب حذف شد.', 'tecteb-marketplace-core'),
             'not_variable' => __('این کار فقط برای محصول «متغیر» معنا دارد.', 'tecteb-marketplace-core'),
+            // ⛔ Not «شما اجازه ندارید»: the vendor may edit this product, and
+            // will be able to edit these combinations once the marketplace has
+            // adopted them. Saying «not through this door yet» and WHERE the
+            // change is made today is the difference between a fallback and a
+            // dead end (§3-۹).
+            'variations_live_in_shop' => __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند و از این پنل خوانده می‌شوند. ساختن یا حذف ترکیب از اینجا نسخهٔ دومی می‌سازد، پس انجام نشد؛ تغییر قیمت و موجودی این ترکیب‌ها فعلاً در ووکامرس انجام می‌شود.', 'tecteb-marketplace-core'),
             'incomplete_attribute' => __('کلید و عنوان ویژگی هر دو لازم‌اند.', 'tecteb-marketplace-core'),
             'attribute_needs_options' => __('ویژگی بدون گزینه ساخته نمی‌شود؛ دست‌کم یک گزینه بنویسید.', 'tecteb-marketplace-core'),
             'attributes_first' => __('اول ویژگی‌ها (مثل اندازه یا رنگ) را تعریف کنید، بعد ترکیب‌ها را.', 'tecteb-marketplace-core'),

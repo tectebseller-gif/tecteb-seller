@@ -125,6 +125,12 @@ final class MigrationPlanSnapshot
                 : null,
             'transfer_runs' => count((array) $this->options->get(ImportFromDokan::RUNS_OPTION, [])),
             'gates_missing' => array_values(array_map('strval', (array) ($gates['missing'] ?? []))),
+            // Whether this shop's migration finished with records and no
+            // catalogue (`MigrationCompleteness`, where the gates are). Steps
+            // 11 and 12 read the ANSWER and do not re-derive it from
+            // `can_sell` and the two tallies, which is the same mistake steps
+            // 9 and 10 made before `OwnershipState` existed (`alpha.78`).
+            'records_only_settled' => (bool) ($detail['records_only_settled'] ?? false),
         ];
     }
 }

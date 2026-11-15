@@ -837,7 +837,8 @@ final class VendorRoutes
             $mayEdit,
             $canPublish,
             $this->supportUrl(),
-            $standing
+            $standing,
+            $shop['imported']
         );
     }
 
@@ -849,7 +850,7 @@ final class VendorRoutes
      * thing an unreadable shop can produce is the page that offers to create
      * one, never a shop header that claims an approval nobody read.
      *
-     * @return array{status:ApplicationStatus, can_sell:bool, name:string}
+     * @return array{status:ApplicationStatus, can_sell:bool, name:string, imported:bool}
      */
     private function shopProfile(int $vendorUserId): array
     {
@@ -861,9 +862,22 @@ final class VendorRoutes
                 'status' => $application?->status ?? ApplicationStatus::Draft,
                 'can_sell' => $profile !== null && $profile->canSell,
                 'name' => $profile?->storeName ?? '',
+                // ⛔ A POSITIVE FACT, and the only one that can distinguish
+                // shop #102 from a stranger: this profile carries an import
+                // run stamp, so it was created by `ImportFromDokan` and has no
+                // ordinary application to be approved. Stamped inside the
+                // insert that created the profile and never cleared, so it
+                // cannot be revoked by anything the vendor does later
+                // (`alpha.82` on why it is read with `getRow()`).
+                'imported' => $profile !== null && $vendors->importRunIdFor($vendorUserId) !== '',
             ];
         } catch (\Throwable) {
-            return ['status' => ApplicationStatus::Draft, 'can_sell' => false, 'name' => ''];
+            return [
+                'status' => ApplicationStatus::Draft,
+                'can_sell' => false,
+                'name' => '',
+                'imported' => false,
+            ];
         }
     }
 

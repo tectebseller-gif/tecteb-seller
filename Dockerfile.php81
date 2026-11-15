@@ -1,0 +1,21 @@
+# The interpreter the owner's site actually runs — PHP 8.1.34.
+#
+# §9 of the alpha.104 mandate said plainly that lint with PHPCompatibility is
+# not a substitute for running the suites on the real interpreter, and this
+# environment has no 8.1 binary. It does have Docker, so the suites run here.
+#
+# Two extensions, and both are needed for a reason that is measured, not
+# guessed:
+#   • pdo_mysql — the database and contract suites talk to the real MariaDB.
+#   • pcntl     — four concurrency tests call pcntl_fork(), and two of them
+#                 deliberately FAIL rather than skip when it is absent,
+#                 because skipping hides the gap.
+#
+# `intl` is NOT installed: without it `tmc_stub_remove_accents()` answers
+# differently and `SanitizeTitleTest` skips exactly one named row while the
+# fifteen Persian pairs are still measured on both interpreters. `git`, `zip`
+# and `unzip` are not installable from this network, so the packaging suite is
+# `Not Run` here and is measured on the host — it tests the BUILD, not the
+# interpreter.
+FROM php:8.1.34-cli
+RUN docker-php-ext-install pdo_mysql pcntl

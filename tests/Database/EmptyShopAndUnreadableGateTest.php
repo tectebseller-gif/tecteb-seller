@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Modules\Migration\Application\MigrationCompleteness;
 use Tecteb\Marketplace\Modules\Migration\Application\MigrationPlanChecklist as Plan;
 use Tecteb\Marketplace\Modules\Migration\Application\OwnershipState;
 use Tecteb\Marketplace\Modules\Migration\Application\ReconcileDokanFinance;
+use Tecteb\Marketplace\Modules\Migration\Application\ShopRecordPreview;
 use Tecteb\Marketplace\Modules\Migration\Application\StaffRoleMap;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbFinanceHandoverRepository;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\DbShopRecordRepository;
@@ -25,6 +26,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Tests\Support\FailingDatabase;
+use Tecteb\Marketplace\Tests\Support\FakeDokanReader;
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 
 /**
@@ -373,9 +375,178 @@ final class EmptyShopAndUnreadableGateTest extends DatabaseTestCase
 
     // =============================================================== helpers
 
+    // ====================================== the records-only shop, finished
+
+    /**
+     * Shop #40's migration IS finished, and saying so costs it nothing.
+     *
+     * The owner's ruling is that #40 keeps `can_sell = false` for ever and
+     * its records are not deleted — so the `vendor_can_sell` gate is open and
+     * stays open. Without a third answer the last two steps are TODO for
+     * ever, which means `ConcludeMigration` can never succeed and the
+     * temporary tools can never leave the everyday menu for ANY shop on the
+     * install. §5 asks for the exception to be modelled rather than forged,
+     * and this is the measurement that it was: three facts that were READ, a
+     * step that says `records_only` rather than a blank `DONE`, and a Persian
+     * sentence that states both halves.
+     *
+     * ⛔ The shape is arranged through the real doors — a preview over a
+     * Dokan that answers «zero rows» (a verified nought, `alpha.78`) and the
+     * finance decision taken with the token the screen showed. A fixture that
+     * wrote the handover row itself would be measuring its own SQL.
+     */
+    public function testARecordsOnlyShopIsSettledWithoutEverBeingLetToSell(): void
+    {
+        $completeness = $this->recordsOnlyShape();
+        $row = $completeness->forVendor(self::EMPTY_SHOP);
+
+        self::assertTrue($row['detail']['records_only_settled'], 'records came, no catalogue, no permission');
+        self::assertFalse($row['detail']['can_sell'], '⛔ and it is still not selling');
+        self::assertSame(['vendor_can_sell'], $row['missing'], 'the permission is the only open gate');
+
+        $state = $this->stateFor(self::EMPTY_SHOP, $completeness);
+        foreach ([Plan::STEP_VALIDATE, Plan::STEP_EXIT_READY] as $key) {
+            $step = $this->stepOf($state, $key);
+            self::assertSame(Plan::DONE, $step['status'], $key . ' is finished');
+            self::assertSame(Plan::RECORDS_ONLY, $step['detail'], $key . ' names why');
+
+            $said = MigrationWizardText::explain(
+                $step['status'],
+                $step['blocker'],
+                $step['detail'],
+                static fn (string $value): string => $value
+            );
+            self::assertStringContainsString('سوابق این فروشگاه آمده', $said, $key . ' is explained in Persian');
+            self::assertStringContainsString('اجازهٔ فروش هم به آن داده نشده', $said, $key . ' says the other half too');
+            self::assertStringNotContainsString(Plan::RECORDS_ONLY, $said, $key . ' never prints the identifier');
+        }
+    }
+
+    /**
+     * ⛔ Control: letting it sell is NOT how this shop finishes.
+     *
+     * With the permission granted the fact is false — and it has to be,
+     * because otherwise the branch would be «the gate does not count» rather
+     * than «this shape of shop is finished». The shop is then an ordinary
+     * migrated one whose gate is closed on its own merits.
+     */
+    public function testAShopThatWasLetToSellIsNoLongerTheRecordsOnlyCase(): void
+    {
+        $completeness = $this->recordsOnlyShape();
+        $this->vendors->upsertProfile(self::EMPTY_SHOP, 'فروشگاه بی‌محصول', true, false, 'run-40');
+
+        $row = $completeness->forVendor(self::EMPTY_SHOP);
+
+        self::assertFalse($row['detail']['records_only_settled'], 'a selling shop is not this case');
+        self::assertTrue($row['gates']['vendor_can_sell'], 'its gate is closed the ordinary way');
+        self::assertSame([], $row['missing'], 'and it is simply complete');
+    }
+
+    /**
+     * ⛔ Control: one catalogue row and this is not the records-only case.
+     *
+     * The row is `observed` — a catalogue note, the cheapest thing that can
+     * exist on this side — and it is enough, because «nothing to transfer» is
+     * one of the three facts.
+     */
+    public function testAShopWithEvenOneProductIsNotTheRecordsOnlyCase(): void
+    {
+        $completeness = $this->recordsOnlyShape();
+        $this->products->create(
+            self::EMPTY_SHOP,
+            new ProductDetails(title: 'یادداشت کاتالوگ', priceMinor: 1000, sku: 'SKU-40-RO', stock: 1),
+            ProductStatus::Draft,
+            LinkOwnership::Observed,
+            9401,
+            'run-40'
+        );
+
+        self::assertFalse(
+            $completeness->forVendor(self::EMPTY_SHOP)['detail']['records_only_settled'],
+            'a shop with a catalogue row still has something to decide'
+        );
+    }
+
+    /**
+     * ⛔ Control: and neither is a shop nobody imported.
+     *
+     * The fact leans on `NOTHING_TO_TRANSFER`, which carries the import stamp
+     * check — so a stranger with no products and no permission must not read
+     * as «finished its migration». This is `alpha.72`'s circularity guarded
+     * one step further on.
+     */
+    public function testAShopNobodyImportedIsNotTheRecordsOnlyCase(): void
+    {
+        $completeness = $this->recordsOnlyShape();
+        $this->vendors->upsertProfile(self::STRANGER, 'غریبه', false, false);
+
+        self::assertFalse(
+            $completeness->forVendor(self::STRANGER)['detail']['records_only_settled'],
+            'no stamp, no finished migration'
+        );
+    }
+
+    /**
+     * ⛔ Control: an archive nobody could read is not a finished migration.
+     *
+     * This is the direction a readiness fact must never be wrong in, and it
+     * is the reason the first of the three conditions is the records GATE
+     * rather than a row count (`alpha.79`).
+     */
+    public function testAnUnreadableArchiveIsNotTheRecordsOnlyCase(): void
+    {
+        $dokan = new FakeDokanReader();
+        $dokan->unreadableSources = ['balance'];
+        $completeness = $this->recordsOnlyShape($dokan);
+
+        $row = $completeness->forVendor(self::EMPTY_SHOP);
+
+        self::assertFalse($row['gates']['records_imported'], 'a failed read leaves the archive gate open');
+        self::assertFalse($row['detail']['records_only_settled'], 'and the shop is not settled');
+    }
+
+    /**
+     * The records-only shape, arranged the way a manager arranges it.
+     *
+     * Shop #40 already has its profile stamp and no products from `setUp()`.
+     * What this adds is the other two facts: a preview over a Dokan that
+     * answers «zero rows for this shop» — a nought that was READ — and the
+     * finance decision, taken through `decide()` with the token the report
+     * showed, because that door refuses a decision nobody looked at.
+     */
+    private function recordsOnlyShape(?FakeDokanReader $dokan = null): MigrationCompleteness
+    {
+        $clock = new SystemClock();
+        $audit = new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock);
+        $caps = new FakeCapabilityChecker(self::MANAGER, [Capabilities::REVIEW_VENDOR]);
+        $finance = new ReconcileDokanFinance(
+            $this->records,
+            $this->handover,
+            $this->db,
+            $audit,
+            $clock,
+            $caps,
+            $this->ledger
+        );
+        $decided = $finance->decide(
+            self::EMPTY_SHOP,
+            ReconcileDokanFinance::ACCEPTED,
+            'سوابق بررسی شد',
+            $finance->figuresToken(self::EMPTY_SHOP)
+        );
+        self::assertTrue($decided['ok'], 'the finance decision is a precondition of this fixture, not its subject');
+
+        return $this->completeness(
+            null,
+            null,
+            new ShopRecordPreview($dokan ?? new FakeDokanReader(), $this->records)
+        );
+    }
+
     private function completeness(
         ?DbProductRepository $products = null,
-        ?DbShopRecordRepository $records = null
+        ?DbShopRecordRepository $records = null,
+        ?ShopRecordPreview $preview = null
     ): MigrationCompleteness {
         $clock = new SystemClock();
         $records ??= $this->records;
@@ -395,7 +566,10 @@ final class EmptyShopAndUnreadableGateTest extends DatabaseTestCase
                 $this->ledger
             ),
             $this->vendors,
-            $products ?? $this->products
+            $products ?? $this->products,
+            null,
+            null,
+            $preview
         );
     }
 
@@ -405,14 +579,17 @@ final class EmptyShopAndUnreadableGateTest extends DatabaseTestCase
      *
      * @return array<string,mixed>
      */
-    private function stateFor(int $vendorUserId): array
+    private function stateFor(int $vendorUserId, ?MigrationCompleteness $completeness = null): array
     {
-        $row = $this->completeness()->forVendor($vendorUserId);
+        $row = ($completeness ?? $this->completeness())->forVendor($vendorUserId);
         return [
             'ownership_state' => $row['detail']['ownership_state'],
             'observed' => $row['detail']['products_observed'],
             'marketplace' => $row['detail']['products_marketplace'],
             'gates_missing' => $row['missing'],
+            // Steps 11 and 12 read the ANSWER `MigrationCompleteness` gives,
+            // never `can_sell` and the tallies again (`alpha.78`).
+            'records_only_settled' => $row['detail']['records_only_settled'],
         ];
     }
 

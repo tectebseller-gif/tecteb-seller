@@ -111,10 +111,19 @@ final class StorefrontPage
                     ? __('فروش بازارگاه فعال است. محصولات تأییدشده در فروشگاه قابل خریدند.', 'tecteb-marketplace-core')
                     : sprintf(
                         /* translators: %s: the gate's machine reason, e.g. decisions_open */
-                        __('کلید فروش روشن است، ولی هیچ محصول بازارگاهی قابل خرید نیست: دروازهٔ سفارش بسته است (%s). خریدار قیمت و موجودی را می‌بیند و دکمهٔ خرید ندارد. جدول «دلیل‌های داخلی» پایین همین صفحه می‌گوید چه چیزی باز است.', 'tecteb-marketplace-core'),
+                        __('کلید فروش روشن است، ولی هیچ محصول بازارگاهی قابل خرید نیست: دروازهٔ سفارش بسته است (%s).', 'tecteb-marketplace-core'),
                         $gateAnswer['reason']
                     ))
         );
+        // Cut, not rewritten: what the shopper sees and where the reason is
+        // written go into the drawer WITH THE SAME WORDS, so a reader who
+        // relied on either still has it one click away (`alpha.85`).
+        if (!$stopped && !$gateAnswer['ready']) {
+            echo Components::moreDetails([
+                __('خریدار قیمت و موجودی را می‌بیند و دکمهٔ خرید ندارد.', 'tecteb-marketplace-core'),
+                __('جدول «دلیل‌های داخلی» پایین همین صفحه می‌گوید چه چیزی باز است.', 'tecteb-marketplace-core'),
+            ]);
+        }
         echo '<p class="tmc-field__desc">'
             . esc_html__('توقف فروش هیچ داده‌ای را پاک نمی‌کند: محصول‌های بازارگاه به «پیش‌نویس» می‌روند و از دید خریدار خارج می‌شوند، درست مثل تعلیق فروشنده. محصولات خود فروشگاه و دکان اصلاً لمس نمی‌شوند.', 'tecteb-marketplace-core')
             . '</p>';
@@ -134,10 +143,14 @@ final class StorefrontPage
         if ($payable !== []) {
             echo Components::notice($stopped ? 'error' : 'info', sprintf(
                 /* translators: 1: count, 2: order ids */
-                __('%1$s سفارش پرداخت‌نشده هست که قلم بازارگاه دارد و هنوز قابل پرداخت است (شماره: %2$s). با توقف فروش، این سفارش‌ها «در انتظار» نگه داشته می‌شوند تا ووکامرس خودش پرداخت تازه‌ای رویشان نپذیرد — حتی اگر این افزونه غیرفعال شود. هیچ سفارشی لغو، خالی یا بازپرداخت نمی‌شود و وضعیت قبلی‌شان ثبت می‌ماند.', 'tecteb-marketplace-core'),
+                __('%1$s سفارش پرداخت‌نشده هست که قلم بازارگاه دارد و هنوز قابل پرداخت است (شماره: %2$s).', 'tecteb-marketplace-core'),
                 esc_html($fa((string) count($payable))),
                 esc_html($fa(implode('، ', array_map('strval', $payable))))
             ));
+            echo Components::moreDetails([
+                __('با توقف فروش، این سفارش‌ها «در انتظار» نگه داشته می‌شوند تا ووکامرس خودش پرداخت تازه‌ای رویشان نپذیرد — حتی اگر این افزونه غیرفعال شود.', 'tecteb-marketplace-core'),
+                __('هیچ سفارشی لغو، خالی یا بازپرداخت نمی‌شود و وضعیت قبلی‌شان ثبت می‌ماند.', 'tecteb-marketplace-core'),
+            ]);
         }
         echo '<p class="tmc-field__desc"><strong>'
             . esc_html__('پیش از بازگرداندن بستهٔ قبلی همین دکمه را بزنید.', 'tecteb-marketplace-core')
@@ -163,7 +176,13 @@ final class StorefrontPage
                 . '<p><button type="submit" name="storefront_action" value="retry_stop" class="tmc-button">'
                 . esc_html__('تلاش دوبارهٔ توقف (فروش بسته می‌ماند)', 'tecteb-marketplace-core') . '</button></p>';
             echo '<p class="tmc-field__desc tmc-field__desc--warn">'
-                . esc_html__('هشدار: بازگرداندن سفارش‌های نگه‌داشته، همان سفارش‌ها را به وضعیت «در انتظار پرداخت» یا «ناموفق» برمی‌گرداند — یعنی دوباره قابل پرداخت می‌شوند، و اگر این افزونه بعداً غیرفعال شود هم قابل پرداخت می‌مانند. محصولی به فروشگاه برنمی‌گردد، ولی این کار «بی‌اثر» نیست: تصمیم تجاری است، نه مرتب‌کردن.', 'tecteb-marketplace-core')
+                // ⛔ SPLIT AND STILL IN VIEW, not folded. §۵ is explicit that a
+                // live safety warning is not «اضافی»، and a decision this size
+                // belongs where the button is — two short sentences rather than
+                // one unreadable line.
+                . esc_html__('هشدار: بازگرداندن سفارش‌های نگه‌داشته، همان سفارش‌ها را به وضعیت «در انتظار پرداخت» یا «ناموفق» برمی‌گرداند — یعنی دوباره قابل پرداخت می‌شوند.', 'tecteb-marketplace-core')
+                . ' '
+                . esc_html__('اگر این افزونه بعداً غیرفعال شود هم قابل پرداخت می‌مانند. محصولی به فروشگاه برنمی‌گردد، ولی این کار «بی‌اثر» نیست: تصمیم تجاری است، نه مرتب‌کردن.', 'tecteb-marketplace-core')
                 . '</p>'
                 . '<p class="tmc-field__desc">'
                 . esc_html__('برای بازگشت به بستهٔ قبلی، این دکمه لازم نیست و توصیه هم نمی‌شود؛ سفارش‌ها را نگه‌داشته رها کنید تا تعیین تکلیف شوند.', 'tecteb-marketplace-core')
@@ -172,7 +191,8 @@ final class StorefrontPage
                 . '<p><button type="submit" name="storefront_action" value="release_orders" class="tmc-button">'
                 . esc_html__('بازگرداندن سفارش‌های نگه‌داشته (پرداختشان دوباره باز می‌شود)', 'tecteb-marketplace-core') . '</button></p>';
             echo '<p class="tmc-field__desc">'
-                . esc_html__('با «از سرگیری»، فروش دوباره باز می‌شود و فقط محصولاتی برمی‌گردند که هنوز شرایطشان برقرار است: فروشنده مجاز به فروش باشد، محصول منتشر باشد و کامل باشد. بقیه با ذکر علت بیرون می‌مانند.', 'tecteb-marketplace-core')
+                . esc_html__('با «از سرگیری»، فروش دوباره باز می‌شود و فقط محصولاتی برمی‌گردند که هنوز شرایطشان برقرار است: فروشنده مجاز به فروش باشد، محصول منتشر باشد و کامل باشد.', 'tecteb-marketplace-core')
+                . ' ' . esc_html__('بقیه با ذکر علت بیرون می‌مانند.', 'tecteb-marketplace-core')
                 . '</p>'
                 . '<p><button type="submit" name="storefront_action" value="resume" class="tmc-button tmc-button--primary">'
                 . esc_html__('از سرگیری فروش بازارگاه', 'tecteb-marketplace-core') . '</button></p>';
@@ -203,13 +223,20 @@ final class StorefrontPage
             . esc_html__('سفارش‌هایی که باید دستی بررسی شوند', 'tecteb-marketplace-core') . '</h2>';
         echo Components::notice('error', sprintf(
             /* translators: 1: how many, 2: the WooCommerce order numbers */
-            __('%1$s سفارش (شمارهٔ %2$s) نگه داشته و برگردانده شدند، ولی موجودی‌شان سرِ جای اولش برنگشت یا این بسته نمی‌داند توقف با موجودی چه کرد. این بازارگاه هیچ عدد موجودی‌ای را خودسرانه بازنویسی نمی‌کند، پس تا تصمیم شما این نشانه سرِ جایش می‌ماند — «بازگرداندن» دوباره هم پاکش نمی‌کند.', 'tecteb-marketplace-core'),
+            __('%1$s سفارش (شمارهٔ %2$s) نگه داشته و برگردانده شدند، ولی موجودی‌شان سرِ جای اولش برنگشت یا این بسته نمی‌داند توقف با موجودی چه کرد.', 'tecteb-marketplace-core'),
             esc_html($fa((string) count($orders))),
             esc_html($fa(implode('، ', array_map('strval', $orders))))
         ));
+        // The action stays in view — it is the only thing on this screen a
+        // person can actually do — and the paragraph about why the mark
+        // survives every retry goes into the drawer.
         echo '<p class="tmc-field__desc">'
-            . esc_html__('موجودی هر محصول این سفارش‌ها را در ووکامرس ببینید. اگر عددی جا مانده بود، همان‌جا درستش کنید؛ اگر اختلاف پذیرفتنی بود، همین را بنویسید. در هر دو حالت یادداشتتان روی خود سفارش ثبت می‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('موجودی هر محصول این سفارش‌ها را در ووکامرس ببینید.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('اگر عددی جا مانده بود، همان‌جا درستش کنید؛ اگر اختلاف پذیرفتنی بود، همین را بنویسید. در هر دو حالت یادداشتتان روی خود سفارش ثبت می‌شود.', 'tecteb-marketplace-core')
             . '</p>';
+        echo Components::moreDetails([
+            __('این بازارگاه هیچ عدد موجودی‌ای را خودسرانه بازنویسی نمی‌کند، پس تا تصمیم شما این نشانه سرِ جایش می‌ماند — «بازگرداندن» دوباره هم پاکش نمی‌کند.', 'tecteb-marketplace-core'),
+        ]);
         echo '<div class="tmc-scroll" tabindex="0" role="region" aria-label="'
             . esc_attr__('سفارش‌های نیازمند بررسی', 'tecteb-marketplace-core') . '">'
             . '<table class="tmc-table"><thead><tr>'
@@ -298,7 +325,8 @@ final class StorefrontPage
         // The row says what the model IS instead, because the question the
         // manager was asking is a real one.
         echo '<tr><th scope="row">' . esc_html__('مدل کمیسیون', 'tecteb-marketplace-core') . '</th><td>'
-            . esc_html__('به ازای هر محصول، در زبانهٔ «کمیسیون تک‌طب» روی صفحهٔ ویرایش همان محصول در ووکامرس. تعیین‌نکردنش مانع تأیید، انتشار یا فروش نیست و یعنی آن محصول کمیسیون ندارد. نرخ عمومی در این دروازه نقشی ندارد.', 'tecteb-marketplace-core')
+            . esc_html__('به ازای هر محصول، در زبانهٔ «کمیسیون تک‌طب» روی صفحهٔ ویرایش همان محصول در ووکامرس.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('تعیین‌نکردنش مانع تأیید، انتشار یا فروش نیست و یعنی آن محصول کمیسیون ندارد. نرخ عمومی در این دروازه نقشی ندارد.', 'tecteb-marketplace-core')
             . '</td></tr>';
         // ⛔ The row that used to list what nobody had decided, now that
         // every name on it has an answer. An empty `implode` printed an empty
@@ -374,7 +402,8 @@ final class StorefrontPage
         echo '<h3 class="tmc-card__subtitle">'
             . esc_html__('حالت آزمایشی سفارش', 'tecteb-marketplace-core') . '</h3>';
         echo '<p class="tmc-field__desc">'
-            . esc_html__('این کلید فقط شرطِ «تصمیم‌های باز» را کنار می‌گذارد. نرخ کمیسیون و نوشتنی‌بودن دفترکل همچنان لازم‌اند، همان خطوط دفترکل نوشته می‌شود، و هر صفحهٔ سفارش می‌گوید روی قواعد نمونه کار می‌کند.', 'tecteb-marketplace-core')
+            . esc_html__('این کلید فقط شرطِ «تصمیم‌های باز» را کنار می‌گذارد.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('نرخ کمیسیون و نوشتنی‌بودن دفترکل همچنان لازم‌اند، همان خطوط دفترکل نوشته می‌شود، و هر صفحهٔ سفارش می‌گوید روی قواعد نمونه کار می‌کند.', 'tecteb-marketplace-core')
             . '</p>';
 
         if (!$permitted) {
@@ -383,9 +412,12 @@ final class StorefrontPage
             // click is obvious instead of being guessed at.
             echo Components::notice('warning', sprintf(
                 /* translators: %s: the resolved environment name */
-                __('این کلید روی محیطی که «%s» تشخیص داده شده پذیرفته نمی‌شود. فقط staging، development و local پذیرفته‌اند — و محیطِ اعلام‌نشده، «اصلی» حساب می‌شود. محیط را در «بازارگاه تک‌طب ← تنظیمات» انتخاب کنید، یا ثابت TMC_ENVIRONMENT را در wp-config.php بگذارید (ثابت مقدم است).', 'tecteb-marketplace-core'),
+                __('این کلید روی محیطی که «%s» تشخیص داده شده پذیرفته نمی‌شود. فقط staging، development و local پذیرفته‌اند — و محیطِ اعلام‌نشده، «اصلی» حساب می‌شود.', 'tecteb-marketplace-core'),
                 esc_html($trial->environmentName())
             ));
+            echo Components::moreDetails([
+                __('محیط را در «بازارگاه تک‌طب ← تنظیمات» انتخاب کنید، یا ثابت TMC_ENVIRONMENT را در wp-config.php بگذارید (ثابت مقدم است).', 'tecteb-marketplace-core'),
+            ]);
             if ($requested) {
                 echo '<p class="tmc-field__desc">'
                     . esc_html__('کلید روشن است ولی همین‌جا رد می‌شود؛ روشن‌بودنش به‌تنهایی هیچ سفارشی را باز نمی‌کند.', 'tecteb-marketplace-core')
@@ -581,7 +613,8 @@ final class StorefrontPage
             if (!$result->ok && $result->code === 'orders_need_reconciliation') {
                 return 'err:' . sprintf(
                     /* translators: 1: released count, 2: order numbers to check by hand */
-                    __('%1$s سفارش برگشت، ولی موجودیِ سفارش(های) %2$s سرِ جای اولش برنگشت و این بازارگاه آن را خودسرانه درست نمی‌کند. موجودی همین محصول‌ها را در ووکامرس دستی بررسی کنید. هیچ سفارشی لغو یا خالی نشده و هیچ عدد موجودی‌ای بازنویسی نشده است.', 'tecteb-marketplace-core'),
+                    __('%1$s سفارش برگشت، ولی موجودیِ سفارش(های) %2$s سرِ جای اولش برنگشت و این بازارگاه آن را خودسرانه درست نمی‌کند.', 'tecteb-marketplace-core')
+                    . ' ' . __('موجودی همین محصول‌ها را در ووکامرس دستی بررسی کنید. هیچ سفارشی لغو یا خالی نشده و هیچ عدد موجودی‌ای بازنویسی نشده است.', 'tecteb-marketplace-core'),
                     $fa((string) $result->context['released']),
                     $fa((string) $result->context['reconcile'])
                 );

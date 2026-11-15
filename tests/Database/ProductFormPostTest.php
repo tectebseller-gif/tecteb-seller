@@ -23,9 +23,14 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductArea;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariation;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaOutcome;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorAreaView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 use Tecteb\Marketplace\Tests\Support\FakeBrandDirectory;
+use Tecteb\Marketplace\Tests\Support\FakeStorefrontVariations;
 use TmcWpStubs\State;
 
 /**
@@ -451,6 +456,99 @@ final class ProductFormPostTest extends DatabaseTestCase
             $carried['details']['brand'] ?? null,
             'and the field value is still the unchanged brand — the two are different facts'
         );
+    }
+
+    /**
+     * ⛔ THE WIRING, not the view. `VariationsView` was already proved to
+     * print the shop's combinations, and the panel still said «هنوز ویژگی‌ای
+     * تعریف نشده است» if `ProductArea` did not hand it the set — a mutation
+     * that replaced that one argument with `null` left every view test green.
+     * So this renders the real screen through the real area.
+     */
+    public function testTheFormHandsTheShopsCombinationsToTheVariationsPanel(): void
+    {
+        $productId = $this->variableLinkedProduct(7700);
+        $shop = new FakeStorefrontVariations();
+        $shop->holds(7700, [
+            new StorefrontVariation(7701, ['بسته' => '۵۰ عددی'], 'BPI-50', 2600000, null, 2600000, true, true, 8, 'instock', 'no', 0),
+            new StorefrontVariation(7702, ['بسته' => '۱۰۰ عددی'], 'BPI-100', 5187400, null, 5187400, true, true, 3, 'instock', 'no', 0),
+        ]);
+        Bootstrap::container()->bind(StorefrontVariationReaderInterface::class, static fn () => $shop);
+
+        // Step 2, because that is where a variable product's combinations are
+        // rendered (`ProductFormView`: `$step === '2' && type === VARIABLE`).
+        $html = $this->renderArea(['product' => (string) $productId, 'step' => '2']);
+
+        self::assertStringContainsString('۷۷۰۱', $html, 'the real child id is on the screen');
+        self::assertStringContainsString('BPI-100', $html);
+        self::assertStringContainsString('۲ ترکیب', $html, 'the count is the shop\'s');
+        self::assertStringNotContainsString('هنوز ویژگی‌ای تعریف نشده است', $html);
+        self::assertSame([7700], $shop->asked, 'asked once, about the linked product');
+    }
+
+    /**
+     * And the LIST hands over the ranges, which is a second argument with the
+     * same shape and the same way of going quiet.
+     */
+    public function testTheListHandsTheShopsPriceRangeToEachVariableRow(): void
+    {
+        $productId = $this->variableLinkedProduct(7720);
+        $shop = new FakeStorefrontVariations();
+        $shop->range(7720, \Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange::of(2600000, 8900000, 0, 'instock', null));
+        Bootstrap::container()->bind(StorefrontVariationReaderInterface::class, static fn () => $shop);
+
+        $html = $this->renderArea([]);
+
+        self::assertStringContainsString('قیمت در تنوع‌ها: از ۲٬۶۰۰٬۰۰۰ تا ۸٬۹۰۰٬۰۰۰ تومان', $html);
+        // ⛔ NOT «۰ تومان» and NOT «ناموجود»: the parent of a variable product
+        // carries neither, and printing its own empty row was the defect.
+        self::assertStringNotContainsString('ناموجود', $html);
+        self::assertSame([7720], $shop->askedRanges, 'one query, for the linked product');
+        // ⛔ AND NOT child by child: the list asks for the whole page's ranges
+        // in one call, which is the shape `alpha.91` had to go back and fix on
+        // a page that loaded one product per row.
+        self::assertSame([], $shop->asked, 'the list does not open each product');
+    }
+
+    /** A variable product of this vendor, pointed at a WooCommerce product. */
+    private function variableLinkedProduct(int $wcProductId): int
+    {
+        $created = $this->products->create(
+            self::VENDOR,
+            new ProductDetails(
+                title: 'چسب پنبه‌ای — چند بسته',
+                type: ProductType::VARIABLE,
+                categoryKey: 'tape',
+                priceMinor: 0,
+                sku: 'VARLINK-' . $wcProductId,
+                stock: 0
+            ),
+            ProductStatus::Draft
+        );
+        self::assertGreaterThan(0, $created);
+        self::assertTrue($this->products->link($created, $wcProductId));
+        return $created;
+    }
+
+    /**
+     * The vendor's own products screen, rendered the way the router renders
+     * it: `$_GET` as the browser would send it.
+     *
+     * @param array<string,string> $query
+     */
+    private function renderArea(array $query): string
+    {
+        $_GET = $query;
+        $_POST = [];
+        $_FILES = [];
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        return (new ProductArea(Bootstrap::container()))->render(new VendorAreaView(
+            Request::capture(),
+            self::VENDOR,
+            $this->urls(),
+            '<input type="hidden" name="_wpnonce" value="t" />',
+            null
+        ));
     }
 
     // ------------------------------------------------------------- the request

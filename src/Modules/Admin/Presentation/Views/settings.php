@@ -70,7 +70,7 @@ echo '</div>';
                 <span class="tmc-field__unit"><?php esc_html_e('روز', 'tecteb-marketplace-core'); ?></span>
             </div>
             <p id="tmc-desc-delay" class="tmc-field__desc">
-                <?php echo esc_html(sprintf(__('عدد صحیح بین %1$s و %2$s؛ پیش‌فرض %3$s. صفر یعنی بدون تأخیر زمانی اضافی — هیچ شرط پرداخت معتبر، تکمیل معتبر یا نگه‌داشت مالی را حذف نمی‌کند. حد بالا یک حد فنی پیشنهادی است، نه قاعده تجاری.', 'tecteb-marketplace-core'), $fa($vm['bounds']['delay_min']), $fa($vm['bounds']['delay_max']), $fa(4))); ?>
+                <?php echo esc_html(sprintf(__('عدد صحیح بین %1$s و %2$s؛ پیش‌فرض %3$s. صفر یعنی بدون تأخیر زمانی اضافی — هیچ شرط پرداخت معتبر، تکمیل معتبر یا نگه‌داشت مالی را حذف نمی‌کند. حد بالا یک حد فنی پیشنهادی است،', 'tecteb-marketplace-core') . ' ' . __('نه قاعده تجاری.', 'tecteb-marketplace-core'), $fa($vm['bounds']['delay_min']), $fa($vm['bounds']['delay_max']), $fa(4))); ?>
             </p>
         </div>
 

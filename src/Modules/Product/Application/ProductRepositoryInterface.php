@@ -963,4 +963,56 @@ interface ProductRepositoryInterface
      * `null` means the count could not be read, which is not nought.
      */
     public function countProjected(): ?int;
+
+    /**
+     * ONE PAGE OF A VENDOR'S CATALOGUE, BOTH OWNERSHIPS, AGAINST THE SHOP.
+     *
+     * §۴ wants a reconciliation that can be matched by ID: «تعداد و شناسه Woo
+     * parent/variation، نوع، وضعیت، `link_ownership`، مسئولیت مدیریت محصول،
+     * قیمت/انبار قابل‌خرید بودن، و موارد mismatch/duplicate/unreadable» — and
+     * «حداقل باید بتوان ۱۸۴ محصول #102 را با مجموعه شناسه‌ها … تطبیق داد».
+     *
+     * ⛔ NOT `forVendor()`. That one filters `link_ownership = marketplace`,
+     * which is the right scope for every operational screen and the wrong one
+     * here: an imported row is `observed`, and a reconciliation that cannot
+     * see the imported rows cannot reconcile an imported shop.
+     *
+     * Keyset by `id`, because a reconciliation read with OFFSET over a table
+     * somebody is still writing to skips and repeats rows (`alpha.72`).
+     *
+     * `post_type` and `post_status` are `null` when the shop has no such post
+     * — which is a fact — and `shop_readable` is `false` when the join could
+     * not be made at all, which is not. `rows_naming_it` counts how many of
+     * OUR rows name the same product, so a duplicate is found from the data
+     * rather than from a list somebody keeps.
+     *
+     * @return ?list<array{id:int, wc_product_id:?int, title:string, sku:string,
+     *     type:string, status:string, link_ownership:string, price_minor:int,
+     *     stock:int, post_type:?string, post_status:?string,
+     *     rows_naming_it:int, shop_readable:bool}>
+     *     `null` when the page could not be read — never an empty list
+     */
+    public function reconciliationPage(int $vendorUserId, int $limit, int $afterId = 0): ?array;
+
+    /**
+     * HOW MANY rows that reconciliation covers, asked separately.
+     *
+     * The page carries a `LIMIT`, so its length is «how many did I get».
+     * `null` is «could not count», which the screen must not print as nought
+     * (`alpha.8`, `alpha.100`).
+     */
+    public function countForReconciliation(int $vendorUserId): ?int;
+
+    /**
+     * Shop products that claim this vendor and have NO row of ours, by id.
+     *
+     * The other direction of the same audit — §۴'s «یک رکورد فقط Woo». The
+     * claim is the projector's own vendor stamp, because that is the only
+     * mark this plugin writes on a shop product; `post_author` is NOT read
+     * here, since §۴ keeps those four facts apart and a shop product authored
+     * by a Dokan seller is not evidence of a marketplace row.
+     *
+     * @return ?list<array{wc_product_id:int, post_status:string}>
+     */
+    public function shopProductsWithoutRow(int $vendorUserId, int $limit = 200): ?array;
 }

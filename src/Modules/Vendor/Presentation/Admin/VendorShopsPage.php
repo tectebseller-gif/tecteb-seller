@@ -17,6 +17,10 @@ use Tecteb\Marketplace\Modules\Finance\Application\SupplierPaymentRepositoryInte
 use Tecteb\Marketplace\Modules\Finance\Application\VendorBalance;
 use Tecteb\Marketplace\Modules\Finance\Application\WithdrawalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Domain\CatalogueLink;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Vendor\Application\VendorRepositoryInterface;
 
 /**
@@ -79,6 +83,14 @@ final class VendorShopsPage
     public const FINANCE_CAPABILITY = Capabilities::VIEW_VENDOR_FINANCE;
     private const PER_PAGE = 50;
 
+    /**
+     * How many catalogue rows one reconciliation page reads.
+     *
+     * Declared rather than silent: the screen says this number out loud and
+     * never prints a page's tally as the shop's total (`alpha.100`).
+     */
+    private const RECONCILE_PER_PAGE = 50;
+
     public function __construct(private readonly ContainerInterface $container)
     {
     }
@@ -114,7 +126,7 @@ final class VendorShopsPage
         ]);
 
         if ($shop > 0) {
-            $this->shop($shop, $fa);
+            $this->shop($shop, $fa, $request);
         } else {
             $this->picker($request, $fa);
         }
@@ -230,7 +242,7 @@ final class VendorShopsPage
      * the actor and nothing else: an audit trail of what a manager LOOKED AT
      * is not a place to copy a shop's numbers into.
      */
-    private function shop(int $vendorUserId, callable $fa): void
+    private function shop(int $vendorUserId, callable $fa, Request $request): void
     {
         $vendors = $this->container->get(VendorRepositoryInterface::class);
         $profile = $vendors->findProfileByUser($vendorUserId);
@@ -278,6 +290,10 @@ final class VendorShopsPage
             echo '</ul>';
         }
 
+        echo '</section>';
+        $this->reconciliation($vendorUserId, $fa, $request);
+        echo '<section class="tmc-card">';
+
         // ⛔ MONEY IS A SECOND PERMISSION, and this is the whole point of the
         // list getting wider. Listing shops and reading inside one answer
         // different questions, so widening WHICH shops a manager sees must not
@@ -291,6 +307,242 @@ final class VendorShopsPage
             echo Components::notice('info', __('نمایش ارقام مالی این فروشگاه مجوز مدیریتی جداگانه لازم دارد. دسترسی فهرست فروشگاه‌ها این مجوز را نمی‌دهد.', 'tecteb-marketplace-core'));
         }
         echo '</section>';
+    }
+
+    /**
+     * ⛔ THE RECONCILIATION — by id, read only, one page at a time.
+     *
+     * §۴ asks for exactly this and says what it must not be: «گزارش جامع،
+     * فقط‌خواندنی و صفحه‌بندی‌شده از محصولات هر فروشنده … حداقل باید بتوان
+     * ۱۸۴ محصول #102 را با مجموعه شناسه‌ها (نه تعداد صرف) تطبیق داد» and
+     * «اختلاف‌ها را خودکار پاک/منتقل نکن».
+     *
+     * So every row prints BOTH ids — ours and the shop's — and the screen has
+     * no button that would change any of them. The classification comes from
+     * `CatalogueLink`, the same rule `tools/production-audit.php` asks, so the
+     * screen and the tool cannot disagree about one site (`alpha.78`).
+     *
+     * Three numbers are kept apart on purpose:
+     *   - the shop's TOTAL, asked separately, and `null` is «شمارش خوانده
+     *     نشد» rather than nought (`alpha.8`);
+     *   - THIS PAGE's tally, announced as this page's;
+     *   - and the page itself, which is `null` when it came back short rather
+     *     than quietly shorter.
+     */
+    private function reconciliation(int $vendorUserId, callable $fa, Request $request): void
+    {
+        $products = $this->container->get(ProductRepositoryInterface::class);
+        $after = max(0, $request->queryInt('recon_after'));
+        $total = $products->countForReconciliation($vendorUserId);
+        $page = $products->reconciliationPage($vendorUserId, self::RECONCILE_PER_PAGE, $after);
+
+        echo '<section class="tmc-card"><h2 class="tmc-card__title">'
+            . esc_html__('تطبیق محصول‌ها با ووکامرس', 'tecteb-marketplace-core') . '</h2>';
+        echo Components::notice('info', __('این جدول فقط می‌خواند. هیچ ردیفی از اینجا پاک، منتقل یا وصل نمی‌شود.', 'tecteb-marketplace-core'));
+        echo Components::moreDetails([
+            __('هر ردیف دو شناسه دارد: شناسهٔ ردیف بازارگاه و شناسهٔ محصول ووکامرس. تطبیق با مجموعهٔ شناسه‌ها انجام می‌شود، نه با تعداد.', 'tecteb-marketplace-core'),
+            __('«خوانده نشد» با «صفر» و با «محصول نیست» یکی نیست و هر سه جداگانه چاپ می‌شوند.', 'tecteb-marketplace-core'),
+            __('ستون «مسئول مدیریت» همان link_ownership است: ردیف واردشده مشاهده‌ای است و محصولش را ووکامرس نگه می‌دارد.', 'tecteb-marketplace-core'),
+        ]);
+
+        echo '<p>' . esc_html($total === null
+            ? __('تعداد کل ردیف‌های این فروشگاه خوانده نشد.', 'tecteb-marketplace-core')
+            : sprintf(
+                /* translators: %s: number of catalogue rows */
+                __('پروندهٔ این فروشگاه %s ردیف محصول دارد.', 'tecteb-marketplace-core'),
+                $fa($total)
+            )) . '</p>';
+
+        if ($page === null) {
+            echo Components::notice('error', __('این صفحهٔ تطبیق خوانده نشد. عددی چاپ نمی‌شود، چون شمارشِ ناقص از نبودِ شمارش بدتر است.', 'tecteb-marketplace-core'));
+            echo '</section>';
+            return;
+        }
+        if ($page === []) {
+            echo '<p>' . esc_html($after > 0
+                ? __('ردیف دیگری بعد از این نقطه نیست.', 'tecteb-marketplace-core')
+                : __('این فروشگاه ردیف محصولی ندارد.', 'tecteb-marketplace-core')) . '</p>';
+            echo '</section>';
+            return;
+        }
+
+        // The shop's own answer about price and stock, for the whole page in
+        // ONE read — not a product load per row (`alpha.91`).
+        $wanted = [];
+        foreach ($page as $row) {
+            if ($row['wc_product_id'] !== null && $row['wc_product_id'] > 0) {
+                $wanted[] = $row['wc_product_id'];
+            }
+        }
+        $ranges = $wanted === []
+            ? []
+            : $this->container->get(StorefrontVariationReaderInterface::class)
+                ->rangesFor(array_values(array_unique($wanted)));
+
+        $tally = array_fill_keys(CatalogueLink::ALL, 0);
+        $lastId = 0;
+        $rowsHtml = '';
+        foreach ($page as $row) {
+            $answer = CatalogueLink::decide(
+                $row['wc_product_id'],
+                $row['post_type'],
+                $row['shop_readable'],
+                $row['rows_naming_it']
+            );
+            $tally[$answer]++;
+            $lastId = $row['id'];
+            $range = $row['wc_product_id'] === null || $row['wc_product_id'] <= 0
+                ? null
+                : ($ranges[$row['wc_product_id']] ?? null);
+            $rowsHtml .= '<tr><td><bdi>' . esc_html($fa($row['id'])) . '</bdi></td>'
+                . '<td><bdi>' . esc_html($row['wc_product_id'] === null || $row['wc_product_id'] <= 0
+                    ? '—'
+                    : $fa($row['wc_product_id'])) . '</bdi></td>'
+                . '<td>' . esc_html($row['title'] === ''
+                    ? sprintf(
+                        /* translators: %s: marketplace row id */
+                        __('بدون عنوان — ردیف #%s', 'tecteb-marketplace-core'),
+                        $fa($row['id'])
+                    )
+                    : $row['title']) . '</td>'
+                . '<td>' . esc_html(self::typeText($row['type'])) . '</td>'
+                . '<td>' . esc_html($row['status']) . '</td>'
+                . '<td>' . esc_html($row['post_status'] ?? '—') . '</td>'
+                . '<td>' . esc_html(self::custodyText($row['link_ownership'])) . '</td>'
+                . '<td>' . self::buyableCell($range) . '</td>'
+                . '<td>' . esc_html(self::answerText($answer)) . '</td></tr>';
+        }
+
+        echo '<p>' . esc_html(sprintf(
+            /* translators: 1: rows on this page, 2: the declared page size */
+            __('این صفحه %1$s ردیف را خوانده است (سقف اعلام‌شدهٔ هر صفحه: %2$s ردیف). شمارش زیر مربوط به همین صفحه است، نه کل فروشگاه.', 'tecteb-marketplace-core'),
+            $fa(count($page)),
+            $fa(self::RECONCILE_PER_PAGE)
+        )) . '</p>';
+        echo '<ul>';
+        foreach (CatalogueLink::ALL as $answer) {
+            if ($answer === CatalogueLink::WOO_ONLY) {
+                continue;   // the other direction, counted in its own block
+            }
+            echo '<li>' . esc_html(self::answerText($answer) . ': ' . $fa($tally[$answer])) . '</li>';
+        }
+        echo '</ul>';
+
+        echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="'
+            . esc_attr__('جدول تطبیق محصول‌ها', 'tecteb-marketplace-core') . '">';
+        echo '<table class="tmc-table"><thead><tr>'
+            . '<th scope="col">' . esc_html__('ردیف بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('محصول ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('عنوان', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('نوع', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت بازارگاه', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('وضعیت ووکامرس', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('مسئول مدیریت', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('قابل خرید', 'tecteb-marketplace-core') . '</th>'
+            . '<th scope="col">' . esc_html__('نتیجه', 'tecteb-marketplace-core') . '</th>'
+            . '</tr></thead><tbody>' . $rowsHtml . '</tbody></table></div>';
+
+        echo '<p class="tmc-pager">';
+        if (count($page) === self::RECONCILE_PER_PAGE && $lastId > 0) {
+            echo '<a href="' . esc_url(add_query_arg(
+                ['shop' => $vendorUserId, 'recon_after' => $lastId],
+                self::url()
+            )) . '">' . esc_html__('ادامه از همین نقطه', 'tecteb-marketplace-core') . '</a> ';
+        }
+        if ($after > 0) {
+            echo '<a href="' . esc_url(add_query_arg(['shop' => $vendorUserId], self::url())) . '">'
+                . esc_html__('بازگشت به ابتدای فهرست', 'tecteb-marketplace-core') . '</a>';
+        }
+        echo '</p>';
+
+        $this->orphans($vendorUserId, $fa);
+        echo '</section>';
+    }
+
+    /**
+     * The other direction: the shop's products with no row of ours.
+     *
+     * §۴'s «یک رکورد فقط Woo … با شناسه و علت». Printed by id, with the
+     * post's own status beside it, and nothing is offered to «fix» it.
+     */
+    private function orphans(int $vendorUserId, callable $fa): void
+    {
+        $rows = $this->container->get(ProductRepositoryInterface::class)
+            ->shopProductsWithoutRow($vendorUserId);
+        echo '<h3>' . esc_html__('محصول‌های ووکامرس بدون ردیف بازارگاه', 'tecteb-marketplace-core') . '</h3>';
+        if ($rows === null) {
+            echo Components::notice('error', __('این فهرست خوانده نشد. «صفر» نوشته نمی‌شود.', 'tecteb-marketplace-core'));
+            return;
+        }
+        if ($rows === []) {
+            echo '<p>' . esc_html__('محصولی از این دست پیدا نشد.', 'tecteb-marketplace-core') . '</p>';
+            return;
+        }
+        echo '<p>' . esc_html(sprintf(
+            /* translators: %s: how many shop products have no marketplace row */
+            __('%s محصول ووکامرس مهرِ این فروشگاه را دارند و ردیف بازارگاهی ندارند:', 'tecteb-marketplace-core'),
+            $fa(count($rows))
+        )) . '</p><ul>';
+        foreach ($rows as $row) {
+            echo '<li><bdi>' . esc_html($fa($row['wc_product_id'])) . '</bdi> — '
+                . esc_html($row['post_status']) . '</li>';
+        }
+        echo '</ul>';
+    }
+
+    /** What the shop says about price and stock — three answers, never two. */
+    private static function buyableCell(?StorefrontPriceRange $range): string
+    {
+        if ($range === null) {
+            return esc_html__('محصول ووکامرسی ندارد', 'tecteb-marketplace-core');
+        }
+        if (!$range->readable) {
+            return esc_html__('خوانده نشد', 'tecteb-marketplace-core');
+        }
+        if (!$range->hasPrice()) {
+            return esc_html__('قیمت ندارد', 'tecteb-marketplace-core');
+        }
+        if ($range->isOutOfStock()) {
+            return esc_html__('ناموجود', 'tecteb-marketplace-core');
+        }
+        return Components::badge('success', '✓', __('قابل خرید', 'tecteb-marketplace-core'));
+    }
+
+    /** Who holds this product today, read from `link_ownership`. */
+    private static function custodyText(string $ownership): string
+    {
+        return $ownership === 'marketplace'
+            ? __('بازارگاه', 'tecteb-marketplace-core')
+            : __('ووکامرس (ردیف مشاهده‌ای)', 'tecteb-marketplace-core');
+    }
+
+    private static function typeText(string $type): string
+    {
+        return $type === ProductType::VARIABLE
+            ? __('متنوع', 'tecteb-marketplace-core')
+            : __('ساده', 'tecteb-marketplace-core');
+    }
+
+    /**
+     * The Persian sentence for one `CatalogueLink` answer.
+     *
+     * Here and not in the Domain class, because Domain may not call `__()`
+     * and the unit suite defines no WordPress symbols at all (`alpha.9`).
+     * `tools/production-audit.php` prints the KEY instead, which is what a
+     * CSV wants.
+     */
+    private static function answerText(string $answer): string
+    {
+        return match ($answer) {
+            CatalogueLink::LINKED => __('وصل', 'tecteb-marketplace-core'),
+            CatalogueLink::TMC_ONLY => __('فقط ردیف بازارگاه', 'tecteb-marketplace-core'),
+            CatalogueLink::WOO_MISSING => __('شناسه در ووکامرس نیست', 'tecteb-marketplace-core'),
+            CatalogueLink::WRONG_TYPE => __('شناسه محصول نیست', 'tecteb-marketplace-core'),
+            CatalogueLink::DUPLICATE => __('چند ردیف، یک محصول', 'tecteb-marketplace-core'),
+            CatalogueLink::WOO_ONLY => __('فقط محصول ووکامرس', 'tecteb-marketplace-core'),
+            CatalogueLink::UNREADABLE => __('خوانده نشد', 'tecteb-marketplace-core'),
+            default => $answer,
+        };
     }
 
     /**

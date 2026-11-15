@@ -751,6 +751,62 @@ final class ProjectedFactsTest extends ContractTestCase
         );
     }
 
+    /**
+     * §۴: `post_author` IS NOT REWRITTEN ON A PRODUCT THAT WAS ALREADY THERE.
+     *
+     * ⛔ Until `alpha.105` the projector ran
+     * `wp_update_post(['post_author' => $vendorUserId])` unconditionally, at
+     * the end of EVERY projection. On the owner's own install that is the one
+     * fact Dokan reads to attribute a product — `OrderOperationsGate` and
+     * `DokanPresenceInterface` both say so in as many words — so the first
+     * projection after an ownership transfer rewrote the attribution of 184
+     * imported products, silently, on a code path whose job is to mirror
+     * fields.
+     *
+     * Two sentences in this repository were both true and the outcome was
+     * false: «`TransferOwnership` deliberately does not change
+     * `post_author`» is true OF THAT CLASS, and the projection a moment
+     * later did it anyway. §۴ names the rule: «هیچ‌وقت `post_author` را
+     * خودکار عوض نکن.»
+     *
+     * The control is in the same test, because a guard that also stopped the
+     * marketplace's OWN new products from being attributed would be a wider
+     * fault than the one it fixes (`alpha.60`): a post this run creates is
+     * ours and gets its author.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testTheAuthorOfAProductThatWasAlreadyThereIsNeverRewritten(): void
+    {
+        $this->bootPlugin(true);
+        $this->declareWooCommerce();
+
+        // A product somebody else authored — a Dokan seller, id 777 — that
+        // this marketplace has since taken over.
+        $wcId = $this->existingProduct(static function (\WC_Product $p): void {
+            $p->set_name('محصول واردشده');
+        });
+        wp_update_post(['ID' => $wcId, 'post_author' => 777]);
+        self::assertSame(777, (int) \TmcWpStubs\State::$posts[$wcId]['post_author']);
+
+        self::assertTrue($this->projector()->project($this->product(description: 'توضیح', wcProductId: $wcId))['ok']);
+
+        self::assertSame(
+            777,
+            (int) \TmcWpStubs\State::$posts[$wcId]['post_author'],
+            '⛔ the author of a product this run did not create is not ours to change'
+        );
+
+        // ⛔ The control: a product this projection CREATES is attributed.
+        $fresh = $this->projector()->project($this->product(description: 'توضیح', wcProductId: 0));
+        self::assertTrue($fresh['ok']);
+        self::assertSame(
+            self::VENDOR,
+            (int) (\TmcWpStubs\State::$posts[(int) $fresh['wc_product_id']]['post_author'] ?? 0),
+            'a product the marketplace built is authored by its vendor'
+        );
+    }
+
     private function declareWooCommerce(): void
     {
         if (!class_exists('WooCommerce')) {

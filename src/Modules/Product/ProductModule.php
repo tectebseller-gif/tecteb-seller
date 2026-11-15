@@ -50,6 +50,7 @@ use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
@@ -57,6 +58,8 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbDefaultCategoryAcceptanc
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullStorefrontVariationReader;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcStorefrontVariationReader;
 use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
@@ -255,6 +258,21 @@ final class ProductModule implements ModuleInterface
             $c->get(DatabaseInterface::class),
             $c->get(ClockInterface::class)
         ));
+        // ⛔ THE OTHER HALF OF THE SAME QUESTION, and until `alpha.105` there
+        // was only one. `DbVariationRepository` above reads the marketplace's
+        // OWN variation tables, and `ImportFromDokan` writes no row in either
+        // — so for every product that came in from Dokan the panel asked
+        // «what are this product's variations?» of tables that hold nothing
+        // for it, got `[]`, and printed «هنوز ویژگی‌ای تعریف نشده است» about a
+        // parent with three priced children in WooCommerce.
+        //
+        // This reader answers the same question from the shop, and it cannot
+        // write: the interface has no writing method at all.
+        $c->bind(StorefrontVariationReaderInterface::class, static function (ContainerInterface $c) {
+            return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
+                ? new WcStorefrontVariationReader($c->get(DatabaseInterface::class))
+                : new NullStorefrontVariationReader();
+        });
         $c->bind(ProductReadiness::class, static fn (ContainerInterface $c) => new ProductReadiness(
             $c->get(SpecTemplateRepositoryInterface::class),
             $c->get(VariationRepositoryInterface::class)
@@ -264,7 +282,8 @@ final class ProductModule implements ModuleInterface
             $c->get(VariationRepositoryInterface::class),
             $c->get(ProductImageLibraryInterface::class),
             $c->get(StaffAccess::class),
-            $c->get(AuditLogger::class)
+            $c->get(AuditLogger::class),
+            $c->get(StorefrontVariationReaderInterface::class)
         ));
         // Which projector is bound is decided by whether WooCommerce is
         // actually running, not by a setting: a marketplace that thinks it

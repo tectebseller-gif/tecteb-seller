@@ -4,10 +4,13 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCsv;
 use Tecteb\Marketplace\Modules\Product\Domain\Product;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
@@ -41,7 +44,8 @@ final class ProductListView
         bool $mayEdit = true,
         bool $mayPublishDirectly = false,
         string $search = '',
-        array $thumbnails = []
+        array $thumbnails = [],
+        array $ranges = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '';
@@ -114,7 +118,7 @@ final class ProductListView
         }
         $html .= '<ul class="tv-products">';
         foreach ($products as $product) {
-            $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit, $thumbnails[$product->id] ?? '');
+            $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit, $thumbnails[$product->id] ?? '', $ranges[$product->id] ?? null);
         }
         $html .= '</ul>';
         $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
@@ -269,22 +273,42 @@ final class ProductListView
         string $nonce,
         callable $fa,
         bool $mayEdit,
-        string $thumbnail = ''
+        string $thumbnail = '',
+        ?StorefrontPriceRange $range = null
     ): string {
         $d = $product->details;
-        $price = $d->salePriceMinor !== null && $d->salePriceMinor < $d->priceMinor
-            ? sprintf(
-                /* translators: 1: discounted price, 2: original price */
-                __('%1$s تومان (پیش از تخفیف %2$s)', 'tecteb-marketplace-core'),
-                $fa(number_format($d->salePriceMinor)),
-                $fa(number_format($d->priceMinor))
-            )
-            : sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($d->priceMinor)));
+        // ⛔ A VARIABLE PARENT HAS NO PRICE OF ITS OWN, and printing its row's
+        // nought as one was the defect the owner photographed: product #189,
+        // three healthy children in WooCommerce at ۵٬۱۸۷٬۴۰۰ and up, listed in
+        // the vendor's own panel as «۰ تومان / ناموجود».
+        //
+        // The marketplace row is not wrong — an intake leaves `price_minor`
+        // and `stock` at nought on purpose, and `WooCommerceProjector` never
+        // writes a parent price for a variable product (`$wantedFields[PRICE]`
+        // is `''` for one). What was wrong is that the panel read those two
+        // zeroes as a price and a stock level instead of as «این‌جا نیست».
+        //
+        // So for a variable parent the figures come from the shop, through
+        // `StorefrontPriceRange`, and «نامشخص» is a third answer beside a
+        // price and a range — never a zero.
+        $variable = $d->type === ProductType::VARIABLE;
+        if ($variable) {
+            [$price, $stockTone, $stockText] = self::variableFigures($range, $fa);
+        } else {
+            $price = $d->salePriceMinor !== null && $d->salePriceMinor < $d->priceMinor
+                ? sprintf(
+                    /* translators: 1: discounted price, 2: original price */
+                    __('%1$s تومان (پیش از تخفیف %2$s)', 'tecteb-marketplace-core'),
+                    $fa(number_format($d->salePriceMinor)),
+                    $fa(number_format($d->priceMinor))
+                )
+                : sprintf(__('%s تومان', 'tecteb-marketplace-core'), $fa(number_format($d->priceMinor)));
 
-        $stockTone = $d->stock <= 0 ? 'error' : ($d->stock <= 3 ? 'warning' : 'success');
-        $stockText = $d->stock <= 0
-            ? __('ناموجود', 'tecteb-marketplace-core')
-            : sprintf(__('موجودی %s', 'tecteb-marketplace-core'), $fa($d->stock));
+            $stockTone = $d->stock <= 0 ? 'error' : ($d->stock <= 3 ? 'warning' : 'success');
+            $stockText = $d->stock <= 0
+                ? __('ناموجود', 'tecteb-marketplace-core')
+                : sprintf(__('موجودی %s', 'tecteb-marketplace-core'), $fa($d->stock));
+        }
 
         $checkbox = $mayEdit
             // `form="tmc-bulk"` rather than nesting: see bulkBar().
@@ -517,5 +541,63 @@ final class ProductListView
             __('%s دسته', 'tecteb-marketplace-core'),
             PersianDigits::toPersian((string) count($set))
         );
+    }
+
+    /**
+     * Price and stock for a variable parent, from the shop rather than from
+     * the parent's own nought.
+     *
+     * Four answers, and the fourth is the one that did not exist before:
+     *
+     *  - one price, when every child costs the same;
+     *  - a range «از … تا …»;
+     *  - «قیمت در تنوع‌ها» with no figure, when the shop has no priced child;
+     *  - «نامشخص», when the row was not read at all.
+     *
+     * Stock is the shop's own status word, not a number: a parent that leaves
+     * stock to its children has no number, and only `outofstock` is «ناموجود»
+     * — `onbackorder` is orderable and an unread status is unknown.
+     *
+     * @return array{0:string,1:string,2:string} price text, stock tone, stock text
+     */
+    private static function variableFigures(?StorefrontPriceRange $range, callable $fa): array
+    {
+        if ($range === null || !$range->readable) {
+            return [
+                __('قیمت در تنوع‌ها — نامشخص', 'tecteb-marketplace-core'),
+                'neutral',
+                __('موجودی به‌ازای تنوع — نامشخص', 'tecteb-marketplace-core'),
+            ];
+        }
+        if (!$range->hasPrice()) {
+            $price = __('قیمت در تنوع‌ها — هیچ تنوعی قیمت ندارد', 'tecteb-marketplace-core');
+        } elseif ($range->isSinglePrice()) {
+            $price = sprintf(
+                /* translators: %s: the one price every variation has */
+                __('قیمت در تنوع‌ها: %s تومان', 'tecteb-marketplace-core'),
+                MoneyText::format((int) $range->minMinor, $range->priceExponent)
+                    ?? $fa(number_format((int) $range->minMinor))
+            );
+        } else {
+            $price = sprintf(
+                /* translators: 1: lowest price, 2: highest price */
+                __('قیمت در تنوع‌ها: از %1$s تا %2$s تومان', 'tecteb-marketplace-core'),
+                MoneyText::format((int) $range->minMinor, $range->priceExponent)
+                    ?? $fa(number_format((int) $range->minMinor)),
+                MoneyText::format((int) $range->maxMinor, $range->priceExponent)
+                    ?? $fa(number_format((int) $range->maxMinor))
+            );
+        }
+
+        if ($range->isOutOfStock()) {
+            return [$price, 'error', __('ناموجود در همهٔ تنوع‌ها', 'tecteb-marketplace-core')];
+        }
+        if ($range->stockStatus === 'onbackorder') {
+            return [$price, 'warning', __('پیش‌خرید (موجودی به‌ازای تنوع)', 'tecteb-marketplace-core')];
+        }
+        if ($range->stockStatus === 'instock') {
+            return [$price, 'success', __('موجودی به‌ازای تنوع', 'tecteb-marketplace-core')];
+        }
+        return [$price, 'neutral', __('موجودی به‌ازای تنوع — نامشخص', 'tecteb-marketplace-core')];
     }
 }

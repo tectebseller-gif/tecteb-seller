@@ -57,7 +57,7 @@ final class DocumentTypesPage
         }
         return Components::notice('error', sprintf(
             /* translators: %s is a PHP constant definition for wp-config.php */
-            __('بارگذاری مدارک متوقف است: هیچ پوشه امنی بیرون از ریشه‌های وب پیدا نشد (%1$s). تا وقتی مدیر سایت یک مسیر امن تعیین نکند، هیچ مدرکی پذیرفته نمی‌شود. برای تعیین مسیر، این خط را در wp-config.php اضافه کنید: %2$s', 'tecteb-marketplace-core'),
+            __('بارگذاری مدارک متوقف است: هیچ پوشه امنی بیرون از ریشه‌های وب پیدا نشد (%1$s). تا وقتی مدیر سایت یک مسیر امن تعیین نکند، هیچ مدرکی پذیرفته نمی‌شود. برای تعیین مسیر،', 'tecteb-marketplace-core') . ' ' . __('این خط را در wp-config.php اضافه کنید: %2$s', 'tecteb-marketplace-core'),
             $reason,
             "define( 'TMC_PRIVATE_UPLOADS_DIR', '/path/outside/public_html/tecteb-private' );"
         ));
@@ -146,7 +146,7 @@ final class DocumentTypesPage
             . esc_html__('افزودن به فهرست', 'tecteb-marketplace-core') . '</button></div></form></section>';
 
         echo '<section class="tmc-card tmc-card--muted"><h2 class="tmc-card__title">' . esc_html__('یا: این نوع فروشندگی مدرکی لازم ندارد', 'tecteb-marketplace-core') . '</h2>'
-            . '<p>' . esc_html__('اگر واقعاً مدرکی لازم نیست، همین را ثبت کنید تا فروشندگان بتوانند درخواست بدهند. این تصمیم با نام شما و زمانش ثبت می‌شود و «هنوز تعیین نشده» به‌خودیِ‌خود هرگز به این معنا گرفته نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+            . '<p>' . esc_html__('اگر واقعاً مدرکی لازم نیست، همین را ثبت کنید تا فروشندگان بتوانند درخواست بدهند.', 'tecteb-marketplace-core') . ' ' . esc_html__('این تصمیم با نام شما و زمانش ثبت می‌شود و «هنوز تعیین نشده» به‌خودیِ‌خود هرگز به این معنا گرفته نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
             . '<form method="post" action="' . esc_url(admin_url('admin.php?page=' . self::SLUG)) . '">'
             . wp_nonce_field(self::NONCE, 'tmc_doctypes_nonce', true, false)
             . '<div class="tmc-actions">'

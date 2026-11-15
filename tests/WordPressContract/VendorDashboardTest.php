@@ -434,6 +434,131 @@ final class VendorDashboardTest extends ContractTestCase
         self::assertStringNotContainsString('دسترسی‌های شما در این فروشگاه', $html);
     }
 
+    /**
+     * ⛔ SHOP #102, AND THE SCREEN THE OWNER PHOTOGRAPHED.
+     *
+     * An imported profile has no application row, so `$shopStatus` is `Draft`
+     * — not because anybody drafted anything but because there is nothing to
+     * have a status. Before `alpha.105` `shopIsOpen()` wanted `Approved`, and
+     * a shop trading a hundred and eighty-four products was shown «هنوز
+     * درخواستی ثبت نکرده‌اید» with a button to start one.
+     */
+    public function testAnImportedShopThatMayTradeGetsTheWorkingScreenNotAnApplication(): void
+    {
+        $html = $this->render($this->importedShop(canSell: true));
+
+        self::assertStringContainsString('فروشگاه واردشده', $html, 'the shop header, not an application');
+        self::assertStringNotContainsString('هنوز درخواستی ثبت نکرده‌اید', $html);
+        self::assertStringNotContainsString('شروع درخواست فروشندگی', $html);
+        self::assertStringContainsString('محصولات شما', $html, 'the counters a working shop opens on');
+    }
+
+    /**
+     * ⛔ SHOP #40, AND THE OTHER HALF: the true sentence WITHOUT the invitation.
+     *
+     * Expired, no transferable products, `can_sell = false` by the owner's
+     * decision and it stays false — «هرگز برای سبزکردن چک‌لیست فعال نشود». What
+     * it must not get is the apply button, because an application created from
+     * here would make `DecideImportedShopSelling::eligibility()` answer
+     * `application_exists` and close the manager's only door to this shop's
+     * selling permission.
+     */
+    public function testAnImportedShopThatMayNotTradeIsToldTheTruthAndOfferedNoApplication(): void
+    {
+        $html = $this->render($this->importedShop(canSell: false));
+
+        self::assertStringContainsString('واردشده از دکان', $html);
+        self::assertStringContainsString('اجازهٔ فروش این فروشگاه هنوز ثبت نشده', $html);
+        self::assertStringNotContainsString('شروع درخواست فروشندگی', $html);
+        self::assertStringNotContainsString('وضعیت درخواست شما', $html);
+    }
+
+    /** The gate is not loosened: `can_sell` is still required on both branches. */
+    public function testTheImportStampAloneDoesNotOpenAShop(): void
+    {
+        self::assertFalse($this->importedShop(canSell: false)->shopIsOpen());
+        self::assertTrue($this->importedShop(canSell: true)->shopIsOpen());
+    }
+
+    /**
+     * A CONTROL, and it is the one that proves nothing was widened: an
+     * ORDINARY shop with no application and `can_sell` somehow true still gets
+     * the application page. Only the import stamp buys the second branch.
+     */
+    public function testAnOrdinaryShopWithoutAnApplicationStillGetsTheApplicationPage(): void
+    {
+        $ordinary = new VendorDashboard(
+            new VendorWorkspace(null, null, new RequirementSet([], true), [], MobileIdentity::registered(''), false),
+            'فروشگاه نمونه',
+            '',
+            null,
+            [],
+            ApplicationStatus::Draft,
+            true,
+            true,
+            false,
+            false,
+            false,
+            '',
+            null,
+            false
+        );
+
+        self::assertFalse($ordinary->shopIsOpen());
+        self::assertStringContainsString('شروع درخواست فروشندگی', $this->render($ordinary));
+    }
+
+    /**
+     * Once an imported shop DOES have an application, that file is the screen
+     * again — because then `ReviewApplication` is the door and the manager's
+     * imported-shop gate has already stood down (`application_exists`).
+     */
+    public function testAnImportedShopWithAnApplicationIsBackOnTheOrdinaryPath(): void
+    {
+        $withFile = new VendorDashboard(
+            $this->workspace(ApplicationStatus::Draft, profile: false),
+            'فروشگاه نمونه',
+            '',
+            null,
+            [],
+            ApplicationStatus::Draft,
+            false,
+            true,
+            false,
+            false,
+            false,
+            '',
+            null,
+            true
+        );
+
+        self::assertFalse($withFile->isImportedWithoutApplication());
+        self::assertStringContainsString('وضعیت درخواست شما', $this->render($withFile));
+    }
+
+    /** An imported shop whose staff open it see the shop, never a registration form. */
+    private function importedShop(bool $canSell): VendorDashboard
+    {
+        return new VendorDashboard(
+            // No application of their own — that is what «imported» means here.
+            new VendorWorkspace(null, null, new RequirementSet([], true), [], MobileIdentity::registered(''), false),
+            'فروشگاه واردشده',
+            $canSell ? 'https://example.test/?tmc_store=102' : '',
+            $canSell ? ['published' => 143, 'submitted' => 0, 'changes_requested' => 0, 'draft' => 41] : null,
+            [],
+            // `Draft`, and that is the whole point: there is no file.
+            ApplicationStatus::Draft,
+            $canSell,
+            true,
+            $canSell,
+            $canSell,
+            false,
+            '',
+            null,
+            true
+        );
+    }
+
     private function render(VendorDashboard $dashboard): string
     {
         return DashboardView::render($dashboard, $this->urls());

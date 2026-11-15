@@ -54,7 +54,7 @@ final class SpecTemplatesPage
                     ?? VendorMessages::notice($notice['code'], $notice['context']))
             );
         }
-        echo Components::notice('info', __('فیلدهای پزشکی برای همه دسته‌ها نمایش داده نمی‌شوند: هر دسته الگوی خودش را دارد و فرم فروشنده دقیقاً همین فیلدها را می‌پرسد. فهرست پیشنهادی مشخصات، الزام قانونی نیست؛ تعیین مدارک و دسته‌بندی لازم با مدیر کسب‌وکار است.', 'tecteb-marketplace-core'));
+        echo Components::notice('info', __('فیلدهای پزشکی برای همه دسته‌ها نمایش داده نمی‌شوند: هر دسته الگوی خودش را دارد و فرم فروشنده دقیقاً همین فیلدها را می‌پرسد. فهرست پیشنهادی مشخصات، الزام قانونی نیست؛', 'tecteb-marketplace-core') . ' ' . __('تعیین مدارک و دسته‌بندی لازم با مدیر کسب‌وکار است.', 'tecteb-marketplace-core'));
 
         foreach ($templates as $template) {
             $this->renderTemplate($template);

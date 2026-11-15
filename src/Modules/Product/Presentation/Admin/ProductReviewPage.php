@@ -475,12 +475,22 @@ final class ProductReviewPage
             }
         }
         echo Components::notice('warning', sprintf(
-            /* translators: 1: how many, 2: WooCommerce ids, 3: how many of them the shop does have a price for */
-            __('%1$s محصول در ووکامرس منتشر شده‌اند و ردیف بازارگاهشان قیمتی ندارد (شناسهٔ ووکامرس: %2$s). وضعیت عمومی و قابلیت خریدشان عوض نشده و هیچ قیمتی برایشان نوشته نشده است؛ تا قیمت تعیین نشود تأیید و انتشارشان از این صفحه رد می‌شود. از این میان %3$s مورد در خودِ فروشگاه قیمت دارند، که با «به‌روزکردن از فروشگاه» روی صفحهٔ همان محصول حل می‌شود؛ بقیه قیمت لازم دارند.', 'tecteb-marketplace-core'),
+            /* translators: 1: how many, 2: WooCommerce ids */
+            __('%1$s محصول در ووکامرس منتشر شده‌اند و ردیف بازارگاهشان قیمتی ندارد (شناسهٔ ووکامرس: %2$s). تا قیمت تعیین نشود تأیید و انتشارشان از این صفحه رد می‌شود.', 'tecteb-marketplace-core'),
             esc_html(PersianDigits::toPersian((string) count($rows))),
-            esc_html(PersianDigits::toPersian(implode('، ', $ids))),
-            esc_html(PersianDigits::toPersian((string) $shopHasOne))
+            esc_html(PersianDigits::toPersian(implode('، ', $ids)))
         ));
+        // The refusal and the ids are the open item. What did NOT change, and
+        // the one-click route for the subset the shop already prices, go into
+        // the drawer in the same words (`alpha.85`).
+        echo Components::moreDetails([
+            __('وضعیت عمومی و قابلیت خریدشان عوض نشده و هیچ قیمتی برایشان نوشته نشده است.', 'tecteb-marketplace-core'),
+            sprintf(
+                /* translators: %s: how many of them the shop does have a price for */
+                __('از این میان %s مورد در خودِ فروشگاه قیمت دارند، که با «به‌روزکردن از فروشگاه» روی صفحهٔ همان محصول حل می‌شود؛ بقیه قیمت لازم دارند.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) $shopHasOne)
+            ),
+        ]);
     }
 
     /**
@@ -1802,7 +1812,10 @@ final class ProductReviewPage
             . '<input type="hidden" name="wc_ids[]" value="' . esc_attr((string) $wcId) . '">'
             . '<h3 class="tmc-card__subtitle">'
             . esc_html__('ورود این محصول به بازارگاه', 'tecteb-marketplace-core') . '</h3>'
-            . '<p class="tmc-hint">' . esc_html__('«ورود» یک ردیف بازارگاه می‌سازد که به همین محصول اشاره می‌کند، با مالکیت «مشاهده‌شده». شناسه، نشانی، وضعیت انتشار، نویسنده، قیمت، موجودی، تصویرها و سفارش‌های قبلی دست‌نخورده می‌مانند.', 'tecteb-marketplace-core') . '</p>'
+            . '<p class="tmc-hint">'
+            . esc_html__('«ورود» یک ردیف بازارگاه می‌سازد که به همین محصول اشاره می‌کند، با مالکیت «مشاهده‌شده».', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('شناسه، نشانی، وضعیت انتشار، نویسنده، قیمت، موجودی، تصویرها و سفارش‌های قبلی دست‌نخورده می‌مانند.', 'tecteb-marketplace-core')
+            . '</p>'
             . '<div class="tmc-field">'
             . '<label class="tmc-field__label" for="tmc-one-shop">'
             . esc_html__('فروشگاهی که این محصول به آن تعلق دارد — با نام جست‌وجو کنید:', 'tecteb-marketplace-core')
@@ -1880,7 +1893,11 @@ final class ProductReviewPage
             }
             return '<section class="tmc-card"><h2 class="tmc-card__title">'
                 . esc_html__('پس‌گرفتن مدیریت بازارگاه', 'tecteb-marketplace-core') . '</h2>'
-                . '<p class="tmc-hint">' . esc_html__('این محصول پیش از ورود مال فروشگاه بود و مدیریتش به بازارگاه منتقل شده. پس‌گرفتن، ردیف را به «فقط مشاهده‌شده» برمی‌گرداند: از آن لحظه هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد. محصول ووکامرس، قیمت، موجودی و سفارش‌های قبلی دست نمی‌خورند.', 'tecteb-marketplace-core') . '</p>'
+                . '<p class="tmc-hint">'
+                . esc_html__('این محصول پیش از ورود مال فروشگاه بود و مدیریتش به بازارگاه منتقل شده.', 'tecteb-marketplace-core')
+                . ' ' . esc_html__('پس‌گرفتن، ردیف را به «فقط مشاهده‌شده» برمی‌گرداند: از آن لحظه هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد.', 'tecteb-marketplace-core')
+                . ' ' . esc_html__('محصول ووکامرس، قیمت، موجودی و سفارش‌های قبلی دست نمی‌خورند.', 'tecteb-marketplace-core')
+                . '</p>'
                 . '<p><form method="post" class="tmc-inline-form">'
                 . wp_nonce_field(self::NONCE, 'tmc_ownership_nonce', true, false)
                 . '<input type="hidden" name="product_id" value="' . esc_attr((string) $product->id) . '">'
@@ -1895,7 +1912,11 @@ final class ProductReviewPage
 
         $html = '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('پذیرش مدیریت بازارگاه', 'tecteb-marketplace-core') . '</h2>'
-            . '<p class="tmc-hint">' . esc_html__('این ردیف فقط به محصول ووکامرس اشاره می‌کند و هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد. پذیرش مدیریت یعنی از آن لحظه بازارگاه تصمیم می‌گیرد این محصول فروخته شود یا نه؛ توقف فروش آن را به پیش‌نویس می‌برد و گارد خرید دربارهٔ آن نظر می‌دهد. محصول ووکامرس با این کار بازنویسی نمی‌شود و همین دکمه در جهت عکس هم کار می‌کند.', 'tecteb-marketplace-core') . '</p>';
+            . '<p class="tmc-hint">'
+            . esc_html__('این ردیف فقط به محصول ووکامرس اشاره می‌کند و هیچ گاردی از این افزونه دربارهٔ آن نظر نمی‌دهد.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('پذیرش مدیریت یعنی از آن لحظه بازارگاه تصمیم می‌گیرد این محصول فروخته شود یا نه؛ توقف فروش آن را به پیش‌نویس می‌برد و گارد خرید دربارهٔ آن نظر می‌دهد.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('محصول ووکامرس با این کار بازنویسی نمی‌شود و همین دکمه در جهت عکس هم کار می‌کند.', 'tecteb-marketplace-core')
+            . '</p>';
 
         if (!$readable) {
             $html .= Components::notice('warning', __('مقدارهای فعلی این محصول در ووکامرس خوانده نشد، پس معلوم نیست مبنای ورود از آن موقع کهنه شده یا نه. تا خوانده نشود پذیرش انجام نمی‌شود — «نمی‌دانم» با «یکی‌اند» یکی نیست.', 'tecteb-marketplace-core'));

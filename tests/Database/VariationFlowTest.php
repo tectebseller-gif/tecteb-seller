@@ -22,6 +22,8 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariation;
+use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRevisionRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbSpecTemplateRepository;
@@ -37,6 +39,7 @@ use Tecteb\Marketplace\Modules\Vendor\Infrastructure\Migrations\M0003CreateStore
 use Tecteb\Marketplace\Tests\Support\FakeCapabilityChecker;
 use Tecteb\Marketplace\Tests\Support\FakeCatalogProjector;
 use Tecteb\Marketplace\Tests\Support\FakeProductImages;
+use Tecteb\Marketplace\Tests\Support\FakeStorefrontVariations;
 
 /**
  * Variable products on real MariaDB.
@@ -57,6 +60,8 @@ final class VariationFlowTest extends DatabaseTestCase
     private ReviewProducts $review;
     private FakeProductImages $images;
     private FakeCatalogProjector $projector;
+    private FakeStorefrontVariations $storefront;
+    private ManageVariations $manageWithShop;
 
     protected function setUp(): void
     {
@@ -108,6 +113,20 @@ final class VariationFlowTest extends DatabaseTestCase
             $this->images,
             $access,
             $audit
+        );
+        // ⛔ A SECOND INSTANCE, wired to the shop. The ordinary one above is
+        // left exactly as it was, because every other test here is about a
+        // product this marketplace made and the shop holds nothing for it —
+        // and widening the fixture would have made those tests answer about
+        // the new guard instead of about their own rule.
+        $this->storefront = new FakeStorefrontVariations();
+        $this->manageWithShop = new ManageVariations(
+            $this->products,
+            $this->variations,
+            $this->images,
+            $access,
+            $audit,
+            $this->storefront
         );
         $this->review = new ReviewProducts(
             $this->products,
@@ -284,6 +303,111 @@ final class VariationFlowTest extends DatabaseTestCase
     }
 
     // -------------------------------------------------------------- helpers
+
+    /**
+     * ⛔ THE SHOP'S COMBINATIONS ARE NOT EDITED FROM HERE — and the refusal
+     * says so instead of letting a second set be built beside them.
+     *
+     * The state is the imported one: this marketplace holds NO attribute and
+     * NO variation row, the product points at a WooCommerce product, and that
+     * product has the combinations. Before `alpha.105` every verb on this
+     * screen was open, and the first option a vendor added here became a
+     * combination WooCommerce already had under another id.
+     */
+    public function testTheShopsOwnCombinationsAreNotEditedFromThisPanel(): void
+    {
+        $productId = $this->variableProduct();
+        self::assertTrue($this->products->link($productId, 7700));
+        $this->storefront->holds(7700, [$this->shopChild(7701, 'BPI-50', 2600000)]);
+
+        $refused = $this->manageWithShop->saveAttribute(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            'bundle',
+            'بسته',
+            ['۵۰ عددی']
+        );
+
+        self::assertFalse($refused->ok);
+        self::assertSame('variations_live_in_shop', $refused->code);
+        self::assertSame($productId, $refused->context['product_id'] ?? 0);
+        // And nothing was written: the refusal is before the write, not after.
+        self::assertSame([], $this->variations->attributes($productId));
+        self::assertSame([], $this->variations->variations($productId));
+
+        // Every other verb on the same screen answers the same way, because a
+        // guard on one of five is no guard at all (`alpha.22`).
+        // `deleteAttribute()` and `deleteVariation()` ask `editable()` first,
+        // so they answer before they look for a row of ours; `updateVariationStock()`
+        // carries its own copy of the question, because it guards the Inventory
+        // area instead (A.1) and `editable()` never runs for it.
+        self::assertSame(
+            'variations_live_in_shop',
+            $this->manageWithShop->deleteAttribute(self::VENDOR, self::VENDOR, $productId, 1)->code
+        );
+        self::assertSame(
+            'variations_live_in_shop',
+            $this->manageWithShop->deleteVariation(self::VENDOR, self::VENDOR, $productId, 1)->code
+        );
+        self::assertSame(
+            'variations_live_in_shop',
+            $this->manageWithShop->updateVariationStock(self::VENDOR, self::VENDOR, $productId, 1, 5)->code
+        );
+    }
+
+    /**
+     * THE CONTROL, and it is the one that proves nothing was widened: a
+     * product whose combinations are OURS stays editable, even though the
+     * same reader is wired in.
+     */
+    public function testAProductWhoseCombinationsAreOursStaysEditable(): void
+    {
+        $productId = $this->variableProduct();
+        self::assertTrue($this->products->link($productId, 7710));
+
+        $first = $this->manageWithShop->saveAttribute(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            'size',
+            'اندازه',
+            ['کوچک', 'بزرگ']
+        );
+        self::assertTrue($first->ok, $first->code);
+
+        // …and it stays editable AFTER that first row exists, even once the
+        // shop does hold combinations too: the question is whose rows these
+        // are, and from the second save on, this marketplace has its own.
+        $this->storefront->holds(7710, [$this->shopChild(7711, 'X-1', 100000)]);
+        $second = $this->manageWithShop->saveAttribute(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            'size',
+            'اندازه',
+            ['کوچک', 'بزرگ', 'خیلی بزرگ']
+        );
+        self::assertTrue($second->ok, $second->code);
+    }
+
+    private function shopChild(int $id, string $sku, int $priceMinor): StorefrontVariation
+    {
+        return new StorefrontVariation(
+            $id,
+            ['بسته' => '۵۰ عددی'],
+            $sku,
+            $priceMinor,
+            null,
+            $priceMinor,
+            true,
+            true,
+            4,
+            'instock',
+            'no',
+            0
+        );
+    }
 
     private function variableProduct(): int
     {

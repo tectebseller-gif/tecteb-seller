@@ -66,7 +66,7 @@ final class MinMaxExitPage
                 substr($notice, strpos($notice, ':') + 1)
             );
         }
-        echo Components::notice('info', __('این صفحه هیچ‌چیزِ Min Max را تغییر نمی‌دهد: نه تنظیماتش، نه ردیف‌های متایش. آنچه نوشته می‌شود سه ردیف خودِ بازارگاه است (حداقل، حداکثر و گام خرید) روی همان محصول، و برای هر محصول مقدار قبلیِ همان سه ردیف ثبت می‌شود تا بازگشت ممکن باشد.', 'tecteb-marketplace-core'));
+        echo Components::notice('info', __('این صفحه هیچ‌چیزِ Min Max را تغییر نمی‌دهد: نه تنظیماتش، نه ردیف‌های متایش.', 'tecteb-marketplace-core') . ' ' . __('آنچه نوشته می‌شود سه ردیف خودِ بازارگاه است (حداقل، حداکثر و گام خرید) روی همان محصول، و برای هر محصول مقدار قبلیِ همان سه ردیف ثبت می‌شود تا بازگشت ممکن باشد.', 'tecteb-marketplace-core'));
 
         $preview = $service->preview();
         if (($preview['available'] ?? false) !== true) {
@@ -130,7 +130,7 @@ final class MinMaxExitPage
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('اجازهٔ غیرفعال‌کردن Min Max', 'tecteb-marketplace-core') . '</h2>';
         if ($verdict === 'permitted') {
-            echo Components::notice('success', __('هیچ قاعدهٔ خریدی بی‌اعمال نمی‌مانَد: غیرفعال‌کردن Min Max روی staging از نظر این بررسی مجاز است. همچنان یکی‌یکی غیرفعال کنید و پس از آن حداقل، حداکثر و گام را روی خودِ محصول و در سبد بسنجید.', 'tecteb-marketplace-core'));
+            echo Components::notice('success', __('هیچ قاعدهٔ خریدی بی‌اعمال نمی‌مانَد: غیرفعال‌کردن Min Max روی staging از نظر این بررسی مجاز است.', 'tecteb-marketplace-core') . ' ' . __('همچنان یکی‌یکی غیرفعال کنید و پس از آن حداقل، حداکثر و گام را روی خودِ محصول و در سبد بسنجید.', 'tecteb-marketplace-core'));
         } elseif ($verdict === 'not_installed') {
             echo Components::notice('warning', __('Min Max خوانده نشد، پس این بررسی جوابی ندارد — و «خوانده نشد» با «مجاز است» یکی نیست.', 'tecteb-marketplace-core'));
         } else {
@@ -167,14 +167,14 @@ final class MinMaxExitPage
         // this round's second finding was a reader — including this page —
         // taking a ledger row for a present equality.
         echo '<p class="tmc-field__desc">'
-            . esc_html__('سابقهٔ انتقال «برابربودنِ امروز» را ثابت نمی‌کند: برای هر محصولِ تصمیم‌گرفته‌شده، قاعدهٔ فعلی Min Max با قاعده‌ای که پس از غیرفعال‌سازی واقعاً اعمال می‌شود — ردیف‌های مقصد، به‌علاوهٔ مالکیت فعلی و مجوز اعمال — مقایسه می‌شود. اختلاف یا خواندن ناموفق مانع است، و هیچ مقداری بازنویسی نمی‌شود.', 'tecteb-marketplace-core')
+            . esc_html__('سابقهٔ انتقال «برابربودنِ امروز» را ثابت نمی‌کند: برای هر محصولِ تصمیم‌گرفته‌شده، قاعدهٔ فعلی Min Max با قاعده‌ای که پس از غیرفعال‌سازی واقعاً اعمال می‌شود — ردیف‌های مقصد،', 'tecteb-marketplace-core') . ' ' . esc_html__('به‌علاوهٔ مالکیت فعلی و مجوز اعمال — مقایسه می‌شود.', 'tecteb-marketplace-core') . ' ' . esc_html__('اختلاف یا خواندن ناموفق مانع است، و هیچ مقداری بازنویسی نمی‌شود.', 'tecteb-marketplace-core')
             . '</p>';
         // And HOW that comparison is made, because `alpha.70` sampled it: the
         // two sides allow an arithmetic progression each, so the question is
         // decided from the minimum, the maximum, the step and the base the
         // step counts from — never from a list of examples.
         echo '<p class="tmc-field__desc">'
-            . esc_html__('برابری از حداقل، حداکثر، مبنای گام و گام به‌صورت کامل تعیین می‌شود، نه با آزمودن چند تعداد نمونه: دو قاعده‌ای که تا ۶۰ یکسان جواب بدهند و بالاتر از آن فرق داشته باشند، دو قاعده‌اند. و قاعده‌ای که عددش بیرون از ظرفیت ستون‌های این بازارگاه باشد «اثبات‌پذیر نیست» شمرده می‌شود — که مانع است، نه برابری.', 'tecteb-marketplace-core')
+            . esc_html__('برابری از حداقل، حداکثر، مبنای گام و گام به‌صورت کامل تعیین می‌شود، نه با آزمودن چند تعداد نمونه: دو قاعده‌ای که تا ۶۰ یکسان جواب بدهند و بالاتر از آن فرق داشته باشند،', 'tecteb-marketplace-core') . ' ' . esc_html__('دو قاعده‌اند.', 'tecteb-marketplace-core') . ' ' . esc_html__('و قاعده‌ای که عددش بیرون از ظرفیت ستون‌های این بازارگاه باشد «اثبات‌پذیر نیست» شمرده می‌شود — که مانع است، نه برابری.', 'tecteb-marketplace-core')
             . '</p>';
         $scan = (array) ($answer['grant_scan'] ?? []);
         if ($scan !== []) {
@@ -271,7 +271,7 @@ final class MinMaxExitPage
             echo Components::notice('warning', __('پیش‌نمایش به سقف بررسی رسید، پس این اعداد کف‌اند نه کل. انتقال دسته‌ای خودش تا آخر می‌رود.', 'tecteb-marketplace-core'));
         }
         if ((int) ($preview['unenforced'] ?? 0) > 0) {
-            echo Components::notice('warning', __('مهم‌ترین عدد این صفحه همین است: روی محصولی که بازارگاه مالکش نیست، گاردِ تعداد خریدِ بازارگاه به‌خودیِ‌خود اجرا نمی‌شود. پس انتقالِ قاعده برای این محصول‌ها ردیفی می‌نویسد که تا صدور مجوز، کسی نمی‌خواندش — و غیرفعال‌کردن Min Max بی آن مجوز، قاعده‌شان را از بین می‌برد. از این نسخه راهی برای همین حالت هست: پس از انتقال، در بخش «مجوز اعمال قاعده» می‌توانید محصول‌به‌محصول اجازه دهید بازارگاه فقط همان قاعدهٔ تعداد خرید را اعمال کند. این مجوز نه فروشنده را عوض می‌کند، نه مالکیت محصول را، نه چرخهٔ تأییدش را.', 'tecteb-marketplace-core'));
+            echo Components::notice('warning', __('مهم‌ترین عدد این صفحه همین است: روی محصولی که بازارگاه مالکش نیست، گاردِ تعداد خریدِ بازارگاه به‌خودیِ‌خود اجرا نمی‌شود.', 'tecteb-marketplace-core') . ' ' . __('پس انتقالِ قاعده برای این محصول‌ها ردیفی می‌نویسد که تا صدور مجوز، کسی نمی‌خواندش — و غیرفعال‌کردن Min Max بی آن مجوز، قاعده‌شان را از بین می‌برد.', 'tecteb-marketplace-core') . ' ' . __('از این نسخه راهی برای همین حالت هست: پس از انتقال، در بخش «مجوز اعمال قاعده» می‌توانید محصول‌به‌محصول اجازه دهید بازارگاه فقط همان قاعدهٔ تعداد خرید را اعمال کند.', 'tecteb-marketplace-core') . ' ' . __('این مجوز نه فروشنده را عوض می‌کند، نه مالکیت محصول را، نه چرخهٔ تأییدش را.', 'tecteb-marketplace-core'));
         }
 
         $examples = $preview['examples'] ?? [];
@@ -433,12 +433,12 @@ final class MinMaxExitPage
             if ($stale !== []) {
                 echo Components::notice('warning', sprintf(
                     /* translators: 1: how many products, 2: their ids */
-                    __('%1$s محصول مجوز دارند ولی قاعده‌شان پس از صدور مجوز عوض شده، پس همین حالا هیچ حد خریدی روی آن‌ها اعمال نمی‌شود: %2$s. قاعده را به همان مقداری برگردانید که منتقل شده بود، یا بازگشت بزنید و دوباره منتقل و مجوز کنید. صدور دوبارهٔ مجوز روی قاعدهٔ عوض‌شده رد می‌شود.', 'tecteb-marketplace-core'),
+                    __('%1$s محصول مجوز دارند ولی قاعده‌شان پس از صدور مجوز عوض شده، پس همین حالا هیچ حد خریدی روی آن‌ها اعمال نمی‌شود: %2$s.', 'tecteb-marketplace-core') . ' ' . __('قاعده را به همان مقداری برگردانید که منتقل شده بود، یا بازگشت بزنید و دوباره منتقل و مجوز کنید. صدور دوبارهٔ مجوز روی قاعدهٔ عوض‌شده رد می‌شود.', 'tecteb-marketplace-core'),
                     PersianDigits::toPersian((string) count($stale)),
                     PersianDigits::toPersian(implode('، ', array_map('strval', $stale)))
                 ));
             }
-            echo '<p>' . esc_html__('این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال شود» فقط و فقط همین یک قاعده را روشن می‌کند: فروشنده، مالکیت محصول، وضعیت انتشار و چرخهٔ تأیید دست‌نخورده می‌مانند و هیچ صفحهٔ دیگری دربارهٔ این محصول نظر نمی‌دهد. اگر پس از انتقال کسی قاعده را عوض کرده باشد، مجوز رد می‌شود و می‌گوید کدام فیلد عوض شده.', 'tecteb-marketplace-core') . '</p>';
+            echo '<p>' . esc_html__('این محصول‌ها قاعدهٔ تعداد خرید را دارند ولی بازارگاه مالکشان نیست، پس به‌خودیِ‌خود قاعده اعمال نمی‌شود. «اعمال شود» فقط و فقط همین یک قاعده را روشن می‌کند: فروشنده، مالکیت محصول،', 'tecteb-marketplace-core') . ' ' . esc_html__('وضعیت انتشار و چرخهٔ تأیید دست‌نخورده می‌مانند و هیچ صفحهٔ دیگری دربارهٔ این محصول نظر نمی‌دهد. اگر پس از انتقال کسی قاعده را عوض کرده باشد،', 'tecteb-marketplace-core') . ' ' . esc_html__('مجوز رد می‌شود و می‌گوید کدام فیلد عوض شده.', 'tecteb-marketplace-core') . '</p>';
             echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="' . esc_attr__('مجوز اعمال قاعده', 'tecteb-marketplace-core') . '">';
             echo '<table class="tmc-table"><thead><tr>'
                 . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
@@ -482,7 +482,7 @@ final class MinMaxExitPage
         $open = array_values(array_filter($open, static fn (array $r): bool => ($r['live_key'] ?? null) !== null));
         if ($open !== []) {
             echo '<h3 class="tmc-card__title">' . esc_html__('تلاش دوباره، محصول به محصول', 'tecteb-marketplace-core') . '</h3>';
-            echo '<p>' . esc_html__('این محصول‌ها تصمیم گرفته شده‌اند و چیزی برایشان نوشته نشده. علتشان با دست رفع می‌شود — قاعدهٔ گام در Min Max، یا مقداری که مدیر در ووکامرس نگه داشته — و این افزونه نمی‌تواند بفهمد که رفع شده. «آزاد کردن» محصول را به صف تصمیم برمی‌گرداند و سابقهٔ تصمیم قبلی را نگه می‌دارد.', 'tecteb-marketplace-core') . '</p>';
+            echo '<p>' . esc_html__('این محصول‌ها تصمیم گرفته شده‌اند و چیزی برایشان نوشته نشده. علتشان با دست رفع می‌شود — قاعدهٔ گام در Min Max، یا مقداری که مدیر در ووکامرس نگه داشته —', 'tecteb-marketplace-core') . ' ' . esc_html__('و این افزونه نمی‌تواند بفهمد که رفع شده.', 'tecteb-marketplace-core') . ' ' . esc_html__('«آزاد کردن» محصول را به صف تصمیم برمی‌گرداند و سابقهٔ تصمیم قبلی را نگه می‌دارد.', 'tecteb-marketplace-core') . '</p>';
             echo '<div class="tv-scroll" tabindex="0" role="region" aria-label="' . esc_attr__('تلاش دوباره', 'tecteb-marketplace-core') . '">';
             echo '<table class="tmc-table"><thead><tr>'
                 . '<th scope="col">' . esc_html__('شناسه', 'tecteb-marketplace-core') . '</th>'
@@ -717,7 +717,7 @@ final class MinMaxExitPage
         return match ($code) {
             'minmax_rollback_changed' => sprintf(
                 /* translators: 1: field, 2: what we wrote, 3: what is there now */
-                __('بازگشت انجام نشد: «%1$s» پس از انتقال عوض شده. ما %2$s نوشته بودیم و الان %3$s است. تصمیم جدیدتر کورکورانه پاک نمی‌شود؛ اگر می‌خواهید برگردد، اول آن را در ووکامرس به مقدار نوشته‌شده برگردانید.', 'tecteb-marketplace-core'),
+                __('بازگشت انجام نشد: «%1$s» پس از انتقال عوض شده. ما %2$s نوشته بودیم و الان %3$s است.', 'tecteb-marketplace-core') . ' ' . __('تصمیم جدیدتر کورکورانه پاک نمی‌شود؛ اگر می‌خواهید برگردد، اول آن را در ووکامرس به مقدار نوشته‌شده برگردانید.', 'tecteb-marketplace-core'),
                 (string) ($context['field'] ?? ''),
                 PersianDigits::toPersian((string) ($context['wrote'] ?? '')),
                 PersianDigits::toPersian((string) ($context['now'] ?? ''))

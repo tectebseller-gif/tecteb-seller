@@ -5,6 +5,7 @@ namespace Tecteb\Marketplace\Tests\WordPressContract;
 
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminExtensions;
 use Tecteb\Marketplace\Modules\Admin\Presentation\AdminNavigation;
+use Tecteb\Marketplace\Modules\Admin\Presentation\Pages\DashboardPage;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Components;
 use Tecteb\Marketplace\Modules\Admin\Presentation\Navigation;
 use TmcWpStubs\State;
@@ -73,6 +74,54 @@ final class NavigationGroupsTest extends ContractTestCase
         // thing the grouping was told not to add.
         $unknown = array_values(array_diff(AdminNavigation::order(), $slugs));
         self::assertSame([], $unknown, 'these grouped slugs are not registered: ' . implode(', ', $unknown));
+    }
+
+    /**
+     * ⛔ The sidebar WordPress prints is in the SAME order as the header — and
+     * the figures §5 quotes are read from the definition, not typed here.
+     *
+     * «فهرست دومی درست نکن» is the requirement, and the way it breaks is not
+     * a second constant appearing: it is `MenuRegistrar` sorting by something
+     * of its own while `Components` keeps reading `AdminNavigation`, which is
+     * exactly what happened before `alpha.35` (the four core pages first and
+     * the rest in registration order, so «راه‌اندازی» sat above «بررسی
+     * محصولات»). This reads the submenu array core will print and compares it
+     * with the definition's order, so the two cannot drift again in silence.
+     */
+    public function testTheSidebarIsPrintedInTheOneDefinedOrder(): void
+    {
+        $this->bootPlugin(false);
+        $this->loginAdmin();
+        do_action('admin_menu');
+
+        // §5's own numbers, derived: nine groups, twenty-seven pages. They are
+        // asserted because the prompt quotes them, and derived because a typed
+        // copy is the second list the requirement forbids.
+        self::assertCount(9, AdminNavigation::GROUPS, 'nine groups');
+        self::assertCount(27, AdminNavigation::order(), 'twenty-seven pages');
+        self::assertSame(
+            AdminNavigation::order(),
+            array_values(array_unique(AdminNavigation::order())),
+            'and no page is listed twice'
+        );
+
+        $printed = [];
+        foreach ($GLOBALS['submenu'][DashboardPage::SLUG] ?? [] as $row) {
+            $slug = (string) ($row[2] ?? '');
+            if ($slug !== '' && in_array($slug, AdminNavigation::order(), true)) {
+                $printed[] = $slug;
+            }
+        }
+        self::assertNotSame([], $printed, 'the submenu must have been built');
+
+        // The printed rows, in the definition's order, with the pages this
+        // install did not register left out — so the assertion is about ORDER
+        // and not about which modules happen to be on.
+        $expected = array_values(array_filter(
+            AdminNavigation::order(),
+            static fn (string $slug): bool => in_array($slug, $printed, true)
+        ));
+        self::assertSame($expected, $printed, 'the sidebar follows AdminNavigation, not registration order');
     }
 
     public function testTheGroupsCoverTheSameSetTheHeaderDraws(): void

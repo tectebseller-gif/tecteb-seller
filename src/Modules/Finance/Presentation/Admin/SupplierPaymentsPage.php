@@ -58,7 +58,7 @@ final class SupplierPaymentsPage
             echo Components::notice(str_starts_with($notice, 'ok:') ? 'success' : 'error', substr($notice, strpos($notice, ':') + 1));
         }
 
-        echo Components::notice('info', __('این صفحه پرداختی را ثبت می‌کند که قبلاً انجام شده است. هیچ انتقال وجهی از اینجا انجام نمی‌شود و این صفحه چرخهٔ «تسویه و برداشت» فروشنده نیست؛ آن یکی درخواست فروشنده است و این یکی خرید تک‌طب.', 'tecteb-marketplace-core'));
+        echo Components::notice('info', __('این صفحه پرداختی را ثبت می‌کند که قبلاً انجام شده است. هیچ انتقال وجهی از اینجا انجام نمی‌شود', 'tecteb-marketplace-core') . ' ' . __('و این صفحه چرخهٔ «تسویه و برداشت» فروشنده نیست؛ آن یکی درخواست فروشنده است و این یکی خرید تک‌طب.', 'tecteb-marketplace-core'));
 
         $this->form();
         $this->agreedAmounts();
@@ -72,7 +72,7 @@ final class SupplierPaymentsPage
     {
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('ثبت پرداخت انجام‌شده', 'tecteb-marketplace-core') . '</h2>'
-            . '<p class="tmc-hint">' . esc_html__('مبلغ را خودتان می‌نویسید؛ بازارگاه آن را از سهم محاسبه‌شده نمی‌سازد. اگر مبلغ پرداختی با سهم ثبت‌شدهٔ همان اقلام فرق داشته باشد، پرداخت ثبت می‌شود ولی در دفترکل ثبت نمی‌شود و در فهرست پایین همین صفحه می‌آید.', 'tecteb-marketplace-core') . '</p>'
+            . '<p class="tmc-hint">' . esc_html__('مبلغ را خودتان می‌نویسید؛ بازارگاه آن را از سهم محاسبه‌شده نمی‌سازد.', 'tecteb-marketplace-core') . ' ' . esc_html__('اگر مبلغ پرداختی با سهم ثبت‌شدهٔ همان اقلام فرق داشته باشد، پرداخت ثبت می‌شود ولی در دفترکل ثبت نمی‌شود و در فهرست پایین همین صفحه می‌آید.', 'tecteb-marketplace-core') . '</p>'
             . '<form method="post">'
             . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
             . '<input type="hidden" name="supplier_action" value="record">'
@@ -114,6 +114,7 @@ final class SupplierPaymentsPage
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('پرداخت‌هایی که در دفترکل ثبت نشده‌اند', 'tecteb-marketplace-core') . '</h2>';
         echo '<p class="tmc-hint">' . esc_html(SupplierPaymentMessages::conflictExplanation()) . '</p>';
+        echo Components::moreDetails(SupplierPaymentMessages::conflictDetails());
         if ($rows === []) {
             echo '<p>' . esc_html__('هیچ پرداختی در این وضعیت نیست.', 'tecteb-marketplace-core') . '</p></section>';
             return;
@@ -204,7 +205,7 @@ final class SupplierPaymentsPage
     {
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('مبلغ توافق‌شدهٔ خرید', 'tecteb-marketplace-core') . '</h2>'
-            . '<p class="tmc-hint">' . esc_html__('این مبلغ همان سهم محاسبه‌شدهٔ کمیسیون نیست و از آن ساخته نمی‌شود؛ عددی است که با تأمین‌کننده توافق شده. تا وقتی ثبت نشود، مانده‌ای برای محاسبهٔ پرداخت جزئی وجود ندارد. هر تغییر با دلیل در سابقهٔ همان قلم می‌مانَد و هیچ پرداخت یا سفارش ثبت‌شده‌ای بازنویسی نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+            . '<p class="tmc-hint">' . esc_html__('این مبلغ همان سهم محاسبه‌شدهٔ کمیسیون نیست و از آن ساخته نمی‌شود؛ عددی است که با تأمین‌کننده توافق شده. تا وقتی ثبت نشود، مانده‌ای برای محاسبهٔ پرداخت جزئی وجود ندارد.', 'tecteb-marketplace-core') . ' ' . esc_html__('هر تغییر با دلیل در سابقهٔ همان قلم می‌مانَد و هیچ پرداخت یا سفارش ثبت‌شده‌ای بازنویسی نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
             . '<form method="post">'
             . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
             . '<input type="hidden" name="supplier_action" value="agree">'
@@ -233,7 +234,7 @@ final class SupplierPaymentsPage
     {
         echo '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('طلب از تأمین‌کننده پس از مرجوعی', 'tecteb-marketplace-core') . '</h2>'
-            . '<p class="tmc-hint">' . esc_html__('اگر کالایی پس از پرداخت به تأمین‌کننده مرجوع شود، مبلغ مربوط به همان قلم و همان تعداد اینجا به‌عنوان «طلب» ثبت می‌شود. ثبت طلب، وصول واقعی و تهاتر سه رویداد جدا هستند و یک مبلغ دو بار وصول یا کسر نمی‌شود. هیچ انتقال بانکی و هیچ کسر خودکاری از اینجا انجام نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+            . '<p class="tmc-hint">' . esc_html__('اگر کالایی پس از پرداخت به تأمین‌کننده مرجوع شود، مبلغ مربوط به همان قلم و همان تعداد اینجا به‌عنوان «طلب» ثبت می‌شود.', 'tecteb-marketplace-core') . ' ' . esc_html__('ثبت طلب، وصول واقعی و تهاتر سه رویداد جدا هستند و یک مبلغ دو بار وصول یا کسر نمی‌شود. هیچ انتقال بانکی و هیچ کسر خودکاری از اینجا انجام نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
             . '<form method="post">'
             . wp_nonce_field(self::NONCE, 'tmc_supplier_nonce', true, false)
             . '<input type="hidden" name="supplier_action" value="receivable">'

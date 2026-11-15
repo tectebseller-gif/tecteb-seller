@@ -159,13 +159,99 @@ final class PersianCollation
      */
     public static function normalize(string $title): string
     {
-        $text = str_replace(self::HALF_SPACE, ' ', $title);
+        // Lowercasing commutes with everything `foldForSearch()` does — no
+        // case change creates or removes whitespace — so the two orders are
+        // the same answer and there is still ONE fold.
+        return mb_strtolower(self::foldForSearch($title), 'UTF-8');
+    }
+
+    /**
+     * The same fold, WITHOUT the lowercasing the database already does.
+     *
+     * ⛔ THIS IS THE RULE THE SEARCH WAS MISSING, and the measurement is what
+     * says so. `tmc_products.title` is `utf8mb4_unicode_520_ci`, and asked of
+     * the real MariaDB that collation answers:
+     *
+     *     'سینی' = 'سيني'            → 0   (Arabic yeh is NOT Persian yeh)
+     *     'کاف'  = 'كاف'             → 0   (Arabic kaf is NOT Persian kaf)
+     *     'دو  فاصله' = 'دو فاصله'    → 0   (a second space is a difference)
+     *     ZWNJ vs a space            → 0
+     *     ZWNJ vs nothing            → 1   (the joiner alone is ignorable)
+     *     'دستهٔ' = 'دسته'            → 1   (the combining hamza is ignorable)
+     *     'BPI'  = 'bpi'             → 1
+     *
+     * So a plain `title LIKE %needle%` finds a product whose stored name spells
+     * ی and ک the Persian way only if the person typing spells them the same
+     * way and puts exactly the same number of spaces in — which is why the
+     * owner's full phrase found nothing while «پنبه», a word with none of
+     * those characters in it, found the product at once.
+     *
+     * The fold is applied to BOTH sides: to the needle here, and to the column
+     * by `sqlFold()`, which is generated from these same constants so the two
+     * cannot drift (`alpha.78`). Lowercasing is left out of both because the
+     * column's own collation is case-insensitive — and a PHP guess about a
+     * collation is the mistake `alpha.60` paid for.
+     */
+    public static function foldForSearch(string $text): string
+    {
+        $text = str_replace(self::HALF_SPACE, ' ', $text);
         $text = str_replace(self::INVISIBLE, '', $text);
         $text = strtr($text, self::FOLD);
         $text = strtr($text, self::DIGITS);
-        $text = mb_strtolower($text, 'UTF-8');
         $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
         return trim($text);
+    }
+
+    /**
+     * How many times the space collapse is applied in SQL, and therefore the
+     * longest run of spaces it can flatten: 2^3 = 8.
+     *
+     * Declared rather than hidden, because an announced ceiling is the only
+     * honest kind (`alpha.100`). A title with nine consecutive spaces in it
+     * folds to one space in PHP and to two in SQL, and would not be found by
+     * its full phrase — which is the behaviour of today's search for every
+     * title, so this is strictly narrower, and it is said out loud.
+     */
+    public const SQL_SPACE_PASSES = 3;
+
+    /**
+     * The same fold, as a SQL expression over a column.
+     *
+     * Generated from the constants above rather than typed out, so that adding
+     * a letter to `FOLD` changes both readers at once. `PersianSearchFoldTest`
+     * asks the real database to fold a table of pinned values and compares the
+     * answer with `foldForSearch()` on the same input, in both directions —
+     * the only way to know a SQL expression and a PHP function agree
+     * (`alpha.60`: never emulate a collation, ask the database).
+     *
+     * The column name is validated rather than escaped: it is always a literal
+     * from this plugin's own code, and a name that is not a bare identifier is
+     * a programming mistake worth an exception rather than a quoted string.
+     */
+    public static function sqlFold(string $column): string
+    {
+        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $column) !== 1) {
+            throw new \InvalidArgumentException('sqlFold expects a bare column name');
+        }
+        $expression = '`' . $column . '`';
+        $wrap = static function (string $inner, string $from, string $to): string {
+            return 'REPLACE(' . $inner . ", '" . str_replace("'", "''", $from)
+                . "', '" . str_replace("'", "''", $to) . "')";
+        };
+        $expression = $wrap($expression, self::HALF_SPACE, ' ');
+        foreach (self::INVISIBLE as $invisible) {
+            $expression = $wrap($expression, $invisible, '');
+        }
+        foreach (self::FOLD as $from => $to) {
+            $expression = $wrap($expression, (string) $from, (string) $to);
+        }
+        foreach (self::DIGITS as $from => $to) {
+            $expression = $wrap($expression, (string) $from, (string) $to);
+        }
+        for ($i = 0; $i < self::SQL_SPACE_PASSES; $i++) {
+            $expression = $wrap($expression, '  ', ' ');
+        }
+        return 'TRIM(' . $expression . ')';
     }
 
     /**

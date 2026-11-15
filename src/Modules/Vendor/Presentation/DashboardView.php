@@ -485,6 +485,25 @@ final class DashboardView
         $status = $workspace->status();
         $hasApplication = $workspace->application !== null;
 
+        // ⛔ AN IMPORTED SHOP HAS NO APPLICATION, SO IT HAS NO «وضعیت درخواست».
+        //
+        // This is the screen the owner photographed on shop #102: a file that
+        // came in from Dokan has no `tmc_vendor_applications` row, so
+        // `$workspace->status()` is `Draft` and `$hasApplication` is false, and
+        // the page said «پیش‌نویس — هنوز درخواستی ثبت نکرده‌اید» with a «شروع
+        // درخواست فروشندگی» button to a shop that had been trading for months.
+        //
+        // ⛔ And the button was not merely wrong, it was one-way: an
+        // application created from here makes
+        // `DecideImportedShopSelling::eligibility()` answer
+        // `application_exists`, which is the gate the manager grants and
+        // withdraws this shop's selling through. So the invitation is not
+        // shown, and what replaces it is the shop's own state and who decides
+        // it — never a dead end with nothing on it.
+        if ($dashboard->isImportedWithoutApplication()) {
+            return self::importedShopPage($dashboard, $urls, $queue);
+        }
+
         $html = '<section class="tv-card tv-card--status" aria-labelledby="tv-status">'
             . '<div class="tv-card__head">'
             . '<h2 id="tv-status" class="tv-card__title">' . esc_html__('وضعیت درخواست شما', 'tecteb-marketplace-core') . '</h2>'
@@ -554,5 +573,51 @@ final class DashboardView
             'changes_requested' => VendorUi::button($urls->application(), __('اصلاح و ارسال دوباره', 'tecteb-marketplace-core')),
             default => VendorUi::button($urls->application(), __('مشاهده درخواست', 'tecteb-marketplace-core'), 'secondary'),
         };
+    }
+
+    /**
+     * The imported shop that may not trade: which shop, what is true, who
+     * decides — and no form.
+     *
+     * Reached only when `shopCanSell` is false, because an imported shop that
+     * MAY trade gets the working screen above. Shop #40 is the live example:
+     * expired, no transferable products, `can_sell = false` by the owner's
+     * decision, and it must stay that way — «هرگز برای سبزکردن چک‌لیست فعال
+     * نشود». So this page offers nothing to press.
+     *
+     * @param list<array{key:string, count:int, tone:string, url:string}> $queue
+     */
+    private static function importedShopPage(VendorDashboard $dashboard, VendorUrls $urls, array $queue): string
+    {
+        $html = '<section class="tv-card tv-card--status" aria-labelledby="tv-status">'
+            . '<div class="tv-card__head">'
+            . '<h2 id="tv-status" class="tv-card__title">' . esc_html($dashboard->storeName !== ''
+                ? $dashboard->storeName
+                : __('فروشگاه شما', 'tecteb-marketplace-core')) . '</h2>'
+            . VendorUi::chip('neutral', __('واردشده از دکان', 'tecteb-marketplace-core'))
+            . '</div>'
+            . '<p class="tv-lead">' . esc_html__('پروندهٔ این فروشگاه از دکان منتقل شده است، پس درخواست فروشندگی جداگانه‌ای ندارد و لازم هم ندارد.', 'tecteb-marketplace-core') . '</p>'
+            . '<p>' . esc_html__('اجازهٔ فروش این فروشگاه هنوز ثبت نشده است. این تصمیم مدیر بازارگاه است و از همین پنل گرفته نمی‌شود.', 'tecteb-marketplace-core') . '</p>';
+
+        if ($dashboard->storefrontUrl !== '') {
+            $html .= '<div class="tv-actions">'
+                . VendorUi::button($dashboard->storefrontUrl, __('مشاهده صفحهٔ فروشگاه', 'tecteb-marketplace-core'), 'secondary')
+                . '</div>';
+        }
+        $html .= '</section>' . self::actionQueue($queue);
+
+        // What they CAN do meanwhile, rather than a page with one sentence on
+        // it: the product list is readable wherever their own access covers it,
+        // and saying so is the difference between «در انتظار» and «بسته».
+        if ($dashboard->mayViewProducts) {
+            $html .= '<section class="tv-card" aria-labelledby="tv-imported-products">'
+                . '<h2 id="tv-imported-products" class="tv-card__title">'
+                . esc_html__('محصول‌های این فروشگاه', 'tecteb-marketplace-core') . '</h2>'
+                . '<p>' . esc_html__('محصول‌های منتقل‌شده سر جایشان هستند و از فهرست محصولات قابل دیدن‌اند. تا اجازهٔ فروش ثبت نشود، فروشی ثبت نمی‌شود.', 'tecteb-marketplace-core') . '</p>'
+                . '<div class="tv-actions">'
+                . VendorUi::button($urls->products(), __('فهرست محصولات', 'tecteb-marketplace-core'), 'secondary')
+                . '</div></section>';
+        }
+        return $html;
     }
 }

@@ -117,7 +117,7 @@ namespace {
             public static bool $saveFails = false;
 
             /** @var array<string,mixed> */
-            private array $data = [];
+            protected array $data = [];
 
             /** Which setters were called, so «never written» is measurable. */
             /** @var list<string> */
@@ -132,7 +132,7 @@ namespace {
                 }
             }
 
-            private function put(string $key, mixed $value): void
+            protected function put(string $key, mixed $value): void
             {
                 $this->data[$key] = $value;
                 $this->wrote[] = $key;
@@ -412,6 +412,63 @@ namespace {
                 unset($this->meta[$key]);
             }
 
+            /**
+             * The type, so a reader can tell a simple product from a variable
+             * one without `instanceof` — which is what WooCommerce's own
+             * `get_type()` is for.
+             */
+            public function get_type(): string
+            {
+                return 'simple';
+            }
+
+            /**
+             * What a buyer would pay: the sale price while one is set, else the
+             * regular one. The real class derives this; the stub keeps the same
+             * rule in one place so a test cannot set a price nobody could pay.
+             */
+            public function get_price(): string
+            {
+                $sale = (string) ($this->data['sale_price'] ?? '');
+                return $sale !== '' ? $sale : (string) ($this->data['regular_price'] ?? '');
+            }
+
+            public function set_backorders(string $v): void
+            {
+                $this->put('backorders', $v);
+            }
+
+            public function get_backorders(): string
+            {
+                return (string) ($this->data['backorders'] ?? 'no');
+            }
+
+            public function set_parent_id(int $v): void
+            {
+                $this->put('parent_id', $v);
+            }
+
+            public function get_parent_id(): int
+            {
+                return (int) ($this->data['parent_id'] ?? 0);
+            }
+
+            /**
+             * Which attribute entries survive a save. A PARENT keeps only
+             * `WC_Product_Attribute` objects; a VARIATION keeps the chosen
+             * strings.
+             *
+             * @param array<string,mixed> $attributes
+             * @return array<string,mixed>
+             */
+            protected function persistableAttributes(array $attributes): array
+            {
+                return array_filter(
+                    $attributes,
+                    static fn ($a): bool => $a instanceof WC_Product_Attribute
+                );
+            }
+
             public function save(): int
             {
                 if (self::$saveFails) {
@@ -426,9 +483,17 @@ namespace {
                 // attribute that has been unset, so it is not persisted and
                 // a later read does not see the key at all
                 // (`class-wc-product-data-store-cpt.php:1053`).
-                $this->data['attributes'] = array_filter(
-                    (array) ($this->data['attributes'] ?? []),
-                    static fn ($a): bool => $a instanceof WC_Product_Attribute
+                // ⛔ ASKED OF THE SUBCLASS, because the rule is not the same
+                // for both: a variation's data store writes
+                // `attribute_<key> => <value>` meta and keeps the plain
+                // strings (`class-wc-product-variation-data-store-cpt.php`,
+                // `update_attributes()`). A single parent-shaped filter here
+                // silently emptied every child and the panel then said «بدون
+                // ویژگی اعلام‌شده» about a product whose combinations were
+                // right there — the defect this round is closing, reproduced
+                // inside its own double.
+                $this->data['attributes'] = $this->persistableAttributes(
+                    (array) ($this->data['attributes'] ?? [])
                 );
                 self::$saved[$id] = $this;
                 // …and the meta lands where `get_post_meta()` will find it,
@@ -466,6 +531,128 @@ namespace {
     if (!class_exists('WC_Product_Simple')) {
         class WC_Product_Simple extends WC_Product
         {
+        }
+    }
+
+    /**
+     * ⛔ THESE TWO DID NOT EXIST UNTIL `alpha.105`, AND THAT IS WHY NOBODY SAW
+     * THE DEFECT.
+     *
+     * `alpha.43` already recorded that the contract suite had no
+     * `WC_Product_Variation`; what it did not record is the consequence —
+     * `WooCommerceProjector::existingVariationIds()` begins with
+     * `if (!$parent instanceof \WC_Product_Variable) return [];`, so on a
+     * build where the class does not exist that guard was ALWAYS true and the
+     * whole variable path was outside every test. A stub that cannot express
+     * a variable product makes a panel that cannot read one look correct
+     * (`alpha.59`: a missing method in a double is a missing path in the test).
+     *
+     * `get_children()` is a real list of ids here, and `WC_Product_Variable`
+     * keeps whatever a test gives it rather than deriving it from the saved
+     * variations — a stub that derived it would be asserting about its own
+     * cleverness instead of about the reader.
+     */
+    if (!class_exists('WC_Product_Variable')) {
+        class WC_Product_Variable extends WC_Product
+        {
+            /** @var array<int,list<int>> parent id => child ids */
+            public static array $childrenOf = [];
+
+            public function get_type(): string
+            {
+                return 'variable';
+            }
+
+            /** @return list<int> */
+            public function get_children(): array
+            {
+                return array_map('intval', self::$childrenOf[$this->get_id()] ?? []);
+            }
+
+            /** @param list<int> $ids */
+            public static function setChildren(int $parentId, array $ids): void
+            {
+                self::$childrenOf[$parentId] = array_map('intval', $ids);
+            }
+
+            public static function sync(int $parentId): void
+            {
+                // WooCommerce recalculates the parent's price range here. The
+                // stub records the call rather than imitating the maths, so a
+                // test can assert it happened without the stub deciding what
+                // the answer should be.
+                \TmcWpStubs\State::$variableSyncs[] = $parentId;
+            }
+
+            public static function resetChildren(): void
+            {
+                self::$childrenOf = [];
+            }
+        }
+    }
+
+    if (!class_exists('WC_Product_Variation')) {
+        class WC_Product_Variation extends WC_Product
+        {
+            public function get_type(): string
+            {
+                return 'variation';
+            }
+
+            /**
+             * A variation stores the CHOSEN option of each axis as a plain
+             * string; only the PARENT stores `WC_Product_Attribute` objects.
+             * Real WooCommerce overrides both halves on the variation
+             * (`class-wc-product-variation.php`: `set_attributes()` is a plain
+             * `set_prop()`), so a double that inherited the parent's
+             * object-wrapping would make a shape expressible that WooCommerce
+             * itself never produces — and any reader written against it would
+             * be written against the wrong contract (`alpha.43`, `alpha.59`).
+             *
+             * @param array<string,string> $v
+             */
+            public function set_attributes(array $v): void
+            {
+                $this->put('attributes', $v);
+            }
+
+            /** @return array<string,string> */
+            public function get_attributes(): array
+            {
+                return (array) ($this->data['attributes'] ?? []);
+            }
+
+            /**
+             * A chosen option is a string, and the empty string is a real
+             * answer — WooCommerce stores it to mean «any» (`update_attributes()`).
+             *
+             * @param array<string,mixed> $attributes
+             * @return array<string,string>
+             */
+            protected function persistableAttributes(array $attributes): array
+            {
+                $out = [];
+                foreach ($attributes as $key => $value) {
+                    if (is_string($value)) {
+                        $out[(string) $key] = $value;
+                    }
+                }
+                return $out;
+            }
+
+            public function save(): int
+            {
+                $id = parent::save();
+                if ($id > 0) {
+                    // A saved variation is a `product_variation` post, not a
+                    // `product`: `WooCommerceProjector::owns()` checks the
+                    // post type before it will touch anything, and a stub that
+                    // filed variations as products would let that guard pass
+                    // where the real one refuses.
+                    \TmcWpStubs\State::$posts[$id]['post_type'] = 'product_variation';
+                }
+                return $id;
+            }
         }
     }
 

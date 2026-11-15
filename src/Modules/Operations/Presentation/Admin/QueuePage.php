@@ -149,12 +149,25 @@ final class QueuePage
         if ($stuck !== []) {
             echo Components::notice('warning', sprintf(
                 /* translators: %s: job ids */
-                __('این کارها گرفته شده‌اند و از همان نقطه تکان نخورده‌اند: %s. یعنی هر بار که اجرا شده‌اند، همان جا متوقف شده‌اند — معمولاً چون همان یک قلمِ کار از مهلت یک درخواست این میزبان بیشتر طول می‌کشد. چند بار دیگر که اجرا شوند، همان قلم با شماره‌اش نام برده و رد می‌شود و بقیه ادامه می‌یابند.', 'tecteb-marketplace-core'),
+                __('این کارها گرفته شده‌اند و از همان نقطه تکان نخورده‌اند: %s.', 'tecteb-marketplace-core'),
                 PersianDigits::toPersian(implode('، ', array_map(static fn (Job $j): string => (string) $j->id, $stuck)))
             ));
+            // The ids are the open item; the explanation of WHY a unit sticks
+            // and what the next runs do with it goes into the drawer, in the
+            // same words (`alpha.85`).
+            echo Components::moreDetails([
+                __('یعنی هر بار که اجرا شده‌اند، همان جا متوقف شده‌اند — معمولاً چون همان یک قلمِ کار از مهلت یک درخواست این میزبان بیشتر طول می‌کشد.', 'tecteb-marketplace-core'),
+                __('چند بار دیگر که اجرا شوند، همان قلم با شماره‌اش نام برده و رد می‌شود و بقیه ادامه می‌یابند.', 'tecteb-marketplace-core'),
+            ]);
         }
         if ((int) ($census['stalled'] ?? 0) > 0) {
-            echo Components::notice('warning', __('چند کار «بی‌صاحب» مانده‌اند: مهلت قفلشان تمام شده و هیچ کارگری نگهشان نداشته. چرایش از این ردیف مشخص نمی‌شود — درخواست می‌تواند قطع شده باشد، یا در مرحله‌ای کُند مانده باشد. آنچه معلوم است این است که اجرای بعدی می‌تواند برشان دارد و از همان نقطهٔ ثبت‌شده ادامه دهد.', 'tecteb-marketplace-core'));
+            echo Components::notice('warning', __('چند کار «بی‌صاحب» مانده‌اند: مهلت قفلشان تمام شده و هیچ کارگری نگهشان نداشته.', 'tecteb-marketplace-core'));
+            echo Components::moreDetails([
+                // ⛔ KEPT WORD FOR WORD, because this is the sentence that
+                // forbids the inference «so the worker is dead» (`alpha.76`).
+                __('چرایش از این ردیف مشخص نمی‌شود — درخواست می‌تواند قطع شده باشد، یا در مرحله‌ای کُند مانده باشد.', 'tecteb-marketplace-core'),
+                __('آنچه معلوم است این است که اجرای بعدی می‌تواند برشان دارد و از همان نقطهٔ ثبت‌شده ادامه دهد.', 'tecteb-marketplace-core'),
+            ]);
         }
         if ((int) ($census['failed'] ?? 0) > 0) {
             echo Components::notice('warning', __('کار شکست‌خورده دوباره تلاش نمی‌شود: دستوری که غلط بوده با تکرار درست نمی‌شود. دلیلش را در فهرست زیر ببینید و اگر رفع شد، کار تازه‌ای در صف بگذارید.', 'tecteb-marketplace-core'));
@@ -586,7 +599,9 @@ final class QueuePage
         }
         return sprintf(
             /* translators: %s: the jobs and the times their leases run out */
-            __('چیزی اجرا نشد، ولی صف خالی نیست: قفل این کارها در دست یک کارگر است و تا پایان مهلتش کسی سراغشان نمی‌رود (%s). اگر آن کارگر دیگر وجود ندارد — مثلاً درخواستش نیمه‌کاره قطع شده — دکمهٔ «ادامه از همین نقطه» در همان ردیف مهلت را همین حالا تمام می‌کند و یک دسته را از همان جای ثبت‌شده اجرا می‌کند.', 'tecteb-marketplace-core'),
+            __('چیزی اجرا نشد، ولی صف خالی نیست: قفل این کارها در دست یک کارگر است و تا پایان مهلتش کسی سراغشان نمی‌رود (%s).', 'tecteb-marketplace-core')
+            . ' ' . __('اگر آن کارگر دیگر وجود ندارد — مثلاً درخواستش نیمه‌کاره قطع شده —', 'tecteb-marketplace-core')
+            . ' ' . __('دکمهٔ «ادامه از همین نقطه» در همان ردیف مهلت را همین حالا تمام می‌کند و یک دسته را از همان جای ثبت‌شده اجرا می‌کند.', 'tecteb-marketplace-core'),
             implode('، ', $held)
         );
     }
@@ -619,7 +634,8 @@ final class QueuePage
         $out = '<section class="tmc-card"><h2 class="tmc-card__title">'
             . esc_html__('مسیر ورود: این سایت چه چیزی روی آن دارد', 'tecteb-marketplace-core') . '</h2>';
         $out .= '<p class="tmc-field__desc">'
-            . esc_html__('این بخش فقط می‌خواند: هیچ گزینه، ردیف، فایل یا تماس خارجی‌ای از آن ساخته نمی‌شود. اعدادش از همین درخواست وب گرفته شده‌اند، پس مهلت PHP اینجا همان چیزی است که یک بازدید واقعی می‌گیرد — نه عددی که WP-CLI گزارش می‌کند.', 'tecteb-marketplace-core')
+            . esc_html__('این بخش فقط می‌خواند: هیچ گزینه، ردیف، فایل یا تماس خارجی‌ای از آن ساخته نمی‌شود.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('اعدادش از همین درخواست وب گرفته شده‌اند، پس مهلت PHP اینجا همان چیزی است که یک بازدید واقعی می‌گیرد — نه عددی که WP-CLI گزارش می‌کند.', 'tecteb-marketplace-core')
             . '</p>';
 
         $rows = [];
@@ -642,7 +658,13 @@ final class QueuePage
         $out .= '<h3 class="tmc-card__subtitle">'
             . esc_html__('قلاب‌های مسیر، و فایلی که هر callback در آن اعلام شده', 'tecteb-marketplace-core')
             . '</h3><p class="tmc-field__desc">'
-            . esc_html__('این افزونه هیچ درخواست خارجی‌ای نمی‌زند — یک آزمون معماری همین را از کلِ کد می‌سنجد. پس اگر درخواستی منتظر یک سرویس بیرونی بماند، آن تماس از یکی از همین قلاب‌ها می‌آید و فایلِ کنارش می‌گوید از کدام افزونه. ⛔ و این فهرست اثبات نبودِ هر تماس خارجی نیست: کدی که از هیچ‌کدام این قلاب‌ها نگذرد هم می‌تواند تماس بزند، و `pre_http_request` و `http_api_debug` تنها جایی‌اند که هر تماسِ عبوری از HTTP API وردپرس را می‌بینند.', 'tecteb-marketplace-core')
+            // ⛔ The caveat is NOT folded. A list that could be read as «no
+            // outbound call happens here» is exactly the thing that must carry
+            // its own limit in view.
+            . esc_html__('این افزونه هیچ درخواست خارجی‌ای نمی‌زند — یک آزمون معماری همین را از کلِ کد می‌سنجد.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('پس اگر درخواستی منتظر یک سرویس بیرونی بماند، آن تماس از یکی از همین قلاب‌ها می‌آید و فایلِ کنارش می‌گوید از کدام افزونه.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('⛔ و این فهرست اثبات نبودِ هر تماس خارجی نیست: کدی که از هیچ‌کدام این قلاب‌ها نگذرد هم می‌تواند تماس بزند.', 'tecteb-marketplace-core')
+            . ' ' . esc_html__('`pre_http_request` و `http_api_debug` تنها جایی‌اند که هر تماسِ عبوری از HTTP API وردپرس را می‌بینند.', 'tecteb-marketplace-core')
             . '</p><ul class="tmc-list">';
         foreach (IntakeDiagnostics::hooks() as $hook) {
             $out .= '<li><code>' . esc_html($hook['hook']) . '</code> — '

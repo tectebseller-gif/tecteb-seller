@@ -90,7 +90,29 @@ final class VendorDashboard
          * concluded they belonged to no shop and offered them a registration
          * form for the shop they work in.
          */
-        public readonly ?VendorStaffStanding $staffStanding = null
+        public readonly ?VendorStaffStanding $staffStanding = null,
+        /**
+         * Whether this shop's file came in from Dokan rather than through an
+         * application.
+         *
+         * ⛔ THIS IS WHY SHOP #102 WAS SHOWN A REGISTRATION FORM. An imported
+         * profile has no `tmc_vendor_applications` row at all, so
+         * `$shopStatus` is `Draft` — not because anybody drafted anything, but
+         * because there is no file to have a status. `shopIsOpen()` wanted
+         * `Approved`, got `Draft`, and the owner of a shop with a hundred and
+         * eighty-four live products was invited to «شروع درخواست فروشندگی».
+         *
+         * It is a positive fact (the import stamp), not an absence, and the
+         * rule `alpha.97` settled applies: a third answer must be something
+         * that is TRUE, never something that is missing. `$shopCanSell` is
+         * still required on both branches, so no gate is loosened — and for an
+         * imported shop that key can only have been set by
+         * `DecideImportedShopSelling::grant()`, which needs the manager's
+         * capability and writes an audit row. Measured: `setSellingPermission()`
+         * has exactly one caller in `src/`, and `ImportFromDokan` creates every
+         * profile with `canSell` false.
+         */
+        public readonly bool $shopIsImported = false
     ) {
     }
 
@@ -185,6 +207,27 @@ final class VendorDashboard
      */
     public function shopIsOpen(): bool
     {
-        return $this->shopStatus === ApplicationStatus::Approved && $this->shopCanSell;
+        if (!$this->shopCanSell) {
+            // The operational key, required on every branch. A shop that may
+            // not trade gets the file's screen whatever its paperwork says.
+            return false;
+        }
+        return $this->shopStatus === ApplicationStatus::Approved || $this->shopIsImported;
+    }
+
+    /**
+     * Is this an imported shop with no application — the case whose screen must
+     * not offer to start one?
+     *
+     * Deliberately NOT conditioned on `shopCanSell`: shop #40 is imported,
+     * expired and `can_sell = false`, and it needs the true sentence too. What
+     * it must not get is the invitation, because an application created here
+     * would answer `application_exists` to
+     * `DecideImportedShopSelling::eligibility()` and close the manager's own
+     * door to granting or withdrawing selling for this shop.
+     */
+    public function isImportedWithoutApplication(): bool
+    {
+        return $this->shopIsImported && $this->workspace->application === null;
     }
 }
