@@ -28,7 +28,12 @@ fi
 # bundle the owner receives without them is a bundle that cannot answer
 # «what is left to do» — plus the five `alpha.105` added, which are the only
 # place this round's verdict, its Not Run rows and its measured figures are
-# written down.
+# written down — plus the four `alpha.106` added, for a reason this script's
+# own header already gives: its mandate's §4 asks for the findings table, the
+# entry-point matrix, the three read-only staging steps and the measured test
+# figures, and a bundle that quietly omits one is a bundle the reader cannot
+# notice is short. Each round's `TEST-EVIDENCE-*` stays listed beside its
+# predecessor on purpose: the older one is what the owner compares against.
 REQUIRED_DOCS="
 FINAL-RELEASE-CLOSURE-FA.md
 FEATURE-COMPLETENESS-MATRIX-FA.md
@@ -54,6 +59,10 @@ STAGING-ACCEPTANCE-NEXT-FA.md
 PRODUCTION-GO-NOGO-FA.md
 FIELD-EVIDENCE-RECONCILIATION-FA.md
 TEST-EVIDENCE-ALPHA105-FA.md
+TEST-EVIDENCE-ALPHA106-FA.md
+SOURCE-AUDIT-FINDINGS-ALPHA106-FA.md
+VARIABLE-PRODUCT-ENTRY-POINTS-FA.md
+STAGING-ACCEPTANCE-ALPHA106-FA.md
 "
 
 # Read-only tools only, and the list is the one the tests vouch for.
