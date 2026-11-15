@@ -39,3 +39,11 @@ tree: 9f81ed5 (+ uncommitted work)
     falsified
 
 problems: 0
+
+=== SECOND RUN: the mutations that survived, after the holes were closed ===
+MUTATION 3 writeAndVerifyStock drops the refusal (second run)
+    expected red in: database
+    measured: database:1
+    restored byte-for-byte: b6705df38393f7f5228ec0cc748a87cc57df04a6dd77c8dbd28d1728c1b7f070
+    falsified
+
