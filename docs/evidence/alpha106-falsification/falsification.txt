@@ -81,3 +81,15 @@ tree: 532244c (+ uncommitted work)
 
 --- 14/21  the shop page never prints the range
     file: src/Modules/Vendor/Presentation/StorePageView.php
+    expected red in: contract
+    measured: contract:2
+    falsified
+
+--- 15/21  the range is grouped with the other separator
+    file: src/Modules/Vendor/Presentation/StorePageView.php
+    expected red in: contract
+    measured: contract:2
+    falsified
+
+--- 16/21  the REST row always claims the figures are its own
+    file: src/Modules/Operations/Infrastructure/Rest/MarketplaceController.php
