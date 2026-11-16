@@ -4,6 +4,8 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Tests\Database;
 
 use Tecteb\Marketplace\Contracts\DatabaseInterface;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0019BaselineAndDecisions;
 use Tecteb\Marketplace\Tests\Support\FailingDatabase;
 use Tecteb\Marketplace\Tests\Support\InterferingDatabase;
 use Tecteb\Marketplace\Core\Audit\AuditEventSanitizer;
@@ -427,6 +429,377 @@ final class ProductFlowTest extends DatabaseTestCase
         self::assertSame('دستکش لاتکس', $live?->details->title);
         self::assertSame(ProductRevision::REJECTED, $this->revisions->find($revisionId)?->status);
         self::assertNull($this->revisions->pendingFor($productId));
+    }
+
+    /**
+     * ⛔ §3: «آیا بعد از رد تغییرات، محصول واقعاً به وضعیت قبلی برگشته یا فقط
+     * فرم عادی شده؟» — and the honest answer is stronger than «it went back».
+     *
+     * It never moved. A proposal is a row in `tmc_product_revisions`; the
+     * published product is not written until a manager approves one. So there
+     * is nothing to restore and `rejectRevision()` has nothing to undo — which
+     * is why it touches neither the product table nor the shop, and why the
+     * owner's screen going back to normal is not a coincidence.
+     *
+     * The test above this one pins the two facts a reader would check by eye.
+     * This pins the whole of it: every column of the row, byte for byte, and
+     * the projector's own record of what it was asked to write.
+     */
+    public function testRejectingAProposalChangesNothingAboutTheProductAtAll(): void
+    {
+        $productId = $this->publish(self::VENDOR);
+        $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('عنوان تازه'),
+            [],
+            $this->galleryOf($productId),
+            $this->mainOf($productId),
+            $this->stampOf($productId)
+        );
+        $revisionId = $this->revisions->pendingFor($productId)?->id ?? 0;
+        self::assertGreaterThan(0, $revisionId, 'the proposal exists to be rejected');
+
+        // Every column, read raw — a comparison of two `Product` objects would
+        // only cover what the repository happens to map today.
+        $before = $this->rawProduct($productId);
+        $statusesBefore = $this->projector->statuses;
+        $pricesBefore = $this->projector->pricePushes;
+
+        self::assertTrue($this->review->rejectRevision($revisionId, 'فعلاً نه.')->ok);
+
+        self::assertSame($before, $this->rawProduct($productId), 'not one column of the product moved');
+        self::assertSame($statusesBefore, $this->projector->statuses, 'and the shop was never written to');
+        self::assertSame($pricesBefore, $this->projector->pricePushes);
+        // What DID change is the one thing that should: the request has an
+        // answer, and it is not pending any more.
+        self::assertSame(ProductRevision::REJECTED, $this->revisions->find($revisionId)?->status);
+        self::assertNull($this->revisions->pendingFor($productId));
+    }
+
+    /**
+     * §۵ — «نسخهٔ کهنه»: دو ذخیرهٔ هم‌زمان، و دو **کدِ متفاوت** برای دو واقعیت.
+     *
+     * ⛔ WHY THIS TEST DID NOT EXIST, WHICH IS THE POINT OF IT. The optimistic
+     * lock itself has been tested since `alpha.14`: `ConcurrentSaveTest` proves
+     * the REPOSITORY refuses the second writer, in the `WHERE` clause rather
+     * than in PHP. What nothing asserted was the CODE the vendor is handed,
+     * and `refusedOrFailed()`'s own docblock says why that matters:
+     *
+     *   «The distinction matters to the person reading the message.
+     *    «Somebody else saved this» sends them to look at the product;
+     *    «the save failed» sends them to support.»
+     *
+     * So a refactor that collapsed both into `storage_failed` would keep every
+     * green test it has and send a vendor whose colleague just saved the same
+     * product to open a support ticket. Measured before writing this: the
+     * string `stale_revision` appears in `src/` four times and in `tests/`
+     * ZERO times — only in a probe under `tests/Support/`, which no suite runs.
+     */
+    public function testTheLoserOfTwoSimultaneousSavesIsToldWhoWonRatherThanThatItFailed(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        // Both editors opened the form at the same moment, so both forms carry
+        // the same stamp.
+        $held = $this->stampOf($productId);
+
+        $first = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('کارِ اول'),
+            [],
+            [],
+            0,
+            $held
+        );
+        self::assertTrue($first->ok, 'the first editor wins');
+
+        $second = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('کارِ دوم'),
+            [],
+            [],
+            0,
+            $held
+        );
+        self::assertFalse($second->ok);
+        self::assertSame('stale_revision', $second->code, 'not storage_failed — a person reads this');
+        // And it says what they are holding against what is there now, because
+        // «somebody else saved it» without the two versions is not actionable.
+        self::assertSame($held, (string) ($second->context['submitted_revision'] ?? ''));
+        self::assertNotSame($held, (string) ($second->context['current_revision'] ?? ''));
+
+        self::assertSame('کارِ اول', $this->products->find($productId)?->details->title);
+    }
+
+    /**
+     * The control, and without it the test above would pass on a build that
+     * answers `stale_revision` to everything.
+     *
+     * ⛔ AND THE FIRST VERSION OF THIS CONTROL MEASURED THE WRONG THING, which
+     * is worth recording because the mistake is the one this repository keeps
+     * paying for. It sent an EMPTY stamp, reasoning that «nothing to compare»
+     * must fall to `storage_failed` — and it got `revision_missing`, because
+     * from `alpha.15` a save of an existing product with no usable version is
+     * refused BEFORE any write is attempted. That path never reaches
+     * `refusedOrFailed()` at all, so the control was about a different guard.
+     *
+     * The real distinction needs a stamp that is VALID and a write that fails
+     * anyway: then the row's counter has not moved, `$current` equals what the
+     * form held, nobody else saved anything, and the honest answer is the
+     * other one.
+     */
+    public function testASaveThatFailsWhileNobodyElseWroteIsNotCalledAConflict(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failWhen(['UPDATE', M0005CreateProductTables::PRODUCTS]);
+
+        $result = $this->manageOver($failing)->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('هر چیزی'),
+            [],
+            [],
+            0,
+            $this->stampOf($productId) // a real form's stamp, still current
+        );
+        self::assertFalse($result->ok);
+        self::assertSame(
+            'storage_failed',
+            $result->code,
+            'nobody else wrote, so this is a failure and not a conflict'
+        );
+    }
+
+    /**
+     * And the third answer, so that all three of this one method's outcomes
+     * are pinned rather than two of them.
+     *
+     * A form with no stamp at all is refused earlier and by name, which is
+     * what makes the control above honest: three inputs, three codes, and a
+     * person is sent to three different places.
+     */
+    public function testAFormCarryingNoVersionAtAllIsRefusedByItsOwnName(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        $result = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('هر چیزی'),
+            [],
+            [],
+            0,
+            '' // an older release rendered this form
+        );
+        self::assertFalse($result->ok);
+        self::assertSame('revision_missing', $result->code);
+    }
+
+    /**
+     * §۵ و §۱۲ — هفده کدِ ردی که **هیچ آزمونی assert نمی‌کرد**، و سه‌تایشان
+     * که مهم‌ترین‌اند.
+     *
+     * ⛔ HOW THIS WAS FOUND, because it was a measurement and not a reading.
+     * Every `failure('...')` literal in the four vendor-facing product
+     * services was extracted and looked for across all four suites:
+     *
+     *   for c in $(grep -ohE "failure\('[a-z_]+'" <file>); do
+     *       grep -rl "'$c'" tests/Database tests/WordPressContract \
+     *                        tests/Unit tests/Architecture
+     *   done
+     *
+     * Seventeen came back with zero hits. A code nobody asserts is a code a
+     * refactor may rename, collapse or stop producing with every suite still
+     * green — and `alpha.59`'s lesson applies: the vendor reads the sentence
+     * attached to that code, so «the guard still exists» and «the person is
+     * still told which guard» are two different properties.
+     *
+     * These three are the ones where a silent change costs money or a
+     * published product. The remaining fourteen are named in
+     * `docs/REGRESSION-PROCESS-FA.md` with the reason each was left: they are
+     * validation refusals on a form field, and the form does not let a value
+     * past them in the first place.
+     */
+    public function testASalePriceAboveTheRegularPriceIsRefusedByName(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        $details = $this->details('دستکش', 200000)->with([
+            'salePriceMinor' => 300000,
+        ]);
+
+        $result = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $details,
+            [],
+            [],
+            0,
+            $this->stampOf($productId)
+        );
+        self::assertFalse($result->ok);
+        self::assertSame('bad_sale_price', $result->code);
+        // And nothing was written: a refusal that half-saves is the shape
+        // `alpha.31` spent a whole round removing.
+        self::assertSame(200000, $this->products->find($productId)?->details->priceMinor);
+        self::assertNull($this->products->find($productId)?->details->salePriceMinor);
+    }
+
+    /** The other half of the same guard: a window that ends before it starts. */
+    public function testASaleWindowThatEndsBeforeItStartsIsRefusedByItsOwnName(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        $details = $this->details('دستکش', 200000)->with([
+            'salePriceMinor' => 150000,
+            'saleFrom' => '2026-12-01',
+            'saleTo' => '2026-11-01',
+        ]);
+
+        $result = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $details,
+            [],
+            [],
+            0,
+            $this->stampOf($productId)
+        );
+        self::assertFalse($result->ok);
+        self::assertSame(
+            'bad_sale_window',
+            $result->code,
+            'not bad_sale_price — the price is fine and the dates are not'
+        );
+        self::assertNull($this->products->find($productId)?->details->salePriceMinor);
+    }
+
+    /**
+     * An archived product is not editable, and the vendor is told that rather
+     * than «not found».
+     *
+     * ⛔ The distinction is the whole point: «not found» sends somebody to
+     * look for a product they can see in their own list.
+     */
+    public function testAnArchivedProductIsRefusedByNameRatherThanCalledMissing(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        self::assertTrue($this->review->reject($productId, 'به درخواست فروشنده')->ok);
+
+        $result = $this->manage->save(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            $this->details('تلاش برای ویرایش'),
+            [],
+            [],
+            0,
+            $this->stampOf($productId)
+        );
+        self::assertFalse($result->ok);
+        self::assertSame('product_archived', $result->code);
+        self::assertNotSame('تلاش برای ویرایش', $this->products->find($productId)?->details->title);
+    }
+
+    /**
+     * ⛔ AND ONE GUARD THAT NO FIXTURE IN THIS REPOSITORY COULD REACH, which
+     * is a worse finding than an unasserted code.
+     *
+     * `ReviewProducts` takes its decision trail as a NULLABLE constructor
+     * argument, and every test in this repository — measured, all of them —
+     * passes `null`. So `if ($this->decisions !== null && !record(...))` short
+     * circuits before the interesting half, and `decision_not_recorded` was
+     * not merely unasserted: it was **unreachable**. `alpha.105` and
+     * `alpha.80` both say the same thing about that shape — a guard that
+     * cannot be reached in a healthy fixture is indistinguishable from a guard
+     * that is not there.
+     *
+     * So this test wires a REAL decision repository over a gateway that
+     * refuses exactly one write, and reads the code the manager is handed.
+     * The trail is the only place the manager's own sentence lives, and a
+     * status chip with no message is the complaint that table was built for.
+     */
+    public function testAStatusChangeWhoseTrailWasNotWrittenIsSaidOutLoud(): void
+    {
+        $productId = $this->readyProduct(self::VENDOR);
+        // `requestChanges` answers a product that has been SUBMITTED; from any
+        // other state the state machine refuses first and this guard is never
+        // reached — which is the same shape of unreachability the docblock
+        // above is about, one layer up.
+        self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $productId)->ok);
+
+        $failing = new FailingDatabase(new WpDatabase($this->wpdb));
+        $failing->failWhen(['INSERT INTO', M0019BaselineAndDecisions::DECISIONS]);
+        $clock = new SystemClock();
+
+        $review = new ReviewProducts(
+            $this->products,
+            $this->revisions,
+            $this->templates,
+            new ProductReadiness($this->templates, $this->variations),
+            $this->catalog,
+            $this->publishing,
+            new ProductStateMachine(),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $this->capabilities,
+            null,
+            new DbProductDecisionRepository($failing, $clock)
+        );
+
+        $result = $review->requestChanges($productId, 'عنوان را کوتاه‌تر کنید.');
+        self::assertFalse($result->ok);
+        self::assertSame('decision_not_recorded', $result->code);
+        // ⛔ AND THE CONTEXT SAYS THE DECISION ITSELF WENT THROUGH, which is a
+        // deliberate partial outcome rather than the `alpha.31` shape it looks
+        // like at first. The status write and the shop have already followed
+        // the manager; only the sentence they typed did not get stored. The
+        // first version of this test assumed otherwise and used the SAME
+        // product for the control, which then failed on `invalid_transition`
+        // — a correct answer about a product that had already moved.
+        self::assertSame('yes', (string) ($result->context['applied'] ?? ''));
+        self::assertSame(
+            ProductStatus::ChangesRequested,
+            $this->products->find($productId)?->status,
+            'the decision was applied; it is the trail that was lost'
+        );
+
+        // The control that makes it mean something, on a product that has not
+        // been decided yet: the same call over a working trail succeeds.
+        $second = $this->readyProduct(self::VENDOR, 'دستکش دوم', 'SKU-TRAIL');
+        self::assertTrue($this->manage->submit(self::VENDOR, self::VENDOR, $second)->ok);
+        $healthy = new ReviewProducts(
+            $this->products,
+            $this->revisions,
+            $this->templates,
+            new ProductReadiness($this->templates, $this->variations),
+            $this->catalog,
+            $this->publishing,
+            new ProductStateMachine(),
+            new AuditLogger(new WpAuditRepository($this->wpdb), new AuditEventSanitizer(), $clock),
+            $this->capabilities,
+            null,
+            new DbProductDecisionRepository(new WpDatabase($this->wpdb), $clock)
+        );
+        self::assertTrue($healthy->requestChanges($second, 'عنوان را کوتاه‌تر کنید.')->ok);
+    }
+
+    /** One product row, every column, as the database holds it. */
+    private function rawProduct(int $productId): array
+    {
+        $table = $this->wpdb->prefix . M0005CreateProductTables::PRODUCTS;
+        $row = $this->wpdb->get_row(
+            $this->wpdb->prepare("SELECT * FROM `{$table}` WHERE id = %d", $productId),
+            ARRAY_A
+        );
+        self::assertIsArray($row, 'the product is still there');
+        return $row;
     }
 
     /**

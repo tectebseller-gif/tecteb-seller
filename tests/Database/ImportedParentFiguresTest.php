@@ -27,6 +27,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontPriceRange;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
+use Tecteb\Marketplace\Modules\Product\Presentation\ProductMessages;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariation;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
@@ -71,6 +72,9 @@ final class ImportedParentFiguresTest extends DatabaseTestCase
     private const VENDOR = 102;
     private const MANAGER = 9;
     private const WC_PARENT = 7700;
+
+    /** A second synthetic shop id: an ordinary product of ours, not an imported parent. */
+    private const WC_OURS = 7720;
 
     private DbProductRepository $products;
     private DbVariationRepository $variations;
@@ -917,5 +921,175 @@ final class ImportedParentFiguresTest extends DatabaseTestCase
         $origin = $this->catalog->priceAndStockOrigin($productId);
         self::assertSame(PriceAndStockOrigin::OURS, $origin->state);
         self::assertNotSame('parent_figures_live_in_shop', $this->catalog->pushPrice($productId)->code);
+    }
+
+    /**
+     * ⛔ §3: A TYPE FLIP ON A PRODUCT THAT IS ALREADY IN THE SHOP.
+     *
+     * The guard above covers a parent whose combinations are the shop's. This
+     * is the other half, and it is the one the owner walked into: an ORDINARY
+     * marketplace product — ours, simple, published, linked — flipped to
+     * variable. `PriceAndStockOrigin` answers `simple_product`, so
+     * `isOurs()` is true and `alpha.107` accepted it, recorded a proposal and
+     * let a manager approve it.
+     *
+     * Nothing then happened in the shop, and nothing could: `project()` takes
+     * `$linked ?? $this->blank($product)` and `blank()` is the only place a
+     * WooCommerce class is chosen, so an existing product keeps the class it
+     * was created with. The row would say `variable` beside a simple shop
+     * product, and every combination built afterwards would stop at
+     * `projectVariations()`'s `instanceof WC_Product_Variable` guard —
+     * accepted, queued, approved and invisible to a buyer.
+     *
+     * Refused by name, before any write, with the way out in the sentence.
+     */
+    public function testFlippingOurOwnLinkedProductToVariableIsRefusedByName(): void
+    {
+        $productId = $this->ourLinkedSimpleProduct();
+        $statusesBefore = $this->projector->statuses;
+
+        $saved = $this->manage->save(self::VENDOR, self::VENDOR, $productId, new ProductDetails(
+            title: 'باند کشی سرمد',
+            type: ProductType::VARIABLE,
+            categoryKey: '9559',
+            priceMinor: 450000,
+            sku: 'OURS-LINKED',
+            stock: 7
+        ), [], [], 0, $this->products->rowVersion($productId));
+
+        self::assertFalse($saved->ok, 'the kind of a product already in the shop is not changed from here');
+        self::assertSame('type_change_needs_new_product', $saved->code);
+        self::assertSame(ProductType::SIMPLE, $saved->context['from']);
+        self::assertSame(ProductType::VARIABLE, $saved->context['to']);
+
+        // NOTHING WRITTEN, which is what «بدون partial write» means here: the
+        // row's type, no proposal, and no projection.
+        $row = $this->products->find($productId);
+        self::assertNotNull($row);
+        self::assertSame(ProductType::SIMPLE, $row->details->type, 'the row keeps its kind');
+        self::assertSame('باند کشی سرمد', $row->details->title, 'and nothing else moved either');
+        self::assertNull($this->revisions->pendingFor($productId), 'no proposal was recorded');
+        self::assertSame($statusesBefore, $this->projector->statuses, 'and the shop was not touched');
+    }
+
+    /**
+     * ⛔ AND THE REFUSAL HAS A SENTENCE, which is the other defect this round
+     * measured: `VendorMessages::notice()` ends in `default => «انجام شد.»`,
+     * so a code no catalogue knows is printed to the vendor as DONE.
+     */
+    public function testTheRefusalIsAnErrorWithItsOwnSentence(): void
+    {
+        $text = ProductMessages::notice('type_change_needs_new_product', []);
+        self::assertNotNull($text, 'a refusal with no sentence prints as «انجام شد.»');
+        self::assertStringContainsString('محصول تازه', (string) $text, 'and it says what to do instead');
+        self::assertStringContainsString('هیچ چیزی ذخیره نشد', (string) $text);
+        self::assertTrue(ProductMessages::isErrorNotice('type_change_needs_new_product'));
+
+        // The guard `alpha.106` shipped as its P0 was in the same state.
+        $figures = ProductMessages::notice('parent_figures_live_in_shop', ['fields' => 'price، stock']);
+        self::assertNotNull($figures);
+        self::assertStringContainsString('قیمت', (string) $figures, 'and it names the fields in Persian');
+        self::assertStringContainsString('موجودی', (string) $figures);
+        self::assertStringNotContainsString('price', (string) $figures, 'never the raw keys');
+    }
+
+    /**
+     * THE CONTROL: before the product reaches the shop, either kind is free.
+     *
+     * Without this the guard above is indistinguishable from «a vendor can
+     * never make a variable product», which would remove the capability §3
+     * asks for in its first sentence.
+     */
+    public function testADraftThatHasNotReachedTheShopMayStillChooseItsKind(): void
+    {
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'ست پانسمان',
+            type: ProductType::SIMPLE,
+            categoryKey: '9559',
+            priceMinor: 120000,
+            sku: 'FRESH-DRAFT',
+            stock: 3
+        ));
+        self::assertTrue($created->ok, $created->code);
+        $productId = (int) $created->context['product_id'];
+
+        $flipped = $this->manage->save(self::VENDOR, self::VENDOR, $productId, new ProductDetails(
+            title: 'ست پانسمان',
+            type: ProductType::VARIABLE,
+            categoryKey: '9559',
+            priceMinor: 120000,
+            sku: 'FRESH-DRAFT',
+            stock: 3
+        ), [], [], 0, $this->products->rowVersion($productId));
+
+        self::assertTrue($flipped->ok, $flipped->code);
+        self::assertSame(
+            ProductType::VARIABLE,
+            $this->products->find($productId)?->details->type,
+            'a draft with no shop product behind it is still either kind'
+        );
+    }
+
+    /**
+     * And the approval end refuses it too — because a proposal recorded on
+     * `alpha.107` bytes can already be waiting in the queue.
+     *
+     * Written DIRECTLY, for the reason `alpha.91` gives: `save()` now refuses
+     * it, so only an older build could have produced this row.
+     */
+    public function testAQueuedFlipOnOurOwnLinkedProductCannotBeApprovedEither(): void
+    {
+        $productId = $this->ourLinkedSimpleProduct();
+        $statusesBefore = $this->projector->statuses;
+        $revisionId = $this->revisionFor($productId, [
+            'title' => 'باند کشی سرمد',
+            'type' => ProductType::VARIABLE,
+            'categoryKey' => '9559',
+            'priceMinor' => 450000,
+            'sku' => 'OURS-LINKED',
+            'stock' => 7,
+        ]);
+
+        $approved = $this->review->approveRevision($revisionId);
+
+        self::assertFalse($approved->ok, 'approval is the one path that writes a payload onto a live product');
+        self::assertSame('type_change_needs_new_product', $approved->code);
+        self::assertSame(
+            ProductType::SIMPLE,
+            $this->products->find($productId)?->details->type,
+            'the live row keeps its kind'
+        );
+        self::assertSame($statusesBefore, $this->projector->statuses);
+        self::assertNotNull($this->revisions->pendingFor($productId), 'and the request is still there to be answered');
+    }
+
+    /**
+     * An ordinary marketplace product: ours, simple, published and linked.
+     *
+     * The published status and the link are set by SQL for the same reason
+     * `importedParent()` gives — the shape is what matters here, and walking
+     * the whole submit-and-approve path would measure that path instead.
+     */
+    private function ourLinkedSimpleProduct(): int
+    {
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'باند کشی سرمد',
+            type: ProductType::SIMPLE,
+            categoryKey: '9559',
+            priceMinor: 450000,
+            sku: 'OURS-LINKED',
+            stock: 7
+        ));
+        self::assertTrue($created->ok, $created->code);
+        $productId = (int) $created->context['product_id'];
+
+        $table = $this->wpdb->prefix . M0005CreateProductTables::PRODUCTS;
+        $this->wpdb->query($this->wpdb->prepare(
+            "UPDATE `{$table}` SET `status` = 'published', `wc_product_id` = %d WHERE `id` = %d",
+            self::WC_OURS,
+            $productId
+        ));
+        $this->projector->links[$productId] = self::WC_OURS;
+        return $productId;
     }
 }

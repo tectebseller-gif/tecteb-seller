@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Tecteb\Marketplace\Modules\Product\Presentation;
 
 use Tecteb\Marketplace\Core\Support\PersianDigits;
+use Tecteb\Marketplace\Modules\Product\Domain\FieldSummary;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 
 /**
@@ -87,13 +88,21 @@ final class ProductConflictView
         foreach ($rows as $field => [$storedValue, $typedValue]) {
             $html .= '<tr>'
                 . '<td>' . esc_html(ProductMessages::field($field)) . '</td>'
-                . '<td>' . esc_html($storedValue === '' ? '—' : $storedValue) . '</td>'
-                . '<td><strong>' . esc_html($typedValue === '' ? '—' : $typedValue) . '</strong></td>'
+                . '<td>' . self::cell($storedValue, false) . '</td>'
+                . '<td>' . self::cell($typedValue, true) . '</td>'
                 . '</tr>';
         }
+        // ⛔ «اقدام بعدی به زبان ساده» — AND IT WAS THE REFUSAL'S SENTENCE ON
+        // BOTH. «The form below holds your values; if you want to keep the
+        // stored one, type it and save» is true of a refused save and false of
+        // a pending proposal: nothing is waiting to be re-saved, the manager
+        // has the request, and saving again REPLACES it rather than resolving
+        // it. One branch, the same shape as the heading above.
         return $html . '</tbody></table></div>'
             . '<p class="tv-hint">'
-            . esc_html__('فرم پایین مقدارهای شماست. اگر درست‌اند، ذخیره کنید؛ اگر مقدار ثبت‌شده را می‌خواهید نگه دارید، همان را در فرم بنویسید و بعد ذخیره کنید.', 'tecteb-marketplace-core')
+            . esc_html($proposal
+                ? __('تا تصمیم مدیر، نسخهٔ منتشرشده برای خریدار تغییر نمی‌کند. اگر این درخواست را نمی‌خواهید، مقدار منتشرشده را در فرم بنویسید و ذخیره کنید؛ ذخیرهٔ دوباره جای همین درخواست را می‌گیرد.', 'tecteb-marketplace-core')
+                : __('فرم پایین مقدارهای شماست. اگر درست‌اند، ذخیره کنید؛ اگر مقدار ثبت‌شده را می‌خواهید نگه دارید، همان را در فرم بنویسید و بعد ذخیره کنید.', 'tecteb-marketplace-core'))
             . '</p></div>';
     }
 
@@ -109,6 +118,17 @@ final class ProductConflictView
 
         $pairs = [
             'title' => [$stored->title, $typed->title],
+            // ⛔ THE FIELD THE VENDOR ACTUALLY CHANGED HAS TO BE IN THE LIST.
+            //
+            // The owner flipped a published product from simple to variable
+            // and this table named one field: the long description. `type` is
+            // a property of `ProductDetails`, it travels in the proposal
+            // payload, and `ManageProducts::typeChangeRefusal()` lets it
+            // through when the figures are ours — so a type change IS a
+            // pending request. Worse than unnamed: with nothing else moved,
+            // the table said «هیچ تفاوتی ندارد» about a proposal that asked
+            // to restructure the product.
+            'type' => [ProductMessages::type($stored->type), ProductMessages::type($typed->type)],
             'category' => [$stored->categoryKey, $typed->categoryKey],
             'brand' => [$stored->brand, $typed->brand],
             'price' => [$money($stored->priceMinor), $money($typed->priceMinor)],
@@ -129,5 +149,47 @@ final class ProductConflictView
             }
         }
         return $out;
+    }
+
+    /**
+     * One value, in a form a person can read in a table cell.
+     *
+     * Short and plain goes in as it always did. Anything long, or anything
+     * carrying markup, is FOLDED: a bounded line of its readable text, the
+     * stored value's length, and the rest behind a native `<details>` that
+     * needs no JavaScript. The markup itself is never printed on this screen.
+     *
+     * ⛔ `esc_html()` IS STILL THE BOUNDARY, on every path through here —
+     * including the folded body, which is escaped and only then given its line
+     * breaks. `FieldSummary` decides how much to show; it does not decide what
+     * is safe, and the stored value is not altered by either of them. The
+     * manager's screen keeps the full value, in wp-admin, where it belongs.
+     */
+    private static function cell(string $value, bool $mine): string
+    {
+        if ($value === '') {
+            return '—';
+        }
+        if (!FieldSummary::needsFolding($value)) {
+            return $mine ? '<strong>' . esc_html($value) . '</strong>' : esc_html($value);
+        }
+        $peek = FieldSummary::preview($value);
+        $size = PersianDigits::toPersian(number_format(FieldSummary::characters($value)));
+        return '<details class="tv-long' . ($mine ? ' tv-long--mine' : '') . '">'
+            . '<summary class="tv-long__head">'
+            . '<span class="tv-long__peek">' . esc_html($peek === ''
+                ? __('متنی برای نمایش ندارد؛ فقط نشانه‌گذاری است.', 'tecteb-marketplace-core')
+                : $peek) . '</span>'
+            . '<span class="tv-long__size">' . esc_html(sprintf(
+                FieldSummary::carriesMarkup($value)
+                    /* translators: %s: how many characters the stored value has */
+                    ? __('%s کاراکتر، شامل نشانه‌گذاری HTML', 'tecteb-marketplace-core')
+                    : __('%s کاراکتر', 'tecteb-marketplace-core'),
+                $size
+            )) . '</span>'
+            . '</summary>'
+            . '<div class="tv-long__body">' . nl2br(esc_html(FieldSummary::text($value))) . '</div>'
+            . '<p class="tv-hint">' . esc_html__('این متن برای خواندن و بدون نشانه‌گذاری نشان داده می‌شود. آنچه ذخیره شده دست‌نخورده است و مدیر نسخهٔ کامل را می‌بیند.', 'tecteb-marketplace-core') . '</p>'
+            . '</details>';
     }
 }

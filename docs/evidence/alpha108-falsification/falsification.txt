@@ -1,0 +1,153 @@
+=== falsification: 18 mutations, from 1 ===
+php: 8.3.6
+
+--- M1: the long value is dumped into the cell again, as alpha.106 did
+    file: src/Modules/Product/Presentation/ProductConflictView.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 507, Assertions: 2980, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M2: the type row is dropped from the comparison
+    file: src/Modules/Product/Presentation/ProductConflictView.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 507, Assertions: 2987, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M3: a proposal is given the refusal's next-step sentence again
+    file: src/Modules/Product/Presentation/ProductConflictView.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 507, Assertions: 2989, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M4: nothing is ever long enough to fold
+    file: src/Modules/Product/Domain/FieldSummary.php   expect: unit + contract
+applied
+    unit:  FAILURES! Tests: 965, Assertions: 606499, Failures: 2. 
+    contract:  FAILURES! Tests: 507, Assertions: 2980, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M5: the folded body keeps its markup instead of being readable text
+    file: src/Modules/Product/Domain/FieldSummary.php   expect: unit
+applied
+    unit:  FAILURES! Tests: 965, Assertions: 606498, Failures: 3. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M6: the preview is not cut, so a cell gets the whole thing
+    file: src/Modules/Product/Domain/FieldSummary.php   expect: unit
+applied
+    unit:  FAILURES! Tests: 965, Assertions: 606499, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M7: the one-line preview loses its rule, so the cell is four lines
+    file: assets/vendor/tmc-vendor.css   expect: architecture
+snippet occurs 2 times in assets/vendor/tmc-vendor.css, refusing
+    NOT APPLIED — this is a FAILURE, not an unbreakable guard
+
+--- M8: the type rule permits everything
+    file: src/Modules/Product/Domain/ProductTypeChange.php   expect: unit + database:ImportedParentFiguresTest
+applied
+    unit:  FAILURES! Tests: 965, Assertions: 606498, Failures: 2. 
+    database[ImportedParentFiguresTest]: /home/user/tecteb-seller/tests/Database/ImportedParentFiguresTest.php:1056  FAILURES! Tests: 26, Assertions: 111, Failures: 5. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M9: only the imported half of the rule survives
+    file: src/Modules/Product/Domain/ProductTypeChange.php   expect: unit + database:ImportedParentFiguresTest
+applied
+    unit:  FAILURES! Tests: 965, Assertions: 606500, Failures: 1. 
+    database[ImportedParentFiguresTest]: /home/user/tecteb-seller/tests/Database/ImportedParentFiguresTest.php:1056  FAILURES! Tests: 26, Assertions: 128, Failures: 2. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M10: ManageProducts stops asking the rule
+    file: src/Modules/Product/Application/ManageProducts.php   expect: database:ImportedParentFiguresTest
+applied
+    database[ImportedParentFiguresTest]: /home/user/tecteb-seller/tests/Database/ImportedParentFiguresTest.php:960  FAILURES! Tests: 26, Assertions: 124, Failures: 2. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M11: the approval path stops asking the rule, leaving only one point
+    file: src/Modules/Product/Application/ReviewProducts.php   expect: database:ImportedParentFiguresTest
+applied
+    database[ImportedParentFiguresTest]: /home/user/tecteb-seller/tests/Database/ImportedParentFiguresTest.php:1056  FAILURES! Tests: 26, Assertions: 126, Failures: 3. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M12: the projector writes an existing product's type
+    file: src/Modules/Product/Infrastructure/WooCommerce/WooCommerceProjector.php   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 372, Assertions: 7320, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M13: the type-change refusal loses its sentence and prints «Done.»
+    file: src/Modules/Product/Presentation/ProductMessages.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 507, Assertions: 2990, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M14: the parent-figures refusal loses its sentence and prints «Done.»
+    file: src/Modules/Product/Presentation/ProductMessages.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 507, Assertions: 2990, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M15: a conflict is reported as a plain storage failure
+    file: src/Modules/Product/Application/ManageProducts.php   expect: database:ProductFlowTest
+applied
+    database[ProductFlowTest]: /home/user/tecteb-seller/tests/Database/ProductFlowTest.php:530  FAILURES! Tests: 70, Assertions: 579, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M16: a lost decision trail is counted as a clean review
+    file: src/Modules/Product/Application/ReviewProducts.php   expect: database:ProductFlowTest
+applied
+    database[ProductFlowTest]: /home/user/tecteb-seller/tests/Database/ProductFlowTest.php:757  FAILURES! Tests: 70, Assertions: 575, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M17: a sale window that ends before it starts is accepted
+    file: src/Modules/Product/Application/ManageProducts.php   expect: database:ProductFlowTest
+applied
+    database[ProductFlowTest]: /home/user/tecteb-seller/tests/Database/ProductFlowTest.php:675  FAILURES! Tests: 70, Assertions: 580, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M18: rejecting a proposal also writes the product
+    file: src/Modules/Product/Application/ReviewProducts.php   expect: database:ProductFlowTest
+applied
+    database[ProductFlowTest]:   /home/user/tecteb-seller/tests/Database/ProductFlowTest.php:418  ERRORS! Tests: 70, Assertions: 570, Errors: 2, Warnings: 2. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+problems: 1
+=== falsification: mutations 7..7 of 19 ===
+php: 8.3.6
+
+--- M7: the folded body loses its rule, so nothing caps its height
+    file: assets/vendor/tmc-vendor.css   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 374, Assertions: 7326, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+problems: 0
+=== falsification: mutations 19..19 of 19 ===
+php: 8.3.6
+
+--- M19: a block beside .tv-card resets the card's bottom margin again
+    file: assets/vendor/tmc-vendor.css   expect: architecture:CardRhythmIsNotResetTest
+applied
+    architecture:  FAILURES! Tests: 374, Assertions: 7326, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+problems: 0

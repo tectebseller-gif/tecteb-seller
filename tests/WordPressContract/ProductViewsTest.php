@@ -914,6 +914,108 @@ final class ProductViewsTest extends ContractTestCase
         self::assertStringContainsString('فرقی ندارند', $html);
     }
 
+    /**
+     * ⛔ THE DEFECT THE OWNER MEASURED, AND IT IS A DEFECT OF THIS VIEW ONLY.
+     *
+     * A published product whose long description had been pasted from a
+     * rich-text editor carried a few thousand characters of markup. This table
+     * put that value in a cell and escaped it — which is right, and unreadable:
+     * the vendor was shown `data-start` and `data-end` and `<p` twice over, and
+     * the field names the table exists to surface were pushed off the screen.
+     *
+     * So the cell is FOLDED: a bounded line of readable text, how long the
+     * stored value is, and the rest behind a disclosure. The markup itself is
+     * never printed, and the stored value is not touched — `FieldSummary` has
+     * no writer and nothing calls it on the way in.
+     */
+    public function testALongDescriptionIsFoldedRatherThanDumpedIntoTheCell(): void
+    {
+        $long = '<h3 data-start="0" data-end="40">کاربرد دستگاه</h3>'
+            . str_repeat(
+                '<p data-start="41" data-end="320">این دستگاه برای رسوب‌گیری مدارهای آب در تجهیزات پزشکی به کار می‌رود و '
+                . '<strong data-start="99" data-end="130">بدون مواد شیمیایی</strong> عمل می‌کند.</p>',
+                12
+            );
+        self::assertGreaterThan(2000, mb_strlen($long), 'the fixture is the size the owner saw');
+
+        $typed = new ProductDetails(title: 'رسوب‌بر', categoryKey: 'c', priceMinor: 100, description: $long);
+        $stored = new ProductDetails(title: 'رسوب‌بر', categoryKey: 'c', priceMinor: 100, description: $long . '<p>یک بند تازه.</p>');
+
+        $html = ProductConflictView::render($typed, $stored, ProductConflictView::PURPOSE_PROPOSAL);
+
+        // THE MARKUP IS NOT ON THE SCREEN, in any form. `esc_html()` turns
+        // `<p` into `&lt;p` and `data-start="0"` into `data-start=&quot;0&quot;`,
+        // so the attribute name itself is the honest needle: it survives
+        // escaping unchanged and nothing else on this page writes it.
+        self::assertStringNotContainsString('data-start', $html, 'no editor bookkeeping on the vendor screen');
+        self::assertStringNotContainsString('data-end', $html);
+        self::assertStringNotContainsString('&lt;p', $html, 'and no escaped tags either');
+        self::assertStringNotContainsString('&lt;strong', $html);
+
+        // WHAT IS THERE INSTEAD: the field's name, a readable line, the size
+        // of the stored value, and a disclosure holding the rest.
+        self::assertStringContainsString('توضیحات کامل', $html, 'the field is named');
+        self::assertStringContainsString('کاربرد دستگاه', $html, 'and its text can be read');
+        self::assertStringContainsString('<details', $html, 'the long value is folded');
+        self::assertStringContainsString('<summary', $html);
+        self::assertStringContainsString('نشانه‌گذاری', $html, 'and it says the value carries markup');
+
+        // §2 asks for both purposes, and the folding is not a property of one:
+        // a refused save compares the same two long values.
+        $refusal = ProductConflictView::render($typed, $stored);
+        self::assertStringNotContainsString('data-start', $refusal);
+        self::assertStringContainsString('<details', $refusal);
+    }
+
+    /**
+     * The field the vendor actually changed has to be in the list.
+     *
+     * The owner flipped a published product from simple to variable and the
+     * comparison named one field: the long description. `type` is a property of
+     * `ProductDetails`, it travels in the proposal payload, and
+     * `ManageProducts::typeChangeRefusal()` lets it through when the figures are
+     * ours — so a type change IS a pending request, and a table that does not
+     * name it is a table about the wrong thing.
+     */
+    public function testTheTypeChangeIsNamedInTheComparison(): void
+    {
+        $typed = new ProductDetails(title: 'ت', type: 'variable', categoryKey: 'c', priceMinor: 100);
+        $stored = new ProductDetails(title: 'ت', type: 'simple', categoryKey: 'c', priceMinor: 100);
+
+        $html = ProductConflictView::render($typed, $stored, ProductConflictView::PURPOSE_PROPOSAL);
+
+        self::assertStringContainsString('نوع محصول', $html, 'the field is named');
+        self::assertStringContainsString('ساده', $html, 'what is published');
+        self::assertStringContainsString('متغیر', $html, 'and what was asked for');
+        self::assertStringContainsString('۱ فیلد', $html, 'and it is the one field that differs');
+    }
+
+    /**
+     * «اقدام بعدی به زبان ساده» — and it was the refusal's sentence on both.
+     *
+     * The closing hint told the vendor «the form below holds your values; if
+     * you want to keep the stored one, type it and save». True of a refused
+     * save and false of a pending proposal: nothing is waiting to be re-saved,
+     * the manager has it, and re-saving REPLACES the request rather than
+     * resolving it.
+     */
+    public function testTheNextStepSentenceIsTheOneForThisPurpose(): void
+    {
+        $typed = new ProductDetails(title: 'تایپ‌شده', categoryKey: 'c', priceMinor: 100);
+        $stored = new ProductDetails(title: 'ثبت‌شده', categoryKey: 'c', priceMinor: 100);
+
+        $refusal = ProductConflictView::render($typed, $stored);
+        $proposal = ProductConflictView::render($typed, $stored, ProductConflictView::PURPOSE_PROPOSAL);
+
+        self::assertStringContainsString('ذخیره کنید', $refusal, 'a refused save is re-saved');
+        self::assertStringContainsString('مدیر', $proposal, 'a proposal waits for the manager');
+        self::assertStringNotContainsString(
+            'اگر درست‌اند، ذخیره کنید',
+            $proposal,
+            'and it is not told to save again'
+        );
+    }
+
     public function testTheComparisonIsRenderedOnlyForTheRefusalsThatAskForIt(): void
     {
         $typed = new ProductDetails(title: 'تایپ‌شده', categoryKey: 'gloves', priceMinor: 300000);

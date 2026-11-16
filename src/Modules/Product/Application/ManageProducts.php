@@ -13,6 +13,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductTypeChange;
 use Tecteb\Marketplace\Modules\Product\Domain\PurchaseQuantity;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\SensitiveChange;
@@ -357,10 +358,20 @@ final class ManageProducts
             return null;
         }
         $origin = $this->catalog->priceAndStockOrigin($product->id);
-        if ($origin->isOurs()) {
+        // ⛔ ONE RULE, READ AT BOTH ENDS. The reasoning — and the measurement
+        // from the projector that produced it — is in `ProductTypeChange`.
+        // Two copies of this condition is how the two ends disagree, and
+        // `ReviewProducts` reads the same method for the same reason.
+        $refusal = ProductTypeChange::refusal(
+            $product->details->type,
+            $details->type,
+            $product->wcProductId > 0,
+            $origin->isOurs()
+        );
+        if ($refusal === null) {
             return null;
         }
-        return OperationResult::failure('type_change_not_allowed', [
+        return OperationResult::failure($refusal, [
             'product_id' => $product->id,
             'from' => $product->details->type,
             'to' => $details->type,

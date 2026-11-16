@@ -18,6 +18,7 @@ use Tecteb\Marketplace\Modules\Product\Domain\ProductRevision;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductRowVersion;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductTypeChange;
 use Tecteb\Marketplace\Modules\Product\Domain\ProposedBrand;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontField;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontImages;
@@ -1324,10 +1325,20 @@ final class ReviewProducts
             return null;
         }
         $origin = $this->catalog->priceAndStockOrigin($product->id);
-        if ($origin->isOurs()) {
+        // ⛔ THE SAME RULE THE SAVE ASKS, and asked here because a guard that
+        // holds only because the earlier verb asks first is an ordering rather
+        // than a guard (`alpha.98`). A proposal recorded on `alpha.107` bytes
+        // can already be waiting in the queue with a flip in it.
+        $refusal = ProductTypeChange::refusal(
+            $product->details->type,
+            $proposed,
+            $product->wcProductId > 0,
+            $origin->isOurs()
+        );
+        if ($refusal === null) {
             return null;
         }
-        return OperationResult::failure('type_change_not_allowed', [
+        return OperationResult::failure($refusal, [
             'product_id' => $product->id,
             'revision_id' => $revisionId,
             'from' => $product->details->type,

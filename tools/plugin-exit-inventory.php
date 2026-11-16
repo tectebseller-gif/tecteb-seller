@@ -28,6 +28,7 @@
  *   wp eval-file tools/plugin-exit-inventory.php files      # path, header and hash of the active files
  *   wp eval-file tools/plugin-exit-inventory.php intake     # the import path: hooks on it, image sizes, php limits
  *   wp eval-file tools/plugin-exit-inventory.php finance 102  # where one shop's Dokan balances came from, row by row
+ *   wp eval-file tools/plugin-exit-inventory.php product 1234 # one product: its stored text, the kses round trip, the pending proposal
  *
  * **The honest limit of the static «read only» test.** What
  * `tests/Unit/ReadOnlyInventoryTest.php` proves is that THIS FILE contains no
@@ -1029,6 +1030,219 @@ if ($section === 'all' || $section === 'minmax' || $section === 'exit') {
 //
 //   wp eval-file .../plugin-exit-inventory.php finance            # every id with rows
 //   wp eval-file .../plugin-exit-inventory.php finance 102 2 40   # named ids
+// -------------------------------------------------- one product, in detail
+/**
+ * EVERY FACT §2 ASKS FOR ABOUT ONE PRODUCT, measured rather than inferred.
+ *
+ *   wp eval-file tools/plugin-exit-inventory.php product 1234
+ *
+ * The owner's report: a published product was flipped from simple to variable
+ * and the vendor's comparison page filled with raw markup carrying `data-start`
+ * and `data-end`. The display half of that is fixed in code and tested. The
+ * other half — WHY the long description was listed as different at all — is a
+ * fact about one row on one site, and this repository does not have it.
+ *
+ * What is already established, from WordPress's own source rather than from a
+ * guess, so that this section is not asked to prove it again:
+ *
+ *  - `wp_kses_post()` DOES NOT strip `data-*`. `_wp_add_global_attributes()`
+ *    adds `'data-*' => true` to every tag in `$allowedposttags`
+ *    (`wp-includes/kses.php:693` maps it over the whole array), and
+ *    `wp_kses_attr_check()` keeps any attribute matching
+ *    `/^data-[a-z0-9_-]+$/` once that key is present. `data-start` matches.
+ *    So the editor's bookkeeping attributes survive a save, and the first
+ *    hypothesis for the difference is FALSIFIED.
+ *  - What `wp_kses_post()` still MAY change: a bare `&` becomes an entity,
+ *    attribute quoting and inter-attribute spacing are rebuilt, `<br>` becomes
+ *    `<br />`, and any tag or attribute outside the allowed list goes. Which of
+ *    those applies depends on the stored bytes.
+ *
+ * So this section runs that one filter over the stored value and reports
+ * whether it changes it, by how much and WHERE — which answers «آیا ذخیره فرم
+ * محتوا را تغییر داده؟» on the owner's site in one command.
+ *
+ * ⛔ IT WRITES NOTHING. `wp_kses_post()` is a pure string filter; every other
+ * call here reads. The stored description is not altered, re-saved or
+ * normalised, and no window printed below is ever written back.
+ *
+ * ⛔ AND IT PRINTS NO SECRET: the only content shown is a bounded window
+ * around the FIRST difference, from a field that is public on the storefront
+ * anyway. Hashes stand in for the rest.
+ */
+if ($section === 'product') {
+    $productId = (int) ($args[1] ?? 0);
+    $head('product ' . $productId . ' (read only)');
+    if ($productId <= 0) {
+        $line('usage', 'wp eval-file tools/plugin-exit-inventory.php product <tmc_product_id>');
+        return;
+    }
+
+    $products = $wpdb->prefix . 'tmc_products';
+    $row = $wpdb->get_row(
+        $wpdb->prepare("SELECT * FROM `{$products}` WHERE id = %d", $productId),
+        ARRAY_A
+    );
+    if (!is_array($row)) {
+        $line('row_found', 'no');
+        $line('note', 'this id is not a marketplace product row; pass the tmc_products id');
+        return;
+    }
+
+    $line('row_found', 'yes');
+    foreach (['vendor_user_id', 'type', 'status', 'mirrored_status', 'link_ownership', 'row_version', 'wc_product_id', 'import_run_id', 'spec_schema_version'] as $col) {
+        $line('row_' . $col, $row[$col] === null ? '__null__' : $row[$col]);
+    }
+
+    /**
+     * One field, three measurements and a window.
+     *
+     * «null» and «''» are kept apart on purpose: for the long description they
+     * are the two halves of `LongDescription`'s whole reason to exist, and a
+     * report that printed both as empty would hide the distinction the column
+     * was added for.
+     */
+    $field = static function (string $name, ?string $value) use ($line): void {
+        if ($value === null) {
+            $line($name . '_state', '__null__ (no value of the vendor\'s; WooCommerce\'s own text stands)');
+            return;
+        }
+        $line($name . '_state', $value === '' ? '__empty__ (cleared on purpose)' : 'value');
+        if ($value === '') {
+            return;
+        }
+        $line($name . '_chars', mb_strlen($value));
+        $line($name . '_bytes', strlen($value));
+        $line($name . '_sha256', hash('sha256', $value));
+        $line($name . '_carries_markup', strip_tags($value) !== $value ? 'yes' : 'no');
+
+        // THE ROUND TRIP THE FORM PERFORMS, run here and compared.
+        //
+        // `Request::postHtml()` is the only transformation between the textarea
+        // and the row, so this is the whole of it. A difference here means the
+        // next ordinary save of this product writes a different string than the
+        // one on the row — and that a comparison table will list this field
+        // for ever until somebody saves once.
+        $filtered = (string) wp_kses_post($value);
+        $line($name . '_kses_changes', $filtered === $value ? 'no' : 'yes');
+        if ($filtered === $value) {
+            return;
+        }
+        $line($name . '_kses_chars', mb_strlen($filtered));
+        $line($name . '_kses_sha256', hash('sha256', $filtered));
+        $at = strspn($value ^ str_pad($filtered, strlen($value), "\0"), "\0");
+        $line($name . '_first_difference_at_byte', $at);
+        $line($name . '_window_stored', substr($value, max(0, $at - 40), 100));
+        $line($name . '_window_after_filter', substr($filtered, max(0, $at - 40), 100));
+    };
+
+    $field('description', $row['description'] === null ? null : (string) $row['description']);
+    $field('short_description', $row['short_description'] === null ? null : (string) $row['short_description']);
+
+    // WHAT THE SHOP HOLDS, beside what the row holds. Two facts, never merged:
+    // the marketplace column and `post_content` are different stores and the
+    // projector writes one from the other only under its own conditions.
+    $wcId = (int) $row['wc_product_id'];
+    if ($wcId > 0) {
+        $post = get_post($wcId);
+        if ($post === null) {
+            $line('shop_post', '__absent__ (the linked WooCommerce post is gone)');
+        } else {
+            $line('shop_post_type', $post->post_type);
+            $line('shop_post_status', $post->post_status);
+            $line('shop_post_author', $post->post_author);
+            $line('shop_product_type', function_exists('wc_get_product')
+                ? (string) (wc_get_product($wcId)?->get_type() ?? '__unreadable__')
+                : '__no_woocommerce__');
+            $line('shop_post_content_chars', mb_strlen((string) $post->post_content));
+            $line('shop_post_content_sha256', hash('sha256', (string) $post->post_content));
+            $line('shop_post_content_equals_row', (string) $post->post_content === (string) ($row['description'] ?? '') ? 'yes' : 'no');
+            $line('shop_post_excerpt_chars', mb_strlen((string) $post->post_excerpt));
+        }
+    } else {
+        $line('shop_post', '__not_linked__');
+    }
+
+    // THE PENDING PROPOSAL, and which raw values in it differ from the row.
+    //
+    // ⛔ This is NOT a reproduction of `ProductConflictView`'s list and does not
+    // claim to be: that view compares FORMATTED values, so two figures with one
+    // formatting are one row there. This compares the raw payload against the
+    // raw column, which is the stricter question — anything it names here is a
+    // real stored difference, and the view may fold some of them away.
+    $revisions = $wpdb->prefix . 'tmc_product_revisions';
+    $pending = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT id, created_at, payload FROM `{$revisions}` WHERE product_id = %d AND status = 'pending' ORDER BY id DESC LIMIT 1",
+            $productId
+        ),
+        ARRAY_A
+    );
+    if (!is_array($pending)) {
+        $line('pending_revision', 'none');
+    } else {
+        $line('pending_revision', $pending['id']);
+        $line('pending_created_at', $pending['created_at']);
+        $payload = json_decode((string) $pending['payload'], true);
+        $details = is_array($payload) && is_array($payload['details'] ?? null) ? $payload['details'] : [];
+        $line('pending_payload_keys', implode(',', array_keys(is_array($payload) ? $payload : [])));
+        $line('pending_has_baseline', is_array($payload) && array_key_exists('field_baseline', $payload) ? 'yes' : 'no');
+
+        // The column each payload key is stored in, so «different» is a
+        // statement about the same thing on both sides.
+        $columns = [
+            'title' => 'title', 'type' => 'type', 'categoryKey' => 'category_key',
+            'brand' => 'brand', 'shortDescription' => 'short_description',
+            'description' => 'description', 'priceMinor' => 'price_minor',
+            'salePriceMinor' => 'sale_price_minor', 'sku' => 'sku', 'stock' => 'stock',
+            'minPurchase' => 'min_purchase', 'maxPurchase' => 'max_purchase',
+            'purchaseStep' => 'purchase_step', 'weightGrams' => 'weight_grams',
+            'dimensions' => 'dimensions', 'taxClass' => 'tax_class',
+        ];
+        $differ = [];
+        foreach ($columns as $key => $column) {
+            if (!array_key_exists($key, $details)) {
+                continue;
+            }
+            $proposed = $details[$key];
+            $current = $row[$column] ?? null;
+            // Compared as strings, with null kept apart from '' — the same
+            // rule `ManageProducts::samePayload()` states for the one field
+            // where the distinction is the whole meaning.
+            $same = ($proposed === null && $current === null)
+                || ($proposed !== null && $current !== null && (string) $proposed === (string) $current);
+            if (!$same) {
+                $differ[] = $key;
+            }
+        }
+        $line('pending_raw_fields_that_differ', $differ === [] ? '__none__' : implode(',', $differ));
+        if (array_key_exists('description', $details)) {
+            $proposedDescription = $details['description'];
+            $line('pending_description_state', $proposedDescription === null ? '__null__' : ($proposedDescription === '' ? '__empty__' : 'value'));
+            if (is_string($proposedDescription) && $proposedDescription !== '') {
+                $line('pending_description_chars', mb_strlen($proposedDescription));
+                $line('pending_description_sha256', hash('sha256', $proposedDescription));
+                $stored = (string) ($row['description'] ?? '');
+                $line('pending_description_equals_row', $proposedDescription === $stored ? 'yes' : 'no');
+                $line(
+                    'pending_description_equals_kses_of_row',
+                    $proposedDescription === (string) wp_kses_post($stored) ? 'yes' : 'no'
+                );
+            }
+        }
+    }
+
+    $decisions = $wpdb->prefix . 'tmc_product_decisions';
+    $line('decisions_recorded', (int) $wpdb->get_var(
+        $wpdb->prepare("SELECT COUNT(*) FROM `{$decisions}` WHERE product_id = %d", $productId)
+    ));
+    $line('variation_rows_ours', (int) $wpdb->get_var(
+        $wpdb->prepare("SELECT COUNT(*) FROM `{$wpdb->prefix}tmc_product_variations` WHERE product_id = %d", $productId)
+    ));
+    $line('attribute_rows_ours', (int) $wpdb->get_var(
+        $wpdb->prepare("SELECT COUNT(*) FROM `{$wpdb->prefix}tmc_product_attributes` WHERE product_id = %d", $productId)
+    ));
+    return;
+}
 if ($section === 'finance') {
     $head('finance: where the balances came from');
 

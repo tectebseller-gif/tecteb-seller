@@ -22,6 +22,10 @@
  *   wp eval-file tools/production-audit.php reconcile
  *   wp eval-file tools/production-audit.php reconcile --csv > reconcile.csv
  *   wp eval-file tools/production-audit.php cron
+ *   wp eval-file tools/production-audit.php sets
+ *   wp eval-file tools/production-audit.php parents
+ *   wp eval-file tools/production-audit.php parents --csv > parents.csv
+ *   wp eval-file tools/production-audit.php accounts
  *   wp eval-file tools/production-audit.php finance --csv > finance.csv
  *
  * **Three things it refuses to do, each for a written reason.**
@@ -54,7 +58,7 @@
  */
 
 if (!defined('ABSPATH')) {
-    fwrite(STDERR, "run this through: wp eval-file tools/production-audit.php <products|finance|reconcile|cron> [--csv]\n");
+    fwrite(STDERR, "run this through: wp eval-file tools/production-audit.php <products|finance|reconcile|cron|sets|parents|accounts> [--csv]\n");
     return;
 }
 
@@ -1050,4 +1054,458 @@ if ($argv0 === 'finance') {
     return;
 }
 
-fwrite(STDERR, "usage: wp eval-file tools/production-audit.php <products|finance|reconcile|cron> [--csv]\n");
+// ---------------------------------------------------------------------- sets
+
+/**
+ * §7 — the eight sets, each with its DOMAIN printed beside it.
+ *
+ * WHY A VERB AND NOT A PARAGRAPH. Five numbers have been passed around this
+ * project — 179, 184, 188, 193, 197 — and every one of them is right about a
+ * different question. §7 says it plainly: «اعداد ۱۷۹/۱۸۴/۱۸۸/۱۹۳/۱۹۷ هرگز
+ * بدون دامنهٔ تعریف‌شده با هم مقایسه نشوند.» So this prints a number only next
+ * to the `WHERE` that produced it, and prints the `WHERE` first.
+ *
+ * ⛔ IT DOES NOT SUBTRACT THEM. The arithmetic is the reconciliation
+ * document's, under a rule a person chose; `reconcile` is the verb that names
+ * individual ids. This one exists so that the eight totals can never again be
+ * quoted without their domain.
+ *
+ * ⛔ AND `post_author` IS NOT OWNERSHIP, which is why it is absent from every
+ * set below. Four separate facts: our `vendor_user_id`, our `link_ownership`,
+ * Dokan's own live reference, and permission to sell. A set built on
+ * `post_author` equality would answer a fifth question nobody asked.
+ */
+if ($argv0 === 'sets') {
+    $products = $wpdb->prefix . 'tmc_products';
+
+    $count = static function (string $sql, array $bind = []) use ($wpdb, $unreadable): string {
+        $value = $bind === []
+            ? $wpdb->get_var($sql)
+            : $wpdb->get_var($wpdb->prepare($sql, ...$bind));
+        return $value === null ? $unreadable : (string) (int) $value;
+    };
+
+    $set = static function (int $n, string $domain, string $value) use ($line): void {
+        echo "\n## set " . $n . "\n";
+        $line('domain', $domain);
+        $line('count', $value);
+    };
+
+    $head('the eight sets of §7 — each number with the WHERE that produced it');
+    echo "# ⛔ No two of these are compared here. A number quoted without the\n";
+    echo "# line above it is the mistake this verb exists to prevent.\n";
+    echo "# ⛔ This is the site this command runs on. Production and staging are\n";
+    echo "# two different answers to sets 1 and 2; run it on each and label them.\n";
+
+    $set(
+        1,
+        "wp_posts WHERE post_type='product' (any post_status) — THIS site",
+        $count('SELECT COUNT(*) FROM `' . $wpdb->posts . '` WHERE post_type = %s', ['product'])
+    );
+    $set(
+        2,
+        'the same query, on the OTHER site — not readable from here',
+        'run this verb there'
+    );
+    $set(
+        3,
+        'tmc_products — every marketplace row, any link_ownership',
+        $count('SELECT COUNT(*) FROM `' . $products . '`')
+    );
+    $set(
+        4,
+        'tmc_products WHERE import_run_id IS NOT NULL — imported from Dokan',
+        $count('SELECT COUNT(*) FROM `' . $products . '` WHERE import_run_id IS NOT NULL')
+    );
+    $set(
+        5,
+        'tmc_only — a marketplace row whose wc_product_id names no live product',
+        $count(
+            'SELECT COUNT(*) FROM `' . $products . '` t
+              LEFT JOIN `' . $wpdb->posts . '` p ON p.ID = t.wc_product_id AND p.post_type = %s
+              WHERE p.ID IS NULL',
+            ['product']
+        )
+    );
+    $set(
+        6,
+        "shop_only — post_type='product' with no marketplace row pointing at it",
+        $count(
+            'SELECT COUNT(*) FROM `' . $wpdb->posts . '` p
+              LEFT JOIN `' . $products . '` t ON t.wc_product_id = p.ID
+              WHERE p.post_type = %s AND t.id IS NULL',
+            ['product']
+        )
+    );
+    $set(
+        7,
+        'tmc_products WHERE wc_product_id = 0 OR IS NULL — never linked at all',
+        $count('SELECT COUNT(*) FROM `' . $products . '` WHERE wc_product_id IS NULL OR wc_product_id = 0')
+    );
+    $set(
+        8,
+        "variable parents (product_type term 'variable'), and their children",
+        $count(
+            'SELECT COUNT(*) FROM `' . $wpdb->posts . '` p
+               JOIN `' . $wpdb->term_relationships . '` tr ON tr.object_id = p.ID
+               JOIN `' . $wpdb->term_taxonomy . '` tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+               JOIN `' . $wpdb->terms . '` t ON t.term_id = tt.term_id
+              WHERE p.post_type = %s AND tt.taxonomy = %s AND t.slug = %s',
+            ['product', 'product_type', 'variable']
+        )
+    );
+    $line('set_8_children', $count(
+        'SELECT COUNT(*) FROM `' . $wpdb->posts . '` WHERE post_type = %s',
+        ['product_variation']
+    ));
+
+    $head('per shop, set 3 and set 4');
+    $perShop = $wpdb->get_results(
+        'SELECT vendor_user_id,
+                COUNT(*) AS rows_total,
+                SUM(CASE WHEN import_run_id IS NOT NULL THEN 1 ELSE 0 END) AS imported
+           FROM `' . $products . '`
+          GROUP BY vendor_user_id ORDER BY vendor_user_id',
+        ARRAY_A
+    );
+    if (!is_array($perShop)) {
+        $line('per_shop', $unreadable);
+    } else {
+        foreach ($perShop as $shop) {
+            $line(
+                'shop_' . (int) $shop['vendor_user_id'],
+                'rows=' . (int) $shop['rows_total'] . ' imported=' . (int) $shop['imported']
+            );
+        }
+    }
+
+    $head('what this verb refuses to say');
+    echo "# ⛔ It does not add or subtract the eight. §7 wants each discrepancy\n";
+    echo "# named by id, and `reconcile` is the verb that does that.\n";
+    echo "# ⛔ It reads no post_author. Ownership is four separate facts and\n";
+    echo "# post_author equality is none of them.\n";
+    echo "# ⛔ `__unreadable__` anywhere above is not a zero. Report it.\n";
+    return;
+}
+
+// ------------------------------------------------------------------- parents
+
+/**
+ * §8 — every variable parent, and whether its own figures look damaged.
+ *
+ * WHY THIS EXISTS. Before `alpha.105`/`alpha.106` this plugin could write a
+ * variable PARENT's stock: `effectiveStock()` returns `null` for such a
+ * product — WooCommerce keeps the number on the children — and the fallback
+ * filled that absence with our own row's zero, so `writeStock()` sent
+ * `set_manage_stock(true)`, `set_stock_quantity(0)` and
+ * `set_stock_status('outofstock')` out to the parent. That takes the whole
+ * product, with all its variations, off sale, and the vendor was told
+ * «saved». `PriceAndStockOrigin::decide()` closed it, and migration 39
+ * deliberately carries NO backfill, so any row already written that way is
+ * still written that way.
+ *
+ * ⛔ THIS VERB DOES NOT FIX ANYTHING, AND THAT IS THE POINT. The instruction
+ * is explicit — «هیچ مقدار مالی یا موجودی را حدس نزن و خودکار اصلاح نکن» —
+ * and a guess here is a guess about what a shop is allowed to sell. So it
+ * prints the facts and says which rows a person has to look at.
+ *
+ * `suspicious` is NOT a verdict. It is true when a variable parent carries a
+ * numeric `_stock` of its own OR has `_manage_stock = yes`, because that is
+ * the shape the old defect left behind — and the same shape is what a shop
+ * manager gets when they deliberately manage stock at the parent level, which
+ * WooCommerce allows. Only a person can tell those two apart, which is why
+ * the column is named for what was measured and not for what it means.
+ */
+if ($argv0 === 'parents') {
+    $parents = $wpdb->get_results(
+        'SELECT p.ID, p.post_title, p.post_status
+           FROM `' . $wpdb->posts . '` p
+           JOIN `' . $wpdb->term_relationships . '` tr ON tr.object_id = p.ID
+           JOIN `' . $wpdb->term_taxonomy . '` tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+           JOIN `' . $wpdb->terms . '` t ON t.term_id = tt.term_id
+          WHERE p.post_type = \'product\'
+            AND tt.taxonomy = \'product_type\'
+            AND t.slug = \'variable\'
+          ORDER BY p.ID',
+        ARRAY_A
+    );
+    if (!is_array($parents)) {
+        $line('parents', $unreadable);
+        return;
+    }
+
+    if ($csv) {
+        $row([
+            'parent_id', 'post_status', 'title', 'parent_stock', 'parent_manage_stock',
+            'parent_price', 'children', 'children_with_price', 'children_with_stock',
+            'children_managing_stock', 'suspicious', 'our_row', 'our_link_ownership', 'our_stock',
+        ]);
+    } else {
+        $line('variable_parents', count($parents));
+        echo "# `suspicious` means: a variable parent carrying its own numeric\n";
+        echo "# `_stock`, or `_manage_stock = yes`. That is the shape the\n";
+        echo "# pre-alpha.105 defect left AND the shape a deliberate parent-level\n";
+        echo "# stock decision leaves. ⛔ Only a person can tell them apart.\n";
+        echo "# ⛔ Nothing here is corrected. Report the ids; the decision is the owner's.\n";
+    }
+
+    $suspicious = 0;
+    foreach ($parents as $parent) {
+        $id = (int) $parent['ID'];
+        $parentStock = $metaOf($id, '_stock');
+        $parentManage = $metaOf($id, '_manage_stock');
+        $parentPrice = $metaOf($id, '_price');
+
+        $children = $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT ID FROM `' . $wpdb->posts . '`
+                  WHERE post_parent = %d AND post_type = \'product_variation\'
+                  ORDER BY ID',
+                $id
+            ),
+            ARRAY_A
+        );
+        if (!is_array($children)) {
+            if ($csv) {
+                $row([$id, (string) $parent['post_status'], (string) $parent['post_title'],
+                    $parentStock, $parentManage, $parentPrice,
+                    $unreadable, $unreadable, $unreadable, $unreadable, $unreadable, '', '', '']);
+            } else {
+                $head('parent ' . $id);
+                $line('children', $unreadable);
+            }
+            continue;
+        }
+
+        $withPrice = 0;
+        $withStock = 0;
+        $managing = 0;
+        foreach ($children as $child) {
+            $childId = (int) $child['ID'];
+            if (trim($metaOf($childId, '_price')) !== '') {
+                $withPrice++;
+            }
+            if (trim($metaOf($childId, '_stock')) !== '') {
+                $withStock++;
+            }
+            if ($metaOf($childId, '_manage_stock') === 'yes') {
+                $managing++;
+            }
+        }
+
+        // The measured shape, not a judgement about it.
+        $odd = ($parentManage === 'yes') || ($parentStock !== '' && $parentStock !== $unreadable);
+        if ($odd) {
+            $suspicious++;
+        }
+
+        $ourRow = $wpdb->get_row(
+            $wpdb->prepare(
+                'SELECT id, link_ownership, stock FROM `' . $wpdb->prefix . 'tmc_products`
+                  WHERE wc_product_id = %d LIMIT 1',
+                $id
+            ),
+            ARRAY_A
+        );
+        $ourId = is_array($ourRow) ? (string) $ourRow['id'] : '';
+        $ourOwn = is_array($ourRow) ? (string) $ourRow['link_ownership'] : '';
+        $ourStock = is_array($ourRow) ? (string) $ourRow['stock'] : '';
+
+        if ($csv) {
+            $row([
+                $id, (string) $parent['post_status'], (string) $parent['post_title'],
+                $parentStock === '' ? '__absent__' : $parentStock,
+                $parentManage === '' ? '__absent__' : $parentManage,
+                $parentPrice === '' ? '__absent__' : $parentPrice,
+                count($children), $withPrice, $withStock, $managing,
+                $odd ? 'yes' : 'no', $ourId, $ourOwn, $ourStock,
+            ]);
+            continue;
+        }
+
+        $head('parent ' . $id . ' — ' . (string) $parent['post_title']);
+        $line('post_status', (string) $parent['post_status']);
+        $line('parent_stock', $parentStock === '' ? '__absent__' : $parentStock);
+        $line('parent_manage_stock', $parentManage === '' ? '__absent__' : $parentManage);
+        $line('parent_price', $parentPrice === '' ? '__absent__' : $parentPrice);
+        $line('children', count($children));
+        $line('children_with_price', $withPrice);
+        $line('children_with_stock', $withStock);
+        $line('children_managing_stock', $managing);
+        $line('suspicious', $odd ? 'yes' : 'no');
+        $line('our_row_id', $ourId === '' ? '(none)' : $ourId);
+        $line('our_link_ownership', $ourOwn === '' ? '(none)' : $ourOwn);
+        $line('our_stock', $ourStock === '' ? '(none)' : $ourStock);
+    }
+
+    if (!$csv) {
+        $head('verdict');
+        $line('suspicious_parents', $suspicious);
+        $line('owner_decision_needed', $suspicious > 0 ? 'yes' : 'no');
+        echo "# ⛔ If this is above zero, report the ids. Do not change a value.\n";
+    }
+    return;
+}
+
+// ------------------------------------------------------------------ accounts
+
+/**
+ * §11 — the staff account surface, read only.
+ *
+ * Seven questions the instruction names, each answered with a count and, when
+ * the count is above zero, the ids. None of them is acted on:
+ *
+ *   «هیچ حساب واقعی را بدون تأیید مالک حذف یا تغییرنقش نده.»
+ *
+ * ⛔ One of the seven is answered by the SCHEMA rather than by a scan, and it
+ * is reported that way rather than silently: `tmc_vendor_staff` carries
+ * `UNIQUE KEY tmc_staff_one_store (staff_user_id)`, so a person cannot hold
+ * two memberships at all — the database refuses the second row. The count is
+ * still printed, because an index that was dropped by hand on a live site is
+ * exactly the kind of thing a count notices and a sentence does not.
+ */
+if ($argv0 === 'accounts') {
+    $staff = $wpdb->prefix . 'tmc_vendor_staff';
+    $rows = $wpdb->get_results(
+        'SELECT id, vendor_user_id, staff_user_id, username, email, role_preset, status,
+                invite_hash, activated_at, suspended_at
+           FROM `' . $staff . '` ORDER BY id',
+        ARRAY_A
+    );
+    if (!is_array($rows)) {
+        $line('staff_rows', $unreadable);
+        return;
+    }
+    $line('staff_rows', count($rows));
+
+    $adminish = [];
+    $noAccount = [];
+    $wpAdminReach = [];
+    $liveAfterSuspension = [];
+    $seenUser = [];
+    $twoShops = [];
+    $byEmail = [];
+
+    foreach ($rows as $staffRow) {
+        $userId = (int) $staffRow['staff_user_id'];
+        $status = (string) $staffRow['status'];
+        $email = strtolower(trim((string) $staffRow['email']));
+
+        if ($email !== '') {
+            $byEmail[$email] = ($byEmail[$email] ?? 0) + 1;
+        }
+        if ($userId > 0) {
+            if (isset($seenUser[$userId])) {
+                $twoShops[] = $userId;
+            }
+            $seenUser[$userId] = true;
+        }
+
+        $user = $userId > 0 ? get_userdata($userId) : false;
+        if (!$user) {
+            $noAccount[] = (int) $staffRow['id'] . ':user' . $userId;
+            continue;
+        }
+
+        // ⛔ The role NAME is not the question; the capability is. A site whose
+        // `default_role` is `administrator` produced staff accounts that held
+        // the whole site (`alpha.107` §7), and a renamed role would hide that.
+        if (user_can($userId, 'manage_options')) {
+            $adminish[] = $userId;
+        }
+        if (user_can($userId, 'edit_posts') || user_can($userId, 'manage_woocommerce')) {
+            $wpAdminReach[] = $userId . ':' . implode('+', array_filter([
+                user_can($userId, 'edit_posts') ? 'edit_posts' : '',
+                user_can($userId, 'edit_products') ? 'edit_products' : '',
+                user_can($userId, 'manage_woocommerce') ? 'manage_woocommerce' : '',
+            ]));
+        }
+
+        if ($status === 'suspended') {
+            $tokens = get_user_meta($userId, 'session_tokens', true);
+            if (is_array($tokens) && $tokens !== []) {
+                $liveAfterSuspension[] = $userId . ':' . count($tokens);
+            }
+        }
+    }
+
+    // A WordPress account this plugin's own username scheme produced, with no
+    // membership row left to explain it. The scheme is the only honest filter
+    // available: nothing else distinguishes «we made it» from «the site did».
+    $ourUsers = $wpdb->get_results(
+        $wpdb->prepare(
+            'SELECT ID, user_login FROM `' . $wpdb->users . '` WHERE user_login LIKE %s ORDER BY ID',
+            'tmc_%'
+        ),
+        ARRAY_A
+    );
+    $orphanAccounts = [];
+    if (is_array($ourUsers)) {
+        foreach ($ourUsers as $candidate) {
+            $candidateId = (int) $candidate['ID'];
+            $held = $wpdb->get_var(
+                $wpdb->prepare('SELECT COUNT(*) FROM `' . $staff . '` WHERE staff_user_id = %d', $candidateId)
+            );
+            if ($held === null) {
+                $orphanAccounts[] = $candidateId . ':' . $unreadable;
+                continue;
+            }
+            if ((int) $held === 0) {
+                $orphanAccounts[] = $candidateId . ':' . (string) $candidate['user_login'];
+            }
+        }
+    } else {
+        $orphanAccounts[] = $unreadable;
+    }
+
+    $duplicateInvites = [];
+    foreach ($byEmail as $address => $count) {
+        if ($count > 1) {
+            // ⛔ The address itself is NOT printed: this tool prints no email.
+            $duplicateInvites[] = substr(hash('sha256', $address), 0, 12) . ':' . $count;
+        }
+    }
+
+    $say = static function (string $key, array $ids) use ($line): void {
+        $line($key . '_count', count($ids));
+        if ($ids !== []) {
+            $line($key . '_ids', implode(' ', $ids));
+        }
+    };
+
+    $head('the seven questions');
+    $say('unintended_admin_capability', $adminish);
+    $say('membership_without_a_valid_account', $noAccount);
+    $say('our_account_without_a_membership', $orphanAccounts);
+    $say('membership_in_more_than_one_shop', $twoShops);
+    $say('staff_reaching_wp_admin', $wpAdminReach);
+    $say('session_live_after_suspension', $liveAfterSuspension);
+    $say('repeated_invitation_for_one_address', $duplicateInvites);
+
+    $head('what the schema already answers');
+    $indexed = $wpdb->get_var(
+        $wpdb->prepare(
+            'SELECT COUNT(*) FROM information_schema.STATISTICS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s
+                AND INDEX_NAME = %s AND NON_UNIQUE = 0',
+            $staff,
+            'tmc_staff_one_store'
+        )
+    );
+    $line('one_store_unique_index', $indexed === null ? $unreadable : ((int) $indexed > 0 ? 'present' : 'MISSING'));
+    echo "# ⛔ `MISSING` would mean somebody dropped it on this site, and the\n";
+    echo "# count above becomes the only guard. Report it; do not add the index.\n";
+
+    $head('verdict');
+    $total = count($adminish) + count($noAccount) + count($orphanAccounts)
+        + count($twoShops) + count($liveAfterSuspension) + count($duplicateInvites);
+    $line('rows_needing_a_human', $total);
+    $line('owner_decision_needed', $total > 0 ? 'yes' : 'no');
+    echo "# ⛔ `staff_reaching_wp_admin` is NOT in that total on purpose: a shop\n";
+    echo "# manager who is also staff legitimately holds those capabilities. It\n";
+    echo "# is listed so a person can read it, not counted as a defect.\n";
+    echo "# ⛔ And nothing above is deleted or re-roled. That is the owner's.\n";
+    return;
+}
+
+fwrite(STDERR, "usage: wp eval-file tools/production-audit.php <products|finance|reconcile|cron|sets|parents|accounts> [--csv]\n");

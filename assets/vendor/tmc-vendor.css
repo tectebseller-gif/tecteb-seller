@@ -397,6 +397,50 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-conflict__title { margin: 0 0 var(--tv-s3); font-size: 1rem; }
 .tv-conflict .tv-table td strong { color: var(--tv-ink-strong); }
 
+/* A LONG VALUE IN A COMPARISON CELL, FOLDED.
+   The owner opened a published product whose description had been pasted from
+   a rich-text editor and the comparison printed a few thousand characters of
+   escaped markup — correct, and unreadable. So a long or marked-up value is a
+   native `<details>`: one bounded line of its readable text plus its length on
+   the summary, the rest inside. No JavaScript decides any of it; with no CSS
+   at all the disclosure is still a working disclosure. */
+.tv-long { margin: 0; }
+.tv-long__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tv-s1) var(--tv-s3);
+  align-items: baseline;
+  cursor: pointer;
+  /* The whole summary is the control, so it needs the touch target the rest
+     of this panel's controls have. */
+  min-height: var(--tv-touch);
+  padding-block: var(--tv-s2);
+}
+.tv-long__head:focus-visible { outline: 3px solid var(--tv-sky); outline-offset: 2px; }
+/* The peek is one line and stays one line: a cell that grows to four lines of
+   preview is the defect this replaced, in a smaller size. */
+.tv-long__peek {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tv-long__size { flex: 0 0 auto; color: var(--tv-muted); font-size: 0.82rem; }
+.tv-long__body {
+  margin-top: var(--tv-s2);
+  padding: var(--tv-s3);
+  max-height: 18rem;
+  overflow-y: auto;
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+  line-height: 1.9;
+}
+/* Which column is the vendor's own, without wrapping a disclosure in
+   `<strong>` — the emphasis belongs on the line they read first. */
+.tv-long--mine > .tv-long__head .tv-long__peek { font-weight: 700; color: var(--tv-ink-strong); }
+
 .tv-hint--warn { color: var(--tv-red); font-weight: 700; }
 .tv-hint--warn:empty { display: none; margin-block-start: 0; }
 

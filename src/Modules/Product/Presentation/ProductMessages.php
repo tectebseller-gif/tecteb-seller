@@ -240,7 +240,7 @@ final class ProductMessages
             'brand' => __('برند', 'tecteb-marketplace-core'),
             'shortDescription' => __('توضیح کوتاه', 'tecteb-marketplace-core'),
             'description' => __('توضیحات کامل', 'tecteb-marketplace-core'),
-            'salePriceMinor' => __('قیمت با تخفیف', 'tecteb-marketplace-core'),
+            'salePriceMinor', 'sale_price' => __('قیمت با تخفیف', 'tecteb-marketplace-core'),
             'saleFrom' => __('شروع تخفیف', 'tecteb-marketplace-core'),
             'saleTo' => __('پایان تخفیف', 'tecteb-marketplace-core'),
             'weight', 'weightGrams' => __('وزن (گرم)', 'tecteb-marketplace-core'),
@@ -731,6 +731,25 @@ final class ProductMessages
                 ? sprintf(__('مقدار این مشخصه‌ها با نوع فیلد نمی‌خواند: %s', 'tecteb-marketplace-core'), (string) $context['fields'])
                 : __('مقدار یکی از مشخصه‌ها با نوع فیلد نمی‌خواند.', 'tecteb-marketplace-core'),
             'bad_type' => __('نوع محصول باید ساده یا متغیر باشد. محصول خارجی و گروهی در این نسخه پشتیبانی نمی‌شود.', 'tecteb-marketplace-core'),
+            // ⛔ FOUR REFUSALS THAT HAD NO SENTENCE AT ALL, and the worst
+            // thing about them is what the vendor was told instead.
+            //
+            // `ProductFormView` asks three catalogues in turn and
+            // `VendorMessages::notice()` ends in `default => «انجام شد.»`. So a
+            // code none of them knows is printed as DONE — measured on
+            // `alpha.107` bytes for `parent_figures_live_in_shop`, which is the
+            // guard `alpha.106` shipped as its P0: the save was correctly
+            // refused and the vendor was told it had succeeded. Every one of
+            // these names what was refused, which field, and that nothing was
+            // written — because all four return before the first write.
+            'parent_figures_live_in_shop' => sprintf(
+                /* translators: %s: the fields that were not written */
+                __('این محصول در ووکامرس «متغیر» است و قیمت و موجودی روی ترکیب‌هایش نگه داشته می‌شود، نه روی خود محصول. این فیلدها از این فرم تغییر نمی‌کنند: %s. هیچ چیزی ذخیره نشد. بقیهٔ فیلدها را می‌توانید همین‌جا ذخیره کنید، و قیمت و موجودی را در بخش «ویژگی‌ها و ترکیب‌ها» برای هر ترکیب بنویسید.', 'tecteb-marketplace-core'),
+                self::fieldList((string) ($context['fields'] ?? ''))
+            ),
+            'type_change_not_allowed' => __('نوع این محصول از این پنل تغییر نمی‌کند، چون قیمت و موجودی ترکیب‌هایش در ووکامرس نگهداری می‌شود. هیچ چیزی ذخیره نشد و ترکیب‌های فعلی دست‌نخورده‌اند.', 'tecteb-marketplace-core'),
+            'type_change_needs_new_product' => __('این محصول از قبل در فروشگاه ساخته شده و نوعش از این پنل عوض نمی‌شود: تغییر نوع، ترکیب‌های ثبت‌شده و سابقهٔ سفارش‌ها را بی‌معنا می‌کند. برای فروش چندحالته یک محصول تازه از نوع «متغیر» بسازید؛ این محصول و سفارش‌هایش دست‌نخورده می‌مانند. هیچ چیزی ذخیره نشد.', 'tecteb-marketplace-core'),
+            'variations_unreadable' => __('ترکیب‌های این محصول از ووکامرس خوانده نشد، پس آمادگی فروشش قابل تشخیص نیست و ارسال انجام نشد. چند دقیقه بعد دوباره تلاش کنید؛ اگر تکرار شد به مدیر بگویید. هیچ چیزی ذخیره نشد.', 'tecteb-marketplace-core'),
             'bad_price' => __('قیمت نمی‌تواند منفی باشد.', 'tecteb-marketplace-core'),
             'bad_sale_price' => __('قیمت تخفیف‌خورده نباید از قیمت اصلی بیشتر یا منفی باشد.', 'tecteb-marketplace-core'),
             'bad_sale_window' => __('تاریخ پایان تخفیف نباید پیش از تاریخ شروع باشد.', 'tecteb-marketplace-core'),
@@ -1162,5 +1181,28 @@ final class ProductMessages
     public static function isErrorNotice(string $code): bool
     {
         return !in_array($code, self::successCodes(), true);
+    }
+
+    /**
+     * A joined list of field KEYS, as the labels a vendor reads.
+     *
+     * `parentFiguresRefusal()` joins the keys it refused — `price`,
+     * `sale_price`, `stock` — and a message that echoed them would name three
+     * columns nobody has seen. One label each, through the same map the form
+     * and the comparison table use, so the three screens agree.
+     */
+    private static function fieldList(string $joined): string
+    {
+        if (trim($joined) === '') {
+            return __('قیمت، قیمت با تخفیف و موجودی', 'tecteb-marketplace-core');
+        }
+        $labels = [];
+        foreach (explode('، ', $joined) as $key) {
+            $key = trim($key);
+            if ($key !== '') {
+                $labels[] = self::field($key);
+            }
+        }
+        return implode('، ', $labels);
     }
 }

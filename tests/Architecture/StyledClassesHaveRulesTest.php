@@ -79,6 +79,15 @@ final class StyledClassesHaveRulesTest extends TestCase
                 // those names is a contract with this one stylesheet. Nothing
                 // in PHP notices a class with no rule; this does.
                 'src/Modules/Vendor/Presentation/VendorShell.php',
+                // ⛔ ADDED BY §2, for the same reason as the two above it.
+                // The comparison's cells were rebuilt — a long or marked-up
+                // value is now a `<details>` with six class names of its own —
+                // and a class with no rule is invisible to every PHP test
+                // there is. The one that would have mattered most here is
+                // `.tv-long__peek`: without its rule the preview is not one
+                // line, and a four-line preview in a table cell is a smaller
+                // version of the defect this round removed.
+                'src/Modules/Product/Presentation/ProductConflictView.php',
             ],
         ],
     ];
