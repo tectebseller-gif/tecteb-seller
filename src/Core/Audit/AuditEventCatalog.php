@@ -383,7 +383,11 @@ final class AuditEventCatalog
             self::VENDOR_STORE_UPDATED => ['vendor_id', 'tab', 'problems'],
             self::VENDOR_CHANGE_REQUESTED => ['vendor_id', 'field'],
             self::VENDOR_CHANGE_REVIEWED => ['vendor_id', 'field', 'decision', 'has_note'],
-            self::VENDOR_STAFF_INVITED => ['vendor_id', 'preset', 'status'],
+            // `staff_user_id` is here for ONE row: the invitation whose membership
+            // write failed and whose account could not be taken back. It is the id a
+            // manager needs to finish that by hand, and without it the row would say
+            // an account was left and not which one (`alpha.91`).
+            self::VENDOR_STAFF_INVITED => ['vendor_id', 'preset', 'status', 'staff_user_id'],
             self::VENDOR_STAFF_ACTIVATED => ['vendor_id'],
             self::VENDOR_STAFF_ROLE_CHANGED => ['vendor_id', 'preset'],
             self::VENDOR_STAFF_STATUS_CHANGED => ['vendor_id', 'status'],

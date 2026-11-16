@@ -69,4 +69,29 @@ final class FakeStaffUserDirectory implements StaffUserDirectoryInterface
     {
         return isset($this->users[$userId]);
     }
+
+    /**
+     * ⛔ MODELLED, INCLUDING ITS REFUSAL — because the refusal is half of what
+     * the caller has to handle.
+     *
+     * The real implementation refuses in four ways and reads the result back,
+     * so a double that always answered `true` would make
+     * `storage_failed_account_left` unreachable and the branch that names the
+     * orphan untested (`alpha.59`). `refuseDelete` is how a test asks for that
+     * branch, and nothing else sets it.
+     */
+    public bool $refuseDelete = false;
+
+    /** @var list<int> every id this double was asked to remove */
+    public array $deleteAttempts = [];
+
+    public function deleteCreated(int $userId): bool
+    {
+        $this->deleteAttempts[] = $userId;
+        if ($this->refuseDelete || !isset($this->users[$userId])) {
+            return false;
+        }
+        unset($this->users[$userId]);
+        return true;
+    }
 }

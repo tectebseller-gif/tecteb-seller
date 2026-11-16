@@ -201,6 +201,25 @@ final class VendorMessages
             'no_file' => __('فایلی انتخاب نشده بود.', 'tecteb-marketplace-core'),
             'transfer_failed' => __('بارگذاری فایل ناتمام ماند. دوباره تلاش کنید.', 'tecteb-marketplace-core'),
             'storage_failed' => __('ذخیره‌سازی انجام نشد. کمی بعد دوباره تلاش کنید.', 'tecteb-marketplace-core'),
+            // ⛔ TWO FAILURES, TWO SENTENCES — because what is left behind is
+            // different and what the reader has to do is different.
+            //
+            // `storage_failed` on an invitation means the membership row did
+            // not get written AND the account that had just been made for it
+            // was taken back: nothing is left, try again. This one means the
+            // membership row did not get written and the account COULD NOT be
+            // taken back, so there is a WordPress user on the site with no
+            // shop access and no way in — and, because its address now counts
+            // as taken, the same person cannot be invited again until somebody
+            // removes it. The id is here for exactly that: it is what finds
+            // the account in wp-admin, where deleting a site user belongs.
+            'storage_failed_account_left' => isset($context['user_id']) && (int) $context['user_id'] > 0
+                ? sprintf(
+                    __('عضویت ثبت نشد، و حساب کاربری‌ای که برای آن ساخته شده بود هم برداشته نشد. یک حساب وردپرس با نام کاربری «%1$s» و شناسهٔ %2$s روی سایت مانده که هیچ دسترسی فروشگاهی ندارد و کسی نمی‌تواند با آن وارد شود. تا وقتی مدیر سایت آن را از بخش «کاربران» وردپرس حذف نکند، دعوت دوبارهٔ همین ایمیل پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
+                    (string) ($context['username'] ?? ''),
+                    PersianDigits::toPersian((string) (int) $context['user_id'])
+                )
+                : __('عضویت ثبت نشد، و حساب کاربری‌ای که برای آن ساخته شده بود هم برداشته نشد. مدیر سایت باید بخش «کاربران» وردپرس را بررسی کند.', 'tecteb-marketplace-core'),
             'storage_unavailable' => __('بارگذاری مدرک فعلاً ممکن نیست: محل امنِ نگهداری مدارک روی این سایت آماده نیست. مدیر سایت باید آن را تنظیم کند؛ تا آن زمان هیچ مدرکی پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
             'forbidden' => __('دسترسی لازم را ندارید.', 'tecteb-marketplace-core'),
             // ---- the shop's logo and banner ------------------------------

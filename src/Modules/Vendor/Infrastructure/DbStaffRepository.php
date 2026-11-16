@@ -153,15 +153,39 @@ final class DbStaffRepository implements StaffRepositoryInterface
         ) !== null;
     }
 
+    /**
+     * Invited → Active, and EXACTLY ONE caller may win.
+     *
+     * ⛔ TWO THINGS WERE WRONG HERE, AND THEY ARE THE SAME MISTAKE TWICE.
+     *
+     * The `WHERE` named only the id, and the answer was `!== null` — which
+     * `alpha.8` records as «a zero-row UPDATE is a success». So this returned
+     * TRUE for a row that was already active, for a row that had just been
+     * suspended, and for a row that was no longer there.
+     *
+     * `AcceptStaffInvitation::accept()` is the caller that matters. It reads
+     * the invitation, sets the password, and then calls this. Two accepts of
+     * one link that both get past the read — the window is the two statements
+     * between them — both set a password and both were told «activated», and
+     * the second password is the one that works. The token is single-use only
+     * AFTER one of them lands.
+     *
+     * Now the invitation's own state is in the statement (`alpha.50`: a
+     * condition that is not in the `WHERE` is not a guard) and the row count
+     * decides. The loser gets `false`, says `storage_failed`, and sets nobody's
+     * password a second time. `GrantImportedStaff::confirm()` already asked
+     * for `Invited` before calling, so its behaviour is unchanged.
+     */
     public function activate(int $staffId): bool
     {
         $now = $this->now();
-        return $this->db->execute(
+        $rows = $this->db->execute(
             'UPDATE `' . $this->table() . '`
              SET status = %s, activated_at = %s, invite_hash = %s, invite_expires_at = NULL, updated_at = %s
-             WHERE id = %d',
-            [StaffStatus::Active->value, $now, '', $now, $staffId]
-        ) !== null;
+             WHERE id = %d AND status = %s',
+            [StaffStatus::Active->value, $now, '', $now, $staffId, StaffStatus::Invited->value]
+        );
+        return $rows !== null && $rows > 0;
     }
 
     public function touchLastSeen(int $staffId): bool

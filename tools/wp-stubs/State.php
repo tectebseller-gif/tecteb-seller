@@ -187,7 +187,11 @@ final class State
      * are three answers from `get_post_status()`, and until now nothing in the
      * stub environment could reach any of them.
      *
-     * @var array<int,array{status:string,title?:string}>
+     * `author` is optional and was added with `count_user_posts()`: a post
+     * with no author belongs to nobody, which is what every fixture written
+     * before that existed meant.
+     *
+     * @var array<int,array{status:string,title?:string,author?:int}>
      */
     public static array $posts = [];
     /**

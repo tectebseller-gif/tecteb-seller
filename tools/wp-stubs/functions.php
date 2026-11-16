@@ -819,6 +819,56 @@ function wp_set_password(string $password, int $userId): void
 {
     TmcWpStubs\State::$users[$userId]['user_pass'] = $password;
 }
+/**
+ * Can this user do that?
+ *
+ * ⛔ MODELLED FROM THE USER'S ROLE, not from `State::$currentUserCaps` —
+ * `current_user_can()` is about whoever is signed in, and this question is
+ * about SOMEBODY ELSE. Added with `deleteCreated()`, which refuses any account
+ * that can run part of the site: without it that refusal was unreachable and a
+ * guard nobody can reach is indistinguishable from a guard that is not there
+ * (`alpha.59`).
+ */
+function user_can(mixed $user, string $capability, mixed ...$args): bool
+{
+    $id = is_object($user) ? (int) ($user->ID ?? 0) : (int) $user;
+    $role = (string) (TmcWpStubs\State::$users[$id]['role'] ?? '');
+    if ($role === '') {
+        return false;
+    }
+    return !empty(TmcWpStubs\State::$roles[$role][$capability]);
+}
+/**
+ * How many posts this user has written.
+ *
+ * The real signature is `($userId, $postType, $publicOnly)`; what the caller
+ * here needs is only «any at all», so the stub counts every post whose
+ * `author` is this id. A post with no `author` belongs to nobody, which is
+ * what every fixture written before this existed meant.
+ */
+function count_user_posts(int $userId, string $postType = 'post', bool $publicOnly = false): string
+{
+    $n = 0;
+    foreach (TmcWpStubs\State::$posts as $post) {
+        if ((int) ($post['author'] ?? 0) === $userId) {
+            $n++;
+        }
+    }
+    return (string) $n;
+}
+/**
+ * Remove a user.
+ *
+ * ⛔ THE REAL ONE ANSWERS `true` FOR «there was nothing to delete» AS WELL AS
+ * FOR «deleted», which is why `WpStaffUsers::deleteCreated()` reads the
+ * account back instead of trusting it (`alpha.28`). The stub keeps that shape
+ * on purpose, so a test cannot pass by trusting the boolean either.
+ */
+function wp_delete_user(int $userId, int $reassign = 0): bool
+{
+    unset(TmcWpStubs\State::$users[$userId], TmcWpStubs\State::$userMeta[$userId]);
+    return true;
+}
 function get_userdata(int $userId): object|false
 {
     $user = TmcWpStubs\State::$users[$userId] ?? null;

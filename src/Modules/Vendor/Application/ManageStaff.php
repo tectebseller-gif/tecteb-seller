@@ -91,14 +91,26 @@ final class ManageStaff
         }
 
         $displayName = trim($firstName . ' ' . $lastName);
+        // ⛔ THE BRANCH THAT USED TO BE HERE WAS UNREACHABLE, AND ITS COMMENT
+        // PROMISED THE OPPOSITE OF WHAT IT DID.
+        //
+        // It read «if this person is already staff, the account we just
+        // created must not be left orphaned» — and then returned a failure
+        // with the fresh account still on the site, which IS leaving it
+        // orphaned. It could never run either: `create()` hands back a
+        // brand-new id, so `findByUser()` of that id is always null. The
+        // question it meant to ask is answered thirty lines above, BEFORE
+        // anything is written — `$this->staff->usernameTaken($username)`
+        // refuses somebody who is already on a roster.
+        //
+        // So it is gone rather than rewritten, and the real half of the
+        // promise — «no orphan» — is kept below, where the failure that can
+        // actually happen is handled. The `already_staff` sentence stays in
+        // the catalogue: `GrantImportedStaff` uses that code too, and twenty
+        // versions of audit rows carry the string (`alpha.57`).
         $staffUserId = $this->users->create($username, $email, $firstName, $lastName);
         if ($staffUserId <= 0) {
             return OperationResult::failure('user_not_created');
-        }
-        // A person belongs to one shop. If they already do, the account we
-        // just created must not be left orphaned.
-        if ($this->staff->findByUser($staffUserId) !== null) {
-            return OperationResult::failure('already_staff');
         }
 
         $token = InvitationToken::issue();
@@ -116,7 +128,39 @@ final class ManageStaff
             $expires
         );
         if ($staffId <= 0) {
-            return OperationResult::failure('storage_failed');
+            // ⛔ §7 CLAIM 9: THE ACCOUNT EXISTS AND ITS MEMBERSHIP DOES NOT.
+            //
+            // Two writes, and the second one failed. The first left a
+            // WordPress user with the site's default role, a random password
+            // nobody holds, and no membership row — so no shop access and no
+            // way in. Harmless to USE, and a dead end for the person it was
+            // for: `emailTaken()` now answers true, and nobody can ever be
+            // invited with that address again.
+            //
+            // So the first write is taken back, and the ANSWER IS READ
+            // (`alpha.90`): a compensation is itself a write and can fail.
+            // Two outcomes, two sentences — «nothing was left behind», or the
+            // username and the id of what was, so a manager can finish it by
+            // hand in wp-admin where deleting a site user belongs.
+            if ($this->users->deleteCreated($staffUserId)) {
+                return OperationResult::failure('storage_failed');
+            }
+            // ⛔ `username` IS NOT IN THIS ROW, ON PURPOSE. The sanitiser keeps
+            // only the keys `AuditEventCatalog::allowlist()` names for this
+            // event and drops the rest WITHOUT SAYING SO (`alpha.91`), so a
+            // key written here that is not there is a key nobody ever reads.
+            // `staff_user_id` was added to that list and has a test that reads
+            // it back out of the table; the login name goes on the screen,
+            // where it is not stored.
+            $this->audit->log(AuditEventCatalog::VENDOR_STAFF_INVITED, $actorId, 'vendor_staff', '0', [
+                'vendor_id' => $vendorUserId,
+                'status' => 'account_left',
+                'staff_user_id' => $staffUserId,
+            ]);
+            return OperationResult::failure('storage_failed_account_left', [
+                'username' => $username,
+                'user_id' => $staffUserId,
+            ]);
         }
 
         $this->audit->log(AuditEventCatalog::VENDOR_STAFF_INVITED, $actorId, 'vendor_staff', (string) $staffId, [

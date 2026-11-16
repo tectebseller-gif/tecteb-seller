@@ -29,4 +29,29 @@ interface StaffUserDirectoryInterface
     public function setPassword(int $userId, string $password): bool;
 
     public function exists(int $userId): bool;
+
+    /**
+     * Undo the ONE account this same call created seconds ago, when the
+     * membership row it was created for could not be written.
+     *
+     * ⛔ **THE ONLY WRITE IN THIS PLUGIN THAT CAN REMOVE A WORDPRESS USER, AND
+     * IT IS HERE UNDER PROTEST.** Measured before it existed: `invite()`
+     * creates the account and THEN inserts the membership row, so a storage
+     * failure between the two left a WordPress user with the site's default
+     * role, a password nobody knows, and no membership — and because
+     * `email_taken()` then answers true, the person it was made for could
+     * never be invited again. §7 claim 9 asks that a mid-way failure leave no
+     * account without control; a permanently blocked email address is the
+     * opposite.
+     *
+     * Every other way out was weighed and is worse: inserting the membership
+     * row first needs a row that points at no user, and reporting the orphan
+     * without removing it leaves the dead end in place.
+     *
+     * So the verb exists and the implementation is what makes it safe: it
+     * REFUSES unless the account is demonstrably the inert thing this call
+     * just made. `true` means it is gone; `false` means it is still there and
+     * the caller must say so by name.
+     */
+    public function deleteCreated(int $userId): bool;
 }
