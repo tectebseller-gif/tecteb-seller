@@ -595,6 +595,7 @@ final class ProductFormView
                     static fn (mixed $row): bool => $row instanceof Brand
                 )),
                 (bool) ($brands['missing'] ?? false),
+                (bool) ($brands['woo'] ?? false),
                 ($brands['open_request'] ?? null) instanceof BrandProposal ? $brands['open_request'] : null,
                 (string) ($brands['suggest_url'] ?? ''),
                 (string) ($brands['suggest_nonce'] ?? ''),

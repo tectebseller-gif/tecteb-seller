@@ -39,6 +39,11 @@ final class FakeBrandDirectory implements BrandDirectoryInterface
         return $this->available;
     }
 
+    public function source(): ?string
+    {
+        return $this->isAvailable() ? 'product_brand' : null;
+    }
+
     public function search(string $query, int $limit = 30): array
     {
         if (!$this->available) {

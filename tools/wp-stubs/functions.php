@@ -1267,6 +1267,50 @@ function locate_template(string|array $templateNames, bool $load = false, bool $
 }
 
 // ---- taxonomy ---------------------------------------------------------------
+/**
+ * Which taxonomies are registered for a post type.
+ *
+ * ⛔ MODELLED FROM `State::$terms` — a taxonomy that has a term bucket is a
+ * taxonomy this site registered, which is the same fiction `taxonomy_exists()`
+ * already runs on. Added with `BrandTaxonomy::discover()`: without it the
+ * discovery could not be reached from the contract suite at all, and a shop
+ * whose brands are an ATTRIBUTE is exactly the shop §5 is about.
+ *
+ * `State::$productTaxonomies`, when a test sets it, wins: a taxonomy can be
+ * registered with no terms in it yet, and the discovery's «registered but
+ * unreadable» refusal needs that state to be expressible.
+ */
+function get_object_taxonomies(mixed $object, string $output = 'names'): array
+{
+    if (TmcWpStubs\State::$productTaxonomies !== null) {
+        return TmcWpStubs\State::$productTaxonomies;
+    }
+    return array_keys(TmcWpStubs\State::$terms);
+}
+/**
+ * The shop's GLOBAL product attributes, as WooCommerce's own helper answers:
+ * a list of rows with `attribute_name` and `attribute_label`.
+ *
+ * The real one reads `wc_attribute_taxonomies` and returns objects; the slug
+ * is the bare name and the taxonomy is `pa_` + that, which is why
+ * `wc_attribute_taxonomy_name()` exists and is asked rather than concatenated
+ * (`alpha.34`).
+ */
+function wc_get_attribute_taxonomies(): array
+{
+    $out = [];
+    foreach (TmcWpStubs\State::$attributeTaxonomies as $row) {
+        $out[] = (object) [
+            'attribute_name' => (string) ($row['name'] ?? ''),
+            'attribute_label' => (string) ($row['label'] ?? ''),
+        ];
+    }
+    return $out;
+}
+function wc_attribute_taxonomy_name(string $name): string
+{
+    return $name === '' ? '' : 'pa_' . $name;
+}
 function taxonomy_exists(string $taxonomy): bool
 {
     return isset(State::$terms[$taxonomy]);

@@ -49,12 +49,20 @@ final class ManageBrands
     /**
      * The picker's own list, and whether the vendor may ask for more.
      *
-     * @return array{available:bool, brands:list<\Tecteb\Marketplace\Modules\Product\Domain\Brand>, total:int}
+     * ⛔ `source` is here because «available» had become two facts in one
+     * boolean. It is the name of the taxonomy the list came from, or `null`
+     * when there is none — and the caller needs the name to say ANYTHING
+     * useful: «WooCommerce is not running» and «WooCommerce is running and
+     * this shop keeps its brands somewhere else» are different sentences and
+     * only one of them was ever printed.
+     *
+     * @return array{available:bool, source:?string, brands:list<\Tecteb\Marketplace\Modules\Product\Domain\Brand>, total:int}
      */
     public function pick(string $query, int $limit = 30): array
     {
         return [
             'available' => $this->brands->isAvailable(),
+            'source' => $this->brands->source(),
             'brands' => $this->brands->search($query, $limit),
             'total' => $this->brands->count(),
         ];

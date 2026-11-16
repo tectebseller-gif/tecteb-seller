@@ -22,6 +22,11 @@ final class NullBrandDirectory implements BrandDirectoryInterface
         return false;
     }
 
+    public function source(): ?string
+    {
+        return $this->isAvailable() ? 'product_brand' : null;
+    }
+
     public function search(string $query, int $limit = 30): array
     {
         return [];

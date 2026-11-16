@@ -42,6 +42,18 @@ interface BrandDirectoryInterface
     public function isAvailable(): bool;
 
     /**
+     * WHICH list this is, or `null` when the shop has none.
+     *
+     * ⛔ Added because «available» had come to mean two different things and
+     * the screen could not tell them apart. `isAvailable()` was false both
+     * when WooCommerce is not running and when it IS running and the shop
+     * simply keeps its brands somewhere this plugin had not looked — and those
+     * are two different sentences for the vendor, one of which was never
+     * printed. A name, not a boolean, so the sentence can say what was found.
+     */
+    public function source(): ?string;
+
+    /**
      * Brands whose name matches, for the vendor's picker.
      *
      * @return list<Brand>

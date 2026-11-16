@@ -55,14 +55,18 @@ final class ProductBrandFieldView
      *                                     name they have asked for, else the
      *                                     brand the row holds
      * @param list<Brand>     $suggestions names for the datalist
-     * @param bool            $listMissing WooCommerce is not running, so there
-     *                                     is no list to check a name against
+     * @param bool            $listMissing there is no list to check a name
+     *                                     against
+     * @param bool            $wooRunning  WooCommerce IS running — which makes
+     *                                     `$listMissing` a different fact and a
+     *                                     different sentence
      * @param ?BrandProposal  $open        the request waiting on this product
      */
     public static function render(
         string $value,
         array $suggestions,
         bool $listMissing = false,
+        bool $wooRunning = false,
         ?BrandProposal $open = null,
         string $suggestUrl = '',
         string $suggestNonce = '',
@@ -86,7 +90,7 @@ final class ProductBrandFieldView
             . self::options($suggestions)
             . '</datalist>';
 
-        $status = self::status($listMissing, $open);
+        $status = self::status($listMissing, $wooRunning, $open);
         return $html . ($status === '' ? '' : $status) . '</div>';
     }
 
@@ -116,10 +120,21 @@ final class ProductBrandFieldView
      * explanation. Four paragraphs of prose were what the owner rejected, so
      * the general case is one line and the rest are each one line.
      */
-    private static function status(bool $listMissing, ?BrandProposal $open): string
+    private static function status(bool $listMissing, bool $wooRunning, ?BrandProposal $open): string
     {
-        if ($listMissing) {
+        // ⛔ TWO WAYS TO HAVE NO LIST, AND ONLY ONE OF THEM USED TO BE SAID.
+        //
+        // The old sentence was «ووکامرس فعال نیست» for both, and on the
+        // owner's shop it was simply false: WooCommerce is running, the brands
+        // are a WooCommerce ATTRIBUTE, and the vendor was told the shop
+        // software was off while the page it was on came from that software.
+        // A sentence that names the wrong cause sends somebody to fix the
+        // wrong thing, which is worse than no sentence at all.
+        if ($listMissing && !$wooRunning) {
             return VendorUi::notice('warn', __('فهرست برندها از ووکامرس خوانده می‌شود و ووکامرس فعال نیست. برند فعلی این محصول دست‌نخورده می‌ماند.', 'tecteb-marketplace-core'));
+        }
+        if ($listMissing) {
+            return VendorUi::notice('warn', __('این فروشگاه هنوز فهرست برند ندارد، پس نامی برای پیشنهاد دادن نیست. می‌توانید نام برند را تایپ کنید؛ ثبت می‌شود و مدیر تعیین تکلیف می‌کند. برند فعلی این محصول دست‌نخورده می‌ماند.', 'tecteb-marketplace-core'));
         }
         if ($open !== null) {
             return VendorUi::notice('info', sprintf(

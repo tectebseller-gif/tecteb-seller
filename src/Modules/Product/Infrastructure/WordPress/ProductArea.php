@@ -443,6 +443,15 @@ final class ProductArea
             'value' => $value,
             'suggestions' => $picked['brands'],
             'missing' => !$picked['available'],
+            // ⛔ TWO FACTS, NOT ONE. `missing` says there is no list to check a
+            // name against; this says whether WooCommerce is even running. The
+            // vendor's next move is different in each case — wait for the site
+            // to come back, or ask the manager where the shop's brands live —
+            // and until this round only the first sentence existed, so a shop
+            // whose brands are a WooCommerce ATTRIBUTE was told WooCommerce was
+            // off while it was plainly running. Same probe the category field
+            // asks, so the two cannot drift.
+            'woo' => $this->container->get(DependencyProbeInterface::class)->woocommerceAvailable(),
             'open_request' => $open,
             // Empty for a reader with no edit rights: the seeded datalist is
             // still filtered by the browser, and an endpoint handed to

@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Contracts\DatabaseInterface;
 use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\Brand;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
+use Tecteb\Marketplace\Modules\Product\Domain\BrandTaxonomy;
 
 /**
  * WooCommerce's own `product_brand` terms, read once per request and indexed.
@@ -26,7 +27,27 @@ use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
  */
 final class WooCommerceBrandDirectory implements BrandDirectoryInterface
 {
+    /**
+     * WooCommerce's own brand taxonomy, which is the FIRST thing looked for
+     * and no longer the only thing.
+     *
+     * ⛔ Kept as a constant because it is still the preferred answer and
+     * because `BrandTaxonomy::KNOWN[0]` is this exact string, with a test
+     * binding the two. What changed is that nothing reads it directly any
+     * more: a shop whose brands are a WooCommerce ATTRIBUTE has no
+     * `product_brand` at all, and every method here used to refuse such a
+     * shop a list while saying nothing about why. See `BrandTaxonomy`.
+     */
     public const TAXONOMY = 'product_brand';
+
+    /**
+     * The discovered taxonomy, asked once per request.
+     *
+     * `false` means «not asked yet» and `null` means «asked, and this shop has
+     * no brand list» — two states that a single nullable cannot hold, and
+     * collapsing them would re-ask on every call of every method.
+     */
+    private string|null|false $taxonomy = false;
 
     /** @var array<int,string>|null term id => name */
     private ?array $terms = null;
@@ -57,7 +78,50 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
 
     public function isAvailable(): bool
     {
-        return function_exists('taxonomy_exists') && taxonomy_exists(self::TAXONOMY);
+        return $this->source() !== null;
+    }
+
+    public function source(): ?string
+    {
+        if ($this->taxonomy !== false) {
+            return $this->taxonomy;
+        }
+        if (!function_exists('get_object_taxonomies')) {
+            return $this->taxonomy = null;
+        }
+        $registered = array_values(array_map('strval', (array) get_object_taxonomies('product')));
+
+        // The shop's GLOBAL attributes, each with the label a person chose.
+        // Asked only from WooCommerce's own helper: a `pa_*` taxonomy is
+        // WooCommerce's construction and reading `wc_attribute_taxonomies`
+        // by hand would be a second opinion about it (`alpha.34`).
+        $attributes = [];
+        if (function_exists('wc_get_attribute_taxonomies') && function_exists('wc_attribute_taxonomy_name')) {
+            foreach ((array) wc_get_attribute_taxonomies() as $attribute) {
+                $name = is_object($attribute) ? (string) ($attribute->attribute_name ?? '') : '';
+                $label = is_object($attribute) ? (string) ($attribute->attribute_label ?? '') : '';
+                if ($name === '') {
+                    continue;
+                }
+                $attributes[] = [
+                    'taxonomy' => (string) wc_attribute_taxonomy_name($name),
+                    'label' => $label !== '' ? $label : $name,
+                ];
+            }
+        }
+        return $this->taxonomy = BrandTaxonomy::discover($registered, $attributes);
+    }
+
+    /**
+     * The taxonomy to read, for the methods that cannot run without one.
+     *
+     * They all check `isAvailable()` first, so this never answers an empty
+     * string on a path that uses it — and returning one rather than throwing
+     * keeps every signature as it was.
+     */
+    private function taxonomy(): string
+    {
+        return $this->source() ?? '';
     }
 
     public function search(string $query, int $limit = 30): array
@@ -150,7 +214,7 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
             if ($already !== null) {
                 return $already;
             }
-            $inserted = wp_insert_term($display, self::TAXONOMY);
+            $inserted = wp_insert_term($display, $this->taxonomy());
             $this->terms = null;
             $this->byKey = null;
             if (is_array($inserted) && (int) ($inserted['term_id'] ?? 0) > 0) {
@@ -221,7 +285,7 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
                FROM `' . $prefix . 'terms` t
                INNER JOIN `' . $prefix . 'term_taxonomy` tt ON tt.term_id = t.term_id
               WHERE tt.taxonomy = %s',
-            [self::TAXONOMY]
+            [$this->taxonomy()]
         );
         foreach ($rows as $row) {
             if (BrandName::key((string) ($row['name'] ?? '')) === $key) {
@@ -248,7 +312,7 @@ final class WooCommerceBrandDirectory implements BrandDirectoryInterface
             return;
         }
         $terms = get_terms([
-            'taxonomy' => self::TAXONOMY,
+            'taxonomy' => $this->taxonomy(),
             'hide_empty' => false,
             'orderby' => 'name',
         ]);

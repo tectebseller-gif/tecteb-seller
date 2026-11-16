@@ -14,6 +14,21 @@ final class State
      * @var array<string,array<int,array{name:string,slug:string,parent:int,count:int}>>
      */
     public static array $terms = [];
+    /**
+     * Taxonomies registered for `product`, when a test wants to say so
+     * explicitly. `null` means «derive it from `$terms`», which is what every
+     * fixture written before `BrandTaxonomy` meant.
+     *
+     * @var list<string>|null
+     */
+    public static ?array $productTaxonomies = null;
+    /**
+     * The shop's global product attributes: `[['name' => 'brand', 'label' =>
+     * 'برند'], …]`, where the taxonomy is `pa_` + name.
+     *
+     * @var list<array{name:string,label:string}>
+     */
+    public static array $attributeTaxonomies = [];
 
     /** @var array<string,mixed> */
     public static array $options = [];
@@ -353,6 +368,17 @@ final class State
         self::$shortcodes = [];
         self::$firedActions = [];
         self::$roles = ['administrator' => ['manage_options' => true, 'activate_plugins' => true]];
+        self::$productTaxonomies = null;
+        self::$attributeTaxonomies = [];
+        // ⛔ `$terms` WAS NOT RESET, AND THAT IS A LEAK, NOT A FEATURE.
+        //
+        // Every other bucket in this class is given back between tests; this
+        // one was not, so terms a test seeded were still there for the next
+        // one — and with `get_object_taxonomies()` now derived from the keys,
+        // a shop that was supposed to have no brand list inherited one from
+        // whichever test ran before it. The same fixture rule as `alpha.67`'s
+        // tables: whatever a test spends, it gives back.
+        self::$terms = [];
         self::$currentUserCaps = [];
         self::$currentUserId = 0;
         self::$multisite = false;
