@@ -70,3 +70,11 @@ docs/evidence/*/.restore
 # `trap` now; this is the second lock on the same door.
 *.snapshot
 docs/evidence/*/.remeasure-*.txt
+
+# §8's header harness copies the vendor stylesheet and script beside the pages
+# it renders, because the pages reference them by URL and `php -S` serves that
+# one directory. Those two files are byte-for-byte `assets/vendor/`, which git
+# already carries — a second copy per render is 108 KB of the same bytes, and
+# `TMC_HEADER_BASE=… php tools/render-vendor-header.php` puts them back.
+docs/evidence/alpha107-header/**/tmc-vendor.css
+docs/evidence/alpha107-header/**/tmc-vendor.js

@@ -35,6 +35,10 @@
   --tv-ink-strong: #0F2E3B;
   --tv-sky: #6ABFE7;
   --tv-sky-soft: #D9EFF9;
+  /* §8's «فیروزه‌ای پزشکی»: the header's rule, its mark and the active
+     marker on the current menu item. Never a surface with text on it —
+     see `tools/contrast.php`, where it has its own non-text row. */
+  --tv-teal: #17B3A3;
   --tv-green: #21D483;
   --tv-amber: #FFC658;
   --tv-red: #B3261E;
@@ -81,19 +85,135 @@
   padding: 0 var(--tv-s4); background: var(--tv-ink); color: #fff; text-decoration: none; font-weight: 700;
 }
 
-/* header ------------------------------------------------------------------ */
+/* header ------------------------------------------------------------------
+ *
+ * §8: lower, navy, and with the shop's name as the account control.
+ *
+ * ⛔ WHY NAVY AND NOT THE SKY BLUE IT WAS. The owner's brief names four
+ * colours — «سفید، سرمه‌ای، آبی و فیروزه‌ای پزشکی» — and the bar was the
+ * lightest of them, which is why it read as the biggest object on every page.
+ * Navy with white text is the pair `tools/contrast.php` has pinned at 12:1
+ * since the first preview, the brand blue stays as the accent it is used as
+ * everywhere else in this file, and the turquoise is a RULE and an active
+ * marker, never a surface with text on it (its own row in that table).
+ *
+ * ⛔ AND LOWER MEANS MEASURED, NOT «TIGHTER». Two changes do it: the name and
+ * the role share one line instead of stacking (that was two line-boxes of
+ * 1.2rem and 0.9375rem plus their leading), and the bar's block padding went
+ * from `--tv-s4 / --tv-s3` to `--tv-s2`. Nothing was removed to get there —
+ * the mark, the name, the role, the shop and the menu are all still here.
+ */
 .tv-head {
-  background: var(--tv-sky);
-  padding: var(--tv-s4) var(--tv-s4) var(--tv-s3);
+  background: var(--tv-ink);
+  color: #fff;
+  padding: var(--tv-s2) var(--tv-s4);
   display: grid;
-  gap: var(--tv-s3);
-  border-block-end: 4px solid var(--tv-ink);
+  gap: var(--tv-s2);
+  border-block-end: 3px solid var(--tv-teal);
 }
-.tv-head__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tv-s2) var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
-.tv-head__brand { display: flex; flex-direction: column; }
-.tv-head__name { font-weight: 700; font-size: 1.2rem; color: var(--tv-ink); }
-.tv-head__role { font-size: 0.9375rem; color: var(--tv-ink); opacity: 0.85; }
-.tv-head__store { margin: 0; font-weight: 700; color: var(--tv-ink); background: #fff; border-radius: 999px; padding: var(--tv-s1) var(--tv-s4); }
+.tv-head__bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: var(--tv-s2) var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; inline-size: 100%;
+  min-block-size: var(--tv-touch);
+}
+/* The name and the role on ONE baseline. `min-inline-size: 0` so a narrow
+   phone shrinks this group instead of pushing the shop's name off the bar. */
+.tv-head__brand { display: flex; align-items: center; gap: var(--tv-s2); min-inline-size: 0; flex-wrap: wrap; }
+/* One shape, drawn here: a turquoise tile with a white cross. No icon font
+   and no sprite, so there is nothing to load and nothing to go missing. */
+.tv-head__mark {
+  position: relative; flex: none; inline-size: 26px; block-size: 26px;
+  background: var(--tv-teal); border-radius: 7px;
+}
+/* ⛔ THE CROSS IS NAVY, AND THE MEASUREMENT CHOSE THAT. White on this
+   turquoise is 2.62:1 — under the 3:1 bar for a non-text graphic — and the
+   first draft of this rule was white. Navy on it is 4.49:1. The row is in
+   `tools/contrast.php` and it failed there before it was changed here, which
+   is the only reason this is navy and not «whatever looked clean». */
+.tv-head__mark::before,
+.tv-head__mark::after {
+  content: ""; position: absolute; inset-block-start: 50%; inset-inline-start: 50%;
+  background: var(--tv-ink); border-radius: 1px; transform: translate(50%, -50%);
+}
+.tv-head__mark::before { inline-size: 12px; block-size: 3px; }
+.tv-head__mark::after { inline-size: 3px; block-size: 12px; }
+.tv-head__name { font-weight: 700; font-size: 1.0625rem; color: #fff; white-space: nowrap; }
+.tv-head__role {
+  font-size: 0.8125rem; font-weight: 600; color: #fff; white-space: nowrap;
+  background: rgba(255, 255, 255, 0.14); border-radius: var(--tv-radius-sm);
+  padding: 2px var(--tv-s2);
+}
+/* The label a shell with no account links renders — the pre-§8 shape, kept
+   because `VendorShell::account()` still falls back to it. */
+.tv-head__store {
+  margin: 0; font-weight: 700; color: #fff; background: rgba(255, 255, 255, 0.14);
+  border-radius: var(--tv-radius-sm); padding: var(--tv-s1) var(--tv-s3);
+}
+
+/* the account menu: the shop's name, and what it opens --------------------
+ *
+ * A `<details>`, for the same reason the navigation is one: it opens with a
+ * click, with Enter and with Space, is announced as expandable, and needs no
+ * script — so a vendor whose JavaScript is off can still log out.
+ *
+ * The panel is absolutely positioned so opening it does not push the page
+ * down, and `inset-inline-end: 0` keeps it inside the bar in RTL as in LTR
+ * (logical properties, so there is one rule and not a mirrored pair). */
+.tv-acct { position: relative; min-inline-size: 0; }
+.tv-acct__toggle {
+  display: flex; align-items: center; gap: var(--tv-s2); cursor: pointer; list-style: none;
+  min-block-size: 34px; padding: 0 var(--tv-s3); max-inline-size: 100%;
+  background: rgba(255, 255, 255, 0.14); color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: var(--tv-radius-sm);
+  font-weight: 700;
+}
+.tv-acct__toggle::-webkit-details-marker { display: none; }
+.tv-acct__toggle:hover { background: rgba(255, 255, 255, 0.24); }
+.tv-acct__store { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0; }
+.tv-acct__chevron {
+  flex: none; inline-size: 8px; block-size: 8px; border-style: solid; border-color: currentColor;
+  border-width: 0 0 2px 2px; transform: rotate(-45deg); margin-block-start: -4px;
+  transition: transform 120ms ease-out;
+}
+.tv-acct[open] .tv-acct__chevron { transform: rotate(135deg); margin-block-start: 2px; }
+.tv-acct__menu {
+  position: absolute; z-index: 20; inset-block-start: calc(100% + var(--tv-s1)); inset-inline-end: 0;
+  min-inline-size: 13rem; background: var(--tv-surface); color: var(--tv-ink);
+  border: 1px solid var(--tv-border); border-radius: var(--tv-radius);
+  box-shadow: 0 10px 24px rgba(20, 60, 77, 0.18); padding: var(--tv-s1);
+}
+.tv-acct__menu ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+/* Prefixed for the reason spelled out on `.tv .tv-nav__link` below: these are
+   `<a>` elements and `.tv a` outranks a single class. Navy happens to be the
+   same colour here, so the bug would have been invisible — until
+   `--logout`'s red, which is the half that shows it. */
+.tv .tv-acct__link {
+  display: flex; align-items: center; min-block-size: var(--tv-touch);
+  padding: 0 var(--tv-s3); border-radius: var(--tv-radius-sm);
+  color: var(--tv-ink); text-decoration: none; font-weight: 600; white-space: nowrap;
+}
+.tv .tv-acct__link:hover { background: var(--tv-surface-2); }
+/* One drawn mark per item, so the three are told apart at a glance and the
+   set is consistent: no icon font, no sprite, no second request. */
+.tv .tv-acct__link::before {
+  content: ""; flex: none; inline-size: 14px; block-size: 14px;
+  margin-inline-end: var(--tv-s2); border: 2px solid currentColor; border-radius: 3px;
+}
+/* The shop: a tile with its awning — a filled bar across the top. */
+.tv .tv-acct__link--shop::before { border-block-start-width: 5px; }
+/* Back to the site: a chevron pointing the way text runs, so it mirrors
+   itself in RTL without a second rule. */
+.tv .tv-acct__link--site::before {
+  border-width: 0 0 2px 2px; border-radius: 0; inline-size: 9px; block-size: 9px;
+  transform: rotate(45deg);
+}
+/* Logging out is the one destructive item in this menu, so it reads as one —
+   a rule above it and the warning colour on its text. It is still a plain
+   link to WordPress's own nonce-carrying address. */
+.tv .tv-acct__link--logout { color: var(--tv-red); border-block-start: 1px solid var(--tv-border); border-radius: 0 0 var(--tv-radius-sm) var(--tv-radius-sm); }
+/* Leaving: the tile with its side open. */
+.tv .tv-acct__link--logout::before { border-inline-end-color: transparent; }
+.tv .tv-acct__link--logout:hover { background: #FDECEA; }
 
 /* navigation: the current item is INK on white, never white on sky ---------
  *
@@ -104,16 +224,26 @@
  * because CSS cannot reveal a closed `<details>` (measured in Chromium 141:
  * the UA hides the panel through its own shadow slot). The summary is hidden
  * only under `is-wide`, so a browser running no script always keeps the
- * control that opens the menu. */
+ * control that opens the menu.
+ *
+ * ⛔ §8: «شکست نامناسب خطوط» IS A LABEL BREAKING, NOT A LIST WRAPPING. Ten
+ * items cannot sit on one row of a 1100px bar, so wrapping to a second row is
+ * the layout working. What the owner saw was «پروندهٔ فروشندگی و مدارک»
+ * broken across two lines inside its own button, because the mobile grid gave
+ * each item half the width and centred the text in it. So: `nowrap` on the
+ * label, one column on a phone, start-aligned — and the pills became
+ * rectangles with `--tv-radius-sm`, which is the «گوشه‌های متعادل، نه
+ * دکمه‌های بیش‌ازحد کپسولی» half of the brief. */
 .tv-nav { max-inline-size: 1100px; margin-inline: auto; inline-size: 100%; }
 .tv-nav__toggle {
   display: flex; align-items: center; gap: var(--tv-s2);
-  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
-  background: #fff; color: var(--tv-ink); border: 2px solid transparent; border-radius: 999px;
+  min-height: 38px; padding: 0 var(--tv-s3);
+  background: rgba(255, 255, 255, 0.14); color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: var(--tv-radius-sm);
   font-weight: 700; cursor: pointer; list-style: none;
 }
 .tv-nav__toggle::-webkit-details-marker { display: none; }
-.tv-nav__toggle:hover { border-color: var(--tv-ink); }
+.tv-nav__toggle:hover { background: rgba(255, 255, 255, 0.24); }
 .tv-nav__toggle-icon {
   inline-size: 18px; block-size: 2px; background: currentColor; border-radius: 2px;
   position: relative; flex: none;
@@ -128,24 +258,48 @@
 .tv-nav[open] .tv-nav__toggle-icon { background: transparent; }
 .tv-nav[open] .tv-nav__toggle-icon::before { transform: translateY(6px) rotate(45deg); }
 .tv-nav[open] .tv-nav__toggle-icon::after { transform: translateY(-6px) rotate(-45deg); }
+/* ⛔ A RULE THIS CLASS NEVER HAD, found the moment `VendorShell` joined
+   `StyledClassesHaveRulesTest`'s list. `.tv-nav__toggle-text` was written by
+   the markup and matched by NOTHING — the `alpha.32` root cause, in the one
+   element whose job is to say «menu». It looked right because the summary's
+   own font reached it; what it did not have was the one property §8 is about,
+   so a long label could break inside the control that opens the menu. */
+.tv-nav__toggle-text { white-space: nowrap; flex: none; }
 /* A collapsed menu that does not say where you are trades one problem for
    another, so the current section rides on the closed toggle. */
 .tv-nav__toggle-current {
-  margin-inline-start: auto; font-weight: 600; font-size: 0.9375rem; color: var(--tv-muted);
+  margin-inline-start: auto; font-weight: 600; font-size: 0.9375rem; color: rgba(255, 255, 255, 0.85);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-inline-size: 0;
 }
-.tv-nav__panel { margin-block-start: var(--tv-s3); }
+.tv-nav__panel { margin-block-start: var(--tv-s2); }
 .tv-nav.is-wide > .tv-nav__toggle { display: none; }
 .tv-nav.is-wide > .tv-nav__panel { margin-block-start: 0; }
-.tv-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--tv-s2); }
-.tv-nav__link {
-  display: flex; align-items: center; justify-content: center; text-align: center;
-  min-height: var(--tv-touch); padding: 0 var(--tv-s4);
-  background: #fff; color: var(--tv-ink); border: 2px solid transparent;
-  border-radius: 999px; font-weight: 700; text-decoration: none;
+.tv-nav ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: var(--tv-s1); }
+/* ⛔ `.tv` PREFIXED, AND THE BROWSER IS WHY. `.tv a { color: var(--tv-ink) }`
+   near the top of this file has specificity (0,2,0) and `.tv-nav__link` has
+   (0,1,0), so the first draft of this rule set `color: #fff` and the links
+   rendered NAVY on translucent white over navy — measured at 1.35:1, which is
+   text nobody can read. It is the same class of bug the comment at the top of
+   this file describes from the first preview, with a different cause: there a
+   variable came from a stylesheet this page never loads, here a selector two
+   hundred lines up outranks the one that looks authoritative.
+   `.tv .tv-btn--secondary` in this file already carries the same prefix for
+   the same reason. */
+.tv .tv-nav__link {
+  display: flex; align-items: center; justify-content: flex-start; white-space: nowrap;
+  min-height: 38px; padding: 0 var(--tv-s3);
+  background: rgba(255, 255, 255, 0.10); color: #fff; border: 1px solid transparent;
+  border-radius: var(--tv-radius-sm); font-weight: 600; text-decoration: none;
 }
-.tv-nav__link:hover { border-color: var(--tv-ink); }
-.tv-nav__link.is-current { background: var(--tv-ink); color: #fff; }
+.tv .tv-nav__link:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.4); }
+/* The whole reason this stylesheet defines its own colours: the active item
+   used to be white-on-light-blue because its colour came from a variable the
+   admin sheet defines and this page never loads. White fill, navy text, and
+   a turquoise marker that says «here» without carrying any text. */
+.tv .tv-nav__link.is-current {
+  background: #fff; color: var(--tv-ink); font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--tv-teal);
+}
 
 /* content ----------------------------------------------------------------- */
 .tv-main { padding: var(--tv-s4); max-inline-size: 1100px; margin-inline: auto; }

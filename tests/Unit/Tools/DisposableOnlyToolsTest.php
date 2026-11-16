@@ -45,6 +45,15 @@ final class DisposableOnlyToolsTest extends TestCase
         'demo-image-shapes.php' => 'pure rasteriser; returns PNG bytes and writes nothing by itself',
         'demo-translations.php' => 'standalone .mo writer; takes a directory argument and never loads WordPress',
         'demo-router.php' => 'web-server router, copied into the demo root; has no CLI entry point to guard',
+        // §8's header harness. It renders `VendorShell` through the SAME stub
+        // layer the contract suite uses (`tools/wp-stubs/load.php`), writes
+        // three HTML files into `docs/evidence/` and nothing else — there is
+        // no WordPress for it to be pointed at, and no site it could write to.
+        // It is also why it must be here rather than carrying the two checks:
+        // a guard against a production host would be a guard against nothing,
+        // and a tool that pretends to need one teaches the next reader that
+        // this list is decoration.
+        'render-vendor-header.php' => 'renders the vendor shell under the wp-stubs; loads no WordPress and writes only into docs/evidence',
     ];
 
     /**

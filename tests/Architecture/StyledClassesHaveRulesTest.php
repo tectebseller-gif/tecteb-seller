@@ -72,6 +72,13 @@ final class StyledClassesHaveRulesTest extends TestCase
             'views' => [
                 'src/Modules/Vendor/Presentation/DashboardView.php',
                 'src/Modules/Product/Presentation/ProductListView.php',
+                // ⛔ ADDED BY §8, WHICH IS WHAT THE PARAGRAPH ABOVE ASKS FOR:
+                // «When one of them is rebuilt, add it to this list.» The
+                // vendor header was rebuilt — a navy bar, an account menu on
+                // the shop's name, and nine new class names — and every one of
+                // those names is a contract with this one stylesheet. Nothing
+                // in PHP notices a class with no rule; this does.
+                'src/Modules/Vendor/Presentation/VendorShell.php',
             ],
         ],
     ];

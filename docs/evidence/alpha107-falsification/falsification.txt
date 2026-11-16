@@ -1,0 +1,137 @@
+=== §8 falsification: 15 mutations, from 1 ===
+php: 8.3.6
+
+--- M1: the logout link is dropped from the account menu
+    file: src/Modules/Vendor/Presentation/VendorShell.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 502, Assertions: 2948, Failures: 3. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M2: the shop name is a label again, never a control
+    file: src/Modules/Vendor/Presentation/VendorShell.php   expect: contract + browser
+applied
+    contract:  FAILURES! Tests: 502, Assertions: 2941, Failures: 4. 
+    browser: Node.js v22.23.4
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M3: a page with no shop gets the account menu anyway
+    file: src/Modules/Vendor/Presentation/VendorShell.php   expect: contract + browser
+applied
+    contract:  FAILURES! Tests: 502, Assertions: 2949, Failures: 1. 
+    browser: checks: 50  failures: 0
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M4: the summary gets an aria-label that hides the shop name
+    file: src/Modules/Vendor/Presentation/VendorShell.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 502, Assertions: 2951, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M5: aria-current is dropped from the active menu item
+    file: src/Modules/Vendor/Presentation/VendorShell.php   expect: contract
+applied
+    contract:  FAILURES! Tests: 502, Assertions: 2949, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M6: back to the site becomes the logout address
+    file: src/Modules/Vendor/Infrastructure/WordPress/VendorRoutes.php   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 368, Assertions: 7282, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M7: the shop link is printed whether the page exists or not
+    file: src/Modules/Vendor/Infrastructure/WordPress/VendorRoutes.php   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 368, Assertions: 7283, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M8: the shell is never handed the account array
+    file: src/Modules/Vendor/Infrastructure/WordPress/VendorRoutes.php   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 368, Assertions: 7281, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M9: the vendor views stop handing renderShell the vendor id
+    file: src/Modules/Vendor/Infrastructure/WordPress/VendorRoutes.php   expect: architecture
+applied
+    architecture:  FAILURES! Tests: 368, Assertions: 7283, Failures: 1. 
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M10: the nav links lose the .tv prefix and go navy on navy
+    file: assets/vendor/tmc-vendor.css   expect: browser (axe colour-contrast)
+applied
+    contrast: failures: 0
+    browser: checks: 50  failures: 2
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M11: the header gets its old block padding back
+    file: assets/vendor/tmc-vendor.css   expect: browser (the header is lower)
+applied
+    browser: checks: 50  failures: 0
+    SURVIVED — a hole in the tests, or a mutation that measures nothing
+    restored byte-for-byte: yes
+
+--- M12: menu labels may break across lines again
+    file: assets/vendor/tmc-vendor.css   expect: browser (no label breaks)
+applied
+    browser: checks: 50  failures: 0
+    SURVIVED — a hole in the tests, or a mutation that measures nothing
+    restored byte-for-byte: yes
+
+--- M13: the menu items become capsules again
+    file: assets/vendor/tmc-vendor.css   expect: browser (not capsules)
+applied
+    browser: checks: 50  failures: 3
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M14: the mark's cross goes white and fails the contrast table
+    file: assets/vendor/tmc-vendor.css   expect: contrast
+applied
+    contrast: failures: 0
+    SURVIVED — a hole in the tests, or a mutation that measures nothing
+    restored byte-for-byte: yes
+
+--- M15: the open account menu is pushed off the page edge
+    file: assets/vendor/tmc-vendor.css   expect: browser (inside the viewport)
+applied
+    browser: checks: 50  failures: 3
+    FALSIFIED
+    restored byte-for-byte: yes
+
+problems: 3
+
+=== second pass: 11 12 14 ===
+
+--- M11 (again): the header gets its old padding AND its stacked brand back
+    file: assets/vendor/tmc-vendor.css   expect: browser (the header is lower)
+applied
+    browser: checks: 53  failures: 6
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M12 (again): menu labels may break: two columns, centred, no nowrap
+    file: assets/vendor/tmc-vendor.css   expect: browser (no label breaks)
+applied
+    browser: checks: 53  failures: 6
+    FALSIFIED
+    restored byte-for-byte: yes
+
+--- M14 (again): the mark's cross goes white and drops below 3:1
+    file: assets/vendor/tmc-vendor.css   expect: browser (the mark is readable)
+applied
+    browser: checks: 53  failures: 3
+    FALSIFIED
+    restored byte-for-byte: yes
+
+second-pass problems: 0

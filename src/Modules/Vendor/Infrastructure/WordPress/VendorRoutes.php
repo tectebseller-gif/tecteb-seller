@@ -657,7 +657,8 @@ final class VendorRoutes
                     $access->canManageStore($userId, $userId),
                     $access->storeFor($userId) !== null,
                     self::applicationTitle($workspace)
-                )
+                ),
+                $userId
             );
         }
 
@@ -695,7 +696,8 @@ final class VendorRoutes
                 $access->canManageStore($userId, $userId),
                 $access->storeFor($userId) !== null,
                 self::applicationTitle($workspace)
-            )
+            ),
+            $userId
         );
     }
 
@@ -1017,7 +1019,7 @@ final class VendorRoutes
     }
 
     /** @param list<array{slug:string,label:string,url:string}> $nav */
-    private function renderShell(string $title, string $view, string $body, string $storeName, array $nav = []): void
+    private function renderShell(string $title, string $view, string $body, string $storeName, array $nav = [], int $userId = 0): void
     {
         // One shell script on every view, and it does exactly one thing: open
         // the collapsed menu when the viewport is wide. With scripts off the
@@ -1051,9 +1053,58 @@ final class VendorRoutes
             $body,
             $this->assetsBaseUrl . 'assets/vendor/tmc-vendor.css',
             $this->version,
-            $scripts
+            $scripts,
+            $this->accountFor($userId)
         );
         exit;
+    }
+
+    /**
+     * The three addresses §8's account menu offers, built HERE and not there.
+     *
+     * ⛔ **WHY NOT IN `VendorShell`.** «خروج از حساب باید با مسیر استاندارد و
+     * امن وردپرس انجام شود» means `wp_logout_url()`, which carries WordPress's
+     * own nonce — and Presentation does not call WordPress (`alpha.9`, and the
+     * architecture suite enforces it). So this layer answers the question and
+     * the shell prints the answer.
+     *
+     * ⛔ **AND «مشاهده فروشگاه» IS ASKED FOR, NOT ASSUMED.**
+     * `StorePage::publicShop()` applies the same two conditions the public
+     * page applies — an approved application AND a settings row — and returns
+     * `null` when either is missing. That is the `alpha.17` finding: three
+     * addresses were listed and two of them were 404s. A shop with no public
+     * page gets no link rather than a dead one.
+     *
+     * The shop asked about is the one whose PANEL this is — `storeFor()` for a
+     * staff member, themselves otherwise — because a staff member has no
+     * application of their own and asking about them would always answer
+     * `null`.
+     *
+     * ⛔ **AND THE SITE LINK IS THE SITE.** `home_url('/')` is not a logout and
+     * cannot become one; «بازگشت به سایت نباید باعث خروج شود» is true here by
+     * construction, and `VendorHeaderTest` asserts the two are different URLs
+     * rather than trusting the two lines above.
+     *
+     * @return array{shop_url?:string,site_url:string,logout_url:string}|array{}
+     */
+    private function accountFor(int $userId): array
+    {
+        if ($userId <= 0) {
+            // The invitation page: rendered for somebody who is not logged in
+            // and has no shop. An account menu there would offer to log out a
+            // visitor who never logged in.
+            return [];
+        }
+        $shopOwnerId = $this->container->get(StaffAccess::class)->storeFor($userId) ?? $userId;
+        $shop = StorePage::publicShop($this->container, $shopOwnerId);
+        $account = [
+            'site_url' => home_url('/'),
+            'logout_url' => wp_logout_url(home_url('/')),
+        ];
+        if ($shop !== null) {
+            $account['shop_url'] = (string) $shop['url'];
+        }
+        return $account;
     }
 
     /** One flash per user: a message belongs to whoever just wrote. */

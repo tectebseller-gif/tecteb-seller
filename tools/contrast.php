@@ -25,7 +25,13 @@ function ratio(string $a, string $b): float
 
 $pairs = [
     ['متن سفید روی سرمه‌ای اصلی (دکمه اصلی، ناوبری فعال)', '#FFFFFF', '#143C4D', 4.5],
-    ['متن سرمه‌ای روی آبی هدر', '#143C4D', '#6ABFE7', 4.5],
+    // ⛔ §8 MOVED THE HEADER OFF THIS COLOUR, so this row's label was
+    // corrected rather than deleted: `--tv-sky` is still the brand blue and
+    // is still used as a border, a chip and a notice accent, but nothing
+    // puts text on it any more. A row that says «header» about a header
+    // that is navy is the kind of sentence that sends somebody to check
+    // the wrong thing.
+    ['متن سرمه‌ای روی آبی برند (چیپ و حاشیه)', '#143C4D', '#6ABFE7', 4.5],
     ['متن سرمه‌ای روی سبز موفقیت', '#143C4D', '#21D483', 4.5],
     ['متن سرمه‌ای روی زرد هشدار', '#143C4D', '#FFC658', 4.5],
     ['متن سفید روی قرمز خطا', '#FFFFFF', '#B3261E', 4.5],
@@ -73,6 +79,21 @@ $pairs = [
     // The × that removes one filter, while the pointer or the keyboard is on
     // it. Small text, so 4.5:1 and not 3:1.
     ['× برداشتن فیلتر (hover/focus) روی خاکستری خنثی', '#B3261E', '#E4EAEE', 4.5],
+    // §8's vendor header. Navy bar, white text, and the turquoise as a rule
+    // and an active marker — which is why its row is the NON-TEXT 3:1 bar and
+    // not 4.5:1: inventing a text bar for a 3px border would be choosing the
+    // threshold to fit the colour.
+    ['متن سفید روی هدر سرمه‌ای پنل فروشنده', '#FFFFFF', '#143C4D', 4.5],
+    ['متن سرمه‌ای روی آیتم فعال منو (سفید)', '#143C4D', '#FFFFFF', 4.5],
+    ['خط و نشانگر فیروزه‌ای روی هدر سرمه‌ای (غیرمتنی ۳:۱)', '#17B3A3', '#143C4D', 3.0],
+    // ⛔ AND THIS ROW IS WHY THE MARK'S CROSS IS NAVY. White on that
+    // turquoise measured 2.62:1 and failed here, which is the whole point
+    // of listing it: the first draft of the rule in the stylesheet was
+    // white and this table rejected it.
+    ['صلیبِ نشان روی کاشی فیروزه‌ای (غیرمتنی ۳:۱)', '#143C4D', '#17B3A3', 3.0],
+    // «خروج از حساب» is the one destructive item in the account menu, so its
+    // text is the warning colour on the menu's own white surface.
+    ['«خروج از حساب» روی سطح منوی حساب', '#B3261E', '#FFFFFF', 4.5],
 ];
 
 $fail = 0;

@@ -1,0 +1,323 @@
+{
+  "results": [
+    {
+      "scope": "desktop",
+      "check": "the header is lower than it was",
+      "ok": true,
+      "detail": "before 206px → after 153px"
+    },
+    {
+      "scope": "desktop",
+      "check": "the first line of content starts higher",
+      "ok": true,
+      "detail": "before 278px → after 226px"
+    },
+    {
+      "scope": "desktop",
+      "check": "no horizontal page scroll",
+      "ok": true,
+      "detail": "doc 1440 vs viewport 1440"
+    },
+    {
+      "scope": "desktop",
+      "check": "every menu label was measured",
+      "ok": true,
+      "detail": "10 of 10"
+    },
+    {
+      "scope": "desktop",
+      "check": "no menu label breaks across lines",
+      "ok": true,
+      "detail": "all one line"
+    },
+    {
+      "scope": "desktop",
+      "check": "menu items are not capsules",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "desktop",
+      "check": "the account control is not a capsule",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "desktop",
+      "check": "the mark is readable: its cross is 3:1 against its tile",
+      "ok": false,
+      "detail": "2.62:1"
+    },
+    {
+      "scope": "desktop",
+      "check": "the account menu starts closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop",
+      "check": "clicking the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop",
+      "check": "the menu shows the three items",
+      "ok": true,
+      "detail": "مشاهده فروشگاه | بازگشت به سایت | خروج از حساب"
+    },
+    {
+      "scope": "desktop",
+      "check": "the open menu is inside the viewport",
+      "ok": true,
+      "detail": "x=170 w=208"
+    },
+    {
+      "scope": "desktop",
+      "check": "Enter on the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop",
+      "check": "the menu opens with JavaScript off",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "desktop",
+      "check": "back to the site is not the logout address",
+      "ok": true,
+      "detail": "site=http://127.0.0.1:8099/site.html logout=http://127.0.0.1:8099/logout.html?action=logout&_wpnonce=stub"
+    },
+    {
+      "scope": "desktop",
+      "check": "axe: no serious or critical violation",
+      "ok": true,
+      "detail": "0 minor/moderate"
+    },
+    {
+      "scope": "tablet",
+      "check": "the header is lower than it was",
+      "ok": true,
+      "detail": "before 206px → after 153px"
+    },
+    {
+      "scope": "tablet",
+      "check": "the first line of content starts higher",
+      "ok": true,
+      "detail": "before 278px → after 226px"
+    },
+    {
+      "scope": "tablet",
+      "check": "no horizontal page scroll",
+      "ok": true,
+      "detail": "doc 1024 vs viewport 1024"
+    },
+    {
+      "scope": "tablet",
+      "check": "every menu label was measured",
+      "ok": true,
+      "detail": "10 of 10"
+    },
+    {
+      "scope": "tablet",
+      "check": "no menu label breaks across lines",
+      "ok": true,
+      "detail": "all one line"
+    },
+    {
+      "scope": "tablet",
+      "check": "menu items are not capsules",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "tablet",
+      "check": "the account control is not a capsule",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "tablet",
+      "check": "the mark is readable: its cross is 3:1 against its tile",
+      "ok": false,
+      "detail": "2.62:1"
+    },
+    {
+      "scope": "tablet",
+      "check": "the account menu starts closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "tablet",
+      "check": "clicking the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "tablet",
+      "check": "the menu shows the three items",
+      "ok": true,
+      "detail": "مشاهده فروشگاه | بازگشت به سایت | خروج از حساب"
+    },
+    {
+      "scope": "tablet",
+      "check": "the open menu is inside the viewport",
+      "ok": true,
+      "detail": "x=24 w=208"
+    },
+    {
+      "scope": "tablet",
+      "check": "Enter on the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "tablet",
+      "check": "the menu opens with JavaScript off",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "tablet",
+      "check": "back to the site is not the logout address",
+      "ok": true,
+      "detail": "site=http://127.0.0.1:8099/site.html logout=http://127.0.0.1:8099/logout.html?action=logout&_wpnonce=stub"
+    },
+    {
+      "scope": "tablet",
+      "check": "axe: no serious or critical violation",
+      "ok": true,
+      "detail": "0 minor/moderate"
+    },
+    {
+      "scope": "phone",
+      "check": "the header is lower than it was",
+      "ok": true,
+      "detail": "before 204px → after 138px"
+    },
+    {
+      "scope": "phone",
+      "check": "the first line of content starts higher",
+      "ok": true,
+      "detail": "before 277px → after 210px"
+    },
+    {
+      "scope": "phone",
+      "check": "no horizontal page scroll",
+      "ok": true,
+      "detail": "doc 390 vs viewport 390"
+    },
+    {
+      "scope": "phone",
+      "check": "every menu label was measured",
+      "ok": true,
+      "detail": "10 of 10"
+    },
+    {
+      "scope": "phone",
+      "check": "no menu label breaks across lines",
+      "ok": true,
+      "detail": "all one line"
+    },
+    {
+      "scope": "phone",
+      "check": "menu items are not capsules",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "phone",
+      "check": "the account control is not a capsule",
+      "ok": true,
+      "detail": "9px"
+    },
+    {
+      "scope": "phone",
+      "check": "the mark is readable: its cross is 3:1 against its tile",
+      "ok": false,
+      "detail": "2.62:1"
+    },
+    {
+      "scope": "phone",
+      "check": "the account menu starts closed",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "phone",
+      "check": "clicking the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "phone",
+      "check": "the menu shows the three items",
+      "ok": true,
+      "detail": "مشاهده فروشگاه | بازگشت به سایت | خروج از حساب"
+    },
+    {
+      "scope": "phone",
+      "check": "the open menu is inside the viewport",
+      "ok": true,
+      "detail": "x=63 w=208"
+    },
+    {
+      "scope": "phone",
+      "check": "Enter on the shop name opens the menu",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "phone",
+      "check": "the menu opens with JavaScript off",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "phone",
+      "check": "back to the site is not the logout address",
+      "ok": true,
+      "detail": "site=http://127.0.0.1:8099/site.html logout=http://127.0.0.1:8099/logout.html?action=logout&_wpnonce=stub"
+    },
+    {
+      "scope": "phone",
+      "check": "axe: no serious or critical violation",
+      "ok": true,
+      "detail": "0 minor/moderate"
+    },
+    {
+      "scope": "no-shop-page",
+      "check": "no view-shop link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "no-shop-page",
+      "check": "the other two are still there",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "no-store",
+      "check": "no account control at all",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "no-store",
+      "check": "no logout anywhere on the page",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "scope": "no-store",
+      "check": "the navigation is still there",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failures": 3
+}
