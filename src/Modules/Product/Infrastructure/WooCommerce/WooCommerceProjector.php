@@ -1848,7 +1848,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
         foreach ($attributes as $attribute) {
             $labels[$attribute->key] = $attribute->label;
         }
-        $matched = $this->matchVariations($wcProductId, $variations);
+        $matched = $this->matchVariations($wcProductId, $variations, $product->id, $labels);
         $existing = $matched['map'];
 
         foreach ($variations as $variation) {
@@ -1870,11 +1870,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             }
             $wcVariation->set_parent_id($wcProductId);
             $wcVariation->set_status($variation->enabled ? 'publish' : 'private');
-            $chosen = [];
-            foreach ($variation->attributes as $key => $value) {
-                $chosen[sanitize_title($labels[$key] ?? $key)] = $value;
-            }
-            $wcVariation->set_attributes($chosen);
+            $wcVariation->set_attributes($this->childAttributes($variation, $labels));
             // THE SAME RULE AS THE PARENT'S, because it was the same defect.
             //
             // A guard on half a set is the same as no guard (`alpha.22`): a
@@ -2038,7 +2034,7 @@ final class WooCommerceProjector implements CatalogProjectorInterface
      * @param list<ProductVariation> $variations
      * @return array{map:array<int,int>, ambiguous:list<int>}
      */
-    private function matchVariations(int $wcProductId, array $variations): array
+    private function matchVariations(int $wcProductId, array $variations, int $productId, array $labels): array
     {
         $map = $this->existingVariationIds($wcProductId);
         $parent = wc_get_product($wcProductId);
@@ -2073,6 +2069,143 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             $claimedBy[$wanted] = $tmcId;
         }
 
+        // ⛔ THE THIRD RECORD: the child a REMOVED-AND-RECREATED combination
+        // was sold as.
+        //
+        // MEASURED, in `VendorBuiltVariationsTest::testRecreatingARemoved
+        // CombinationReusesItsChildRatherThanMakingASecond()`: a vendor who
+        // deletes «۱۰۰ عددی» and then adds it back ended up with TWO children
+        // for that one combination under one parent — the hidden one every
+        // past order points at, and a new published one beside it. That is
+        // «ترکیب تکراری» in as many words, and neither of the two records
+        // above could prevent it: `deleteVariation()` really removes our row,
+        // so the stamp on the child and the row's own `wc_variation_id`
+        // pointer both name a row id that no longer exists, and the vendor's
+        // NEW row is a new id with no record at all.
+        //
+        // So a third record, and it is narrow ON PURPOSE. A child qualifies
+        // only when all four of these hold:
+        //
+        //   - it carries OUR product stamp, so it is not an imported child
+        //     and not some other product's;
+        //   - its variation stamp names a row this product NO LONGER HAS, so
+        //     it is an orphan rather than a live row's child;
+        //   - no row has already claimed it in this projection;
+        //   - its stored attribute map EQUALS the combination, computed by
+        //     `childAttributes()` — the same method that writes it, so the two
+        //     sides cannot drift apart (`alpha.78`).
+        //
+        // ⛔ And it adopts ONLY when exactly one orphan matches. Two orphans
+        // for one combination is a state only a person can resolve — reviving
+        // either one is a guess about which past order matters, and that is
+        // the ambiguity rule this method already follows. There the behaviour
+        // is left exactly as it was: a new child, as today. That case cannot
+        // be CREATED any more once this adoption is in place (it needs two
+        // separate deleted rows that both held the same combination), but a
+        // site that already has it keeps today's answer rather than a guess,
+        // and the reconciliation report is what names it.
+        $wanting = [];
+        $live = [];
+        foreach ($variations as $variation) {
+            if ($variation->id > 0) {
+                $live[$variation->id] = true;
+                if (!isset($map[$variation->id])) {
+                    $wanting[$variation->id] = $this->combinationKey($this->childAttributes($variation, $labels));
+                }
+            }
+        }
+        // ⛔ A DEAD ROW'S CLAIM IS NOT A CLAIM, and the first version of this
+        // block treated it as one.
+        //
+        // `existingVariationIds()` reads the stamp off every child, so the
+        // hidden child still maps — under the id of the row that was DELETED.
+        // Skipping «already claimed» children therefore skipped the only
+        // candidate there was, and the measurement went on reporting two
+        // children. Dead claims are separated out instead: they are what
+        // makes a child an orphan, and when one is adopted its dead entry has
+        // to go too, or the «combinations the vendor removed» loop at the end
+        // would hide the child we have just revived.
+        $deadClaims = [];
+        foreach ($map as $claimedTmcId => $claimedWcId) {
+            if (!isset($live[(int) $claimedTmcId])) {
+                $deadClaims[(int) $claimedWcId] = (int) $claimedTmcId;
+            }
+        }
+        if ($wanting !== []) {
+            $orphans = [];
+            foreach ($children as $childId) {
+                if (isset($claimedBy[$childId]) && !isset($deadClaims[$childId])) {
+                    continue;   // a live row's child
+                }
+                if ((int) get_post_meta($childId, self::PRODUCT_META, true) !== $productId) {
+                    continue;   // imported, or another product's
+                }
+                $stamp = (int) get_post_meta($childId, self::VARIATION_META, true);
+                if ($stamp <= 0 || isset($live[$stamp])) {
+                    continue;   // never ours, or still spoken for
+                }
+                $child = wc_get_product($childId);
+                if (!$child instanceof \WC_Product_Variation) {
+                    continue;
+                }
+                $orphans[$this->combinationKey((array) $child->get_attributes())][] = $childId;
+            }
+            foreach ($wanting as $tmcId => $key) {
+                $candidates = $orphans[$key] ?? [];
+                if (count($candidates) !== 1) {
+                    continue;
+                }
+                $adopted = $candidates[0];
+                if (isset($deadClaims[$adopted])) {
+                    unset($map[$deadClaims[$adopted]], $deadClaims[$adopted]);
+                }
+                $map[$tmcId] = $adopted;
+                $claimedBy[$adopted] = $tmcId;
+                unset($orphans[$key]);
+            }
+        }
+
         return ['map' => $map, 'ambiguous' => array_values(array_unique($ambiguous))];
+    }
+
+    /**
+     * The attribute map a child is stored with: WooCommerce's own key for the
+     * axis label, and the one option this combination names.
+     *
+     * One method, two readers — the loop that WRITES the child and the
+     * matcher that RECOGNISES it. Two copies of this mapping is how a
+     * recognition drifts away from a write and a duplicate appears
+     * (`alpha.78`).
+     *
+     * @param array<string,string> $labels attribute key => label
+     * @return array<string,string>
+     */
+    private function childAttributes(ProductVariation $variation, array $labels): array
+    {
+        $chosen = [];
+        foreach ($variation->attributes as $key => $value) {
+            $chosen[sanitize_title($labels[$key] ?? $key)] = $value;
+        }
+        return $chosen;
+    }
+
+    /**
+     * A comparable form of a stored attribute map: order-independent, because
+     * nothing promises WooCommerce hands the pairs back in the order they
+     * were written.
+     *
+     * @param array<string,mixed> $attributes
+     */
+    private function combinationKey(array $attributes): string
+    {
+        $pairs = [];
+        foreach ($attributes as $key => $value) {
+            if (!is_scalar($value)) {
+                continue;       // a parent-shaped entry is not a child's option
+            }
+            $pairs[(string) $key] = (string) $key . '=' . (string) $value;
+        }
+        ksort($pairs);
+        return implode('|', $pairs);
     }
 }

@@ -569,10 +569,41 @@ namespace {
                 return 'variable';
             }
 
-            /** @return list<int> */
+            /**
+             * ⛔ DERIVED FROM `parent_id`, AS WOOCOMMERCE DERIVES IT — plus
+             * whatever a fixture declared.
+             *
+             * WooCommerce answers this from the database: every
+             * `product_variation` post whose `post_parent` is this product is
+             * a child, whether or not anything «registered» it. The double
+             * returned ONLY an explicit map, so a variation the code under
+             * test had just saved was not a child of anything — and
+             * `existingVariationIds()` reads `get_children()` to recognise the
+             * children this plugin stamped.
+             *
+             * The consequence was that a SECOND projection of the same
+             * product could never find the child the FIRST one created, in
+             * any test in this repository: the re-projection path, the
+             * «combinations the vendor removed are hidden» loop and the
+             * duplicate guard were all unreachable here. A double that models
+             * a verb differently from the real class measures a different
+             * contract (`alpha.59`, `alpha.105`), and this is the third time
+             * that rule has been paid for in this one stub.
+             *
+             * The declared map is kept and unioned rather than replaced, so
+             * every fixture that seeds children by id alone goes on working.
+             *
+             * @return list<int>
+             */
             public function get_children(): array
             {
-                return array_map('intval', self::$childrenOf[$this->get_id()] ?? []);
+                $ids = array_map('intval', self::$childrenOf[$this->get_id()] ?? []);
+                foreach (WC_Product::$saved as $id => $saved) {
+                    if ($saved instanceof WC_Product_Variation && (int) $saved->get_parent_id() === $this->get_id()) {
+                        $ids[] = (int) $id;
+                    }
+                }
+                return array_values(array_unique($ids));
             }
 
             /** @param list<int> $ids */

@@ -391,6 +391,80 @@ final class VariationFlowTest extends DatabaseTestCase
         self::assertTrue($second->ok, $second->code);
     }
 
+    /**
+     * ⛔ THE THIRD PRODUCT SHAPE §4 ASKS FOR BY NAME: a SIMPLE product.
+     *
+     * The other two shapes have a dozen tests between them — a variable
+     * product this plugin built, and an imported one whose children live in
+     * WooCommerce — and the simple product had none, because nothing in this
+     * panel offers it a combination. «Nothing offers it» is not a guard
+     * though: these five verbs are POST actions, and a hand-made request
+     * naming a simple product's id is one `curl` away.
+     *
+     * All five refuse, and the two that refuse with `not_variable` do so
+     * BEFORE any row is written, which is what makes the refusal safe rather
+     * than merely tidy.
+     */
+    public function testASimpleProductIsRefusedByEveryVariationVerb(): void
+    {
+        $created = $this->manage->save(self::VENDOR, self::VENDOR, 0, new ProductDetails(
+            title: 'دستکش ساده',
+            type: ProductType::SIMPLE,
+            categoryKey: 'gloves',
+            priceMinor: 450000,
+            sku: 'SIMPLE-1',
+            stock: 5
+        ));
+        self::assertTrue($created->ok, $created->code);
+        $productId = (int) $created->context['product_id'];
+
+        $axis = $this->manageVariations->saveAttribute(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            'size',
+            'اندازه',
+            ['کوچک', 'بزرگ']
+        );
+        self::assertFalse($axis->ok);
+        self::assertSame('not_variable', $axis->code);
+
+        $combination = $this->manageVariations->saveVariation(
+            self::VENDOR,
+            self::VENDOR,
+            $productId,
+            ['size' => 'کوچک'],
+            450000,
+            null,
+            'SIMPLE-1-S',
+            3
+        );
+        self::assertFalse($combination->ok);
+        self::assertSame('not_variable', $combination->code);
+
+        // And nothing was written on the way to either refusal.
+        self::assertSame([], $this->variations->attributes($productId));
+        self::assertSame([], $this->variations->variations($productId));
+
+        // The three verbs that address an existing row cannot find one.
+        foreach ([
+            'delete_attribute' => $this->manageVariations->deleteAttribute(self::VENDOR, self::VENDOR, $productId, 1),
+            'delete_variation' => $this->manageVariations->deleteVariation(self::VENDOR, self::VENDOR, $productId, 1),
+            'stock' => $this->manageVariations->updateVariationStock(self::VENDOR, self::VENDOR, $productId, 1, 9),
+        ] as $label => $result) {
+            self::assertFalse($result->ok, $label);
+            self::assertSame('not_found', $result->code, $label);
+        }
+
+        // The product itself is untouched: still simple, still priced, still
+        // in stock.
+        $product = $this->products->findOwned($productId, self::VENDOR);
+        self::assertNotNull($product);
+        self::assertSame(ProductType::SIMPLE, $product->details->type);
+        self::assertSame(450000, $product->details->priceMinor);
+        self::assertSame(5, $product->details->stock);
+    }
+
     private function shopChild(int $id, string $sku, int $priceMinor): StorefrontVariation
     {
         return new StorefrontVariation(
