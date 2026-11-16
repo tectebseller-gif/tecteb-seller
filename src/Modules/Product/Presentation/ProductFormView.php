@@ -22,6 +22,9 @@ use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
+use Tecteb\Marketplace\Modules\Marketplace\Domain\PriceTier;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\WholesaleTiersView;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
@@ -46,6 +49,13 @@ final class ProductFormView
             '2' => __('۲. قیمت و موجودی', 'tecteb-marketplace-core'),
             '3' => __('۳. فنی و پزشکی', 'tecteb-marketplace-core'),
             '4' => __('۴. بازبینی و ارسال', 'tecteb-marketplace-core'),
+            // ⛔ MOVED FROM THE SUPPORT PAGE, NOT BUILT HERE. The ladder was a
+            // shop-wide section on «پشتیبانی» with a product picker of its
+            // own; a product form already knows which product it is, so the
+            // picker is what the move drops. Everything else — every label,
+            // every hint, the three rows — travels with the same words
+            // («تکه کن، بازنویسی نکن», `alpha.85`).
+            '5' => __('۵. فروش پلکانی', 'tecteb-marketplace-core'),
         ];
     }
 
@@ -171,14 +181,38 @@ final class ProductFormView
          * the product, and the two are labelled as the different things they
          * are.
          */
-        string $storefrontImageUrl = ''
+        string $storefrontImageUrl = '',
+        /**
+         * The wholesale ladder for THIS product: `tiers` as they stand, and
+         * whether the reader may change them.
+         *
+         * An array in the shape `$categories` and `$brands` already use. The
+         * ladder arrives from `ManageWholesale::tiersFor()` exactly as the
+         * support page read it — the caller moved, the reader did not.
+         *
+         * @var array<string,mixed>
+         */
+        array $wholesale = []
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
         if ($notice !== null) {
+            // ⛔ THREE CATALOGUES, AND THE TONE ASKS ALL THREE.
+            //
+            // §6 brought the ladder's verb onto this page, and its codes live
+            // in `MarketplaceMessages` — so without the third reader a saved
+            // ladder printed its own code as raw text. And the TONE had to
+            // travel too: both `isErrorNotice()` implementations answer «not a
+            // success code», so `wholesale_tiers_saved` asked of the product
+            // catalogue alone comes back as an ERROR and a successful save is
+            // painted as a refusal. A code is a success if ANY catalogue that
+            // owns it says so.
+            $isSuccess = !ProductMessages::isErrorNotice($notice->code)
+                || !MarketplaceMessages::isErrorNotice($notice->code);
             $html .= VendorUi::notice(
-                ProductMessages::isErrorNotice($notice->code) ? 'warning' : 'success',
+                $isSuccess ? 'success' : 'warning',
                 ProductMessages::notice($notice->code, $notice->context)
+                    ?? MarketplaceMessages::notice($notice->code, $notice->context)
                     ?? VendorMessages::notice($notice->code, $notice->context)
             );
             // The two refusals that end in «look, then decide» get something
@@ -248,6 +282,35 @@ final class ProductFormView
             ));
         }
         $html .= self::stepNav($step, $base, $productId);
+
+        // ⛔ THIS STEP IS NOT PART OF THE PRODUCT FORM, AND THAT IS THE POINT.
+        //
+        // `SupportArea`'s docblock recorded a real objection to moving the
+        // ladder onto this screen: a ladder is replaced WHOLE and this form
+        // saves field by field, so a whole-replacement control inside a
+        // field-by-field form is how somebody deletes a step they never
+        // looked at. The objection is about being INSIDE the form, not about
+        // being on the page — so the answer is placement. This returns before
+        // the product form opens and renders its own `<form>`, exactly as the
+        // variations panel does and for the same stated reason.
+        //
+        // Nothing about how a ladder is stored, validated or read moved:
+        // `ManageWholesale::setTiers()` is untouched and the rows are the same
+        // rows, so there is no old data to be compatible with.
+        if ($step === '5') {
+            return $html . WholesaleTiersView::render(
+                $productId,
+                $details->title,
+                $details->priceMinor,
+                array_values(array_filter(
+                    (array) ($wholesale['tiers'] ?? []),
+                    static fn (mixed $row): bool => $row instanceof PriceTier
+                )),
+                $nonceField,
+                static fn (string|int $v): string => PersianDigits::toPersian((string) $v),
+                (bool) ($wholesale['may_edit'] ?? true)
+            ) . '</section>';
+        }
 
         // The autosave configuration travels on the form's own attributes.
         // Not an inline <script>: the vendor area renders no executable markup

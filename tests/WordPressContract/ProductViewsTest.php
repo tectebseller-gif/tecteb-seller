@@ -354,7 +354,16 @@ final class ProductViewsTest extends ContractTestCase
             // PHP stores as integers — this is the assertion that catches a
             // comparison forgetting it.
             self::assertStringContainsString('aria-current="step"', $html, "step {$step} is marked current");
-            self::assertSame(4, preg_match_all('/class="tv-tab[ "]/', $html), "step {$step} shows four steps");
+            // ⛔ DERIVED, NOT TYPED. This said `4`, and §6 added a fifth step
+            // — so a test about «the nav shows every step» failed about a nav
+            // that was right. The number was never the rule: the rule is that
+            // the nav and `steps()` are one list, which is exactly what a
+            // hand-written count cannot say (`alpha.92`).
+            self::assertSame(
+                count(ProductFormView::steps()),
+                preg_match_all('/class="tv-tab[ "]/', $html),
+                "step {$step} shows every step the form declares"
+            );
             self::assertStringNotContainsString('is-disabled', $html, 'a saved product can reach every step');
         }
     }
@@ -439,7 +448,14 @@ final class ProductViewsTest extends ContractTestCase
             false,
             false
         );
-        self::assertSame(3, substr_count($html, 'is-disabled'), 'steps 2–4 wait until there is a draft to come back to');
+        // Same rule, from the other side: every step BUT the first waits until
+        // there is a draft to come back to. Derived for the same reason — the
+        // typed `3` was a statement about how many steps existed in `alpha.45`.
+        self::assertSame(
+            count(ProductFormView::steps()) - 1,
+            substr_count($html, 'is-disabled'),
+            'every step after the first waits until there is a draft to come back to'
+        );
         self::assertStringContainsString('aria-current="step"', $html, 'step 1 is where the vendor is, and is a link');
         self::assertStringContainsString('۱. معرفی</a>', $html, 'step 1 is not rendered as an unreachable span');
     }

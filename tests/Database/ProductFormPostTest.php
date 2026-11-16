@@ -11,6 +11,8 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0004CreateFina
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0005CreateProductTables;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0025BrandRegistry;
+use Tecteb\Marketplace\Modules\Marketplace\Infrastructure\Migrations\M0009EngagementTables;
+use Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface;
 use Tecteb\Marketplace\Core\Support\SystemClock;
 use Tecteb\Marketplace\Infrastructure\WordPress\Bootstrap;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
@@ -82,6 +84,11 @@ final class ProductFormPostTest extends DatabaseTestCase
             // about a refusal that recorded nothing, holding up a request
             // another test had made for the product that used to be id 1.
             ...M0025BrandRegistry::TABLES,
+            // AND THE ENGAGEMENT TABLES, for the same reason: §6's ladder
+            // rows hang on a product id, and the drops above restart those
+            // ids at 1 — so a ladder another test saved comes back attached
+            // to a DIFFERENT product.
+            ...M0009EngagementTables::TABLES,
         ] as $suffix) {
             $this->wpdb->dropTable($this->wpdb->prefix . $suffix);
         }
@@ -510,6 +517,75 @@ final class ProductFormPostTest extends DatabaseTestCase
         self::assertSame([], $shop->asked, 'the list does not open each product');
     }
 
+    // ------------------------------------------- §6 the wholesale ladder's form
+
+    /**
+     * WHAT THIS PROVES: the ladder's own form, posted from step 5, saves the
+     * ladder and comes BACK to step 5 of that product.
+     *
+     * ⛔ THE REDIRECT IS WHY THIS TEST EXISTS. `ProductArea::stepUrl()` used
+     * to hold a typed whitelist — `in_array($step, ['1','2','3','4'], true)`
+     * — while `ProductFormView::stepNav()` builds its links by iterating
+     * `steps()`. With step 5 added to the view and not to that list, saving a
+     * ladder answered `step=1`: the vendor pressed «ذخیرهٔ پلکان قیمت» and
+     * landed on the title field, with no sign the ladder had been written.
+     *
+     * Measured: falsifying the derived list left `ProductAdminPagesTest` and
+     * every other test in this file green, because nothing drove `set_tiers`
+     * at all. One list of steps is only one list if something reads it.
+     */
+    public function testSavingTheLadderFromTheProductFormLandsBackOnStepFive(): void
+    {
+        $productId = $this->legacyProduct();
+
+        $outcome = $this->postAction('set_tiers', [
+            'tmc_vendor_action' => 'set_tiers',
+            'tier_product' => (string) $productId,
+            'tier_qty' => ['0' => '5', '1' => '20', '2' => ''],
+            'tier_price' => ['0' => '180000', '1' => '150000', '2' => ''],
+        ]);
+
+        self::assertSame('wholesale_tiers_saved', $outcome->code);
+        self::assertStringContainsString('step=5', $outcome->target, 'the ladder comes back to its own step');
+        self::assertStringContainsString('product=' . $productId, $outcome->target);
+
+        $tiers = Bootstrap::container()
+            ->get(\Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface::class)
+            ->tiersFor($productId);
+        self::assertCount(2, $tiers, 'the empty third row is not a step');
+        self::assertSame([5, 20], array_map(static fn ($t) => $t->minQuantity, $tiers));
+        self::assertSame([180000, 150000], array_map(static fn ($t) => $t->unitPriceMinor, $tiers));
+    }
+
+    /**
+     * And a REFUSED ladder lands on step 5 too, with nothing stored.
+     *
+     * The redirect is not a reward for success: a vendor whose second step
+     * costs more per unit than the first has to see their own numbers again,
+     * and `step=1` would take away the only screen that shows them. So the
+     * control is the refusal, not just the save.
+     */
+    public function testARefusedLadderComesBackToStepFiveAndStoresNothing(): void
+    {
+        $productId = $this->legacyProduct();
+
+        $outcome = $this->postAction('set_tiers', [
+            'tmc_vendor_action' => 'set_tiers',
+            'tier_product' => (string) $productId,
+            // Buying more costs MORE per unit, which is not a ladder.
+            'tier_qty' => ['0' => '5', '1' => '20'],
+            'tier_price' => ['0' => '150000', '1' => '180000'],
+        ]);
+
+        self::assertSame('tier_not_descending', $outcome->code);
+        self::assertStringContainsString('step=5', $outcome->target);
+
+        $tiers = Bootstrap::container()
+            ->get(\Tecteb\Marketplace\Modules\Marketplace\Application\EngagementRepositoryInterface::class)
+            ->tiersFor($productId);
+        self::assertSame([], $tiers, 'a refused ladder writes no rows');
+    }
+
     /** A variable product of this vendor, pointed at a WooCommerce product. */
     private function variableLinkedProduct(int $wcProductId): int
     {
@@ -562,16 +638,30 @@ final class ProductFormPostTest extends DatabaseTestCase
      */
     private function post(array $fields): VendorAreaOutcome
     {
+        return $this->postAction('save_product', $fields);
+    }
+
+    /**
+     * The same real request, for a handler other than `save_product`.
+     *
+     * The action is a parameter because the product form is no longer the only
+     * form on these pages: §6 put the wholesale ladder's own `<form>` on step
+     * 5, and it posts `set_tiers` through the same router.
+     *
+     * @param array<string,mixed> $fields
+     */
+    private function postAction(string $action, array $fields): VendorAreaOutcome
+    {
         $_POST = $fields;
         $_FILES = [];
         $_SERVER['REQUEST_METHOD'] = 'POST';
         $outcome = (new ProductArea(Bootstrap::container()))->handle(
-            'save_product',
+            $action,
             Request::capture(),
             self::VENDOR,
             $this->urls()
         );
-        self::assertNotNull($outcome, 'the router did not handle save_product at all');
+        self::assertNotNull($outcome, 'the router did not handle ' . $action . ' at all');
         return $outcome;
     }
 

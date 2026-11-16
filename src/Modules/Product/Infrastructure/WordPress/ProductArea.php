@@ -7,6 +7,8 @@ use Tecteb\Marketplace\Contracts\ContainerInterface;
 use Tecteb\Marketplace\Contracts\DependencyProbeInterface;
 use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
+use Tecteb\Marketplace\Modules\Marketplace\Application\ManageWholesale;
+use Tecteb\Marketplace\Modules\Marketplace\Presentation\MarketplaceMessages;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
 use Tecteb\Marketplace\Modules\Product\Application\EditStorefrontVariations;
@@ -86,6 +88,11 @@ final class ProductArea
         // through a separate service to a separate store — WooCommerce's
         // own child — and the two services refuse in opposite directions.
         'save_shop_variation_prices', 'save_shop_variation_stock',
+        // §6: the ladder, moved off the support page onto this product's own
+        // form. Same verb name and same service as before, so an audit row or
+        // a bookmark from the old place still means the same thing — only the
+        // page that renders the form changed.
+        'set_tiers',
     ];
 
     private const FORM_TTL = 600;
@@ -375,7 +382,16 @@ final class ProductArea
             // The shop's own picture, when the vendor's gallery is empty. Read
             // from the same reader the list uses, so one product cannot show
             // two different pictures on two screens.
-            $this->storefrontImageFor((int) ($product?->wcProductId ?? 0), $imageIds, $mainImageId)
+            $this->storefrontImageFor((int) ($product?->wcProductId ?? 0), $imageIds, $mainImageId),
+            // §6: the ladder, read with the SAME call the support page used.
+            // Asked for only on its own step, because `tiersFor()` is a query
+            // and four other steps have no reader for it.
+            $view->request->queryKey('step') === '5' && $productId > 0
+                ? [
+                    'tiers' => $this->container->get(ManageWholesale::class)->tiersFor($productId),
+                    'may_edit' => $mayEdit,
+                ]
+                : []
         );
     }
 
@@ -580,8 +596,58 @@ final class ProductArea
                 // own», which is a real state and not a missing field.
                 $this->seenMinor($request->postText('seen_stock'))
             )),
+            // §6: THE SAME SERVICE, FROM THE PRODUCT'S OWN FORM.
+            //
+            // `ManageWholesale::setTiers()` is byte-for-byte what it was and
+            // asks the same three questions it always did — the staff
+            // permission, the product's ownership and whether every step is
+            // sound. Only the page the form was rendered on moved, so a saved
+            // ladder from before this round and one saved after it are the
+            // same rows (§6: «سازگاری داده‌های قبلی»).
+            //
+            // It comes back to step 5 of the same product, because the next
+            // thing a vendor does after saving a ladder is look at it — which
+            // is what the support page's own `add_query_arg('tier_product')`
+            // was for, and here the product is already in the address.
+            'set_tiers' => new VendorAreaOutcome(
+                ($tiers = $this->container->get(ManageWholesale::class)->setTiers(
+                    $userId,
+                    $vendorUserId,
+                    $request->postInt('tier_product'),
+                    $this->postedSteps($request)
+                ))->code,
+                $this->stepUrl($urls, $request->postInt('tier_product'), '5'),
+                $tiers->context
+            ),
             default => null,
         };
+    }
+
+    /**
+     * The ladder's steps as typed, with the empty rows dropped.
+     *
+     * ⛔ LIFTED FROM `SupportArea::postedSteps()`, AND ITS REASONING WITH IT.
+     * An empty row is not a zero: a vendor who wants two steps leaves the
+     * third pair blank, and reading that as «from 0 at 0 تومان» would refuse
+     * the whole save for a step they never meant. A row with only ONE of the
+     * two boxes filled IS kept, so `setTiers()` refuses it and names the
+     * missing half rather than silently dropping it.
+     *
+     * @return array<int,int> min quantity => unit price in minor units
+     */
+    private function postedSteps(Request $request): array
+    {
+        $quantities = $request->postTextList('tier_qty');
+        $prices = $request->postTextList('tier_price');
+        $steps = [];
+        foreach ($quantities as $row => $quantity) {
+            $price = $prices[$row] ?? '';
+            if (trim($quantity) === '' && trim($price) === '') {
+                continue;
+            }
+            $steps[(int) $quantity] = (int) $price;
+        }
+        return $steps;
     }
 
     private function save(Request $request, int $userId, int $vendorUserId, VendorUrls $urls): VendorAreaOutcome
@@ -1422,7 +1488,13 @@ final class ProductArea
 
     private function stepUrl(VendorUrls $urls, int $productId, string $step): string
     {
-        $step = in_array($step, ['1', '2', '3', '4'], true) ? $step : '1';
+        // ⛔ ONE LIST OF STEPS. This was `['1', '2', '3', '4']`, typed, while
+        // `ProductFormView::stepNav()` builds its links by iterating
+        // `steps()` — so the moment a step was added the nav linked it and
+        // this sent the vendor back to step 1. Derived now, so the two cannot
+        // disagree again (`alpha.105`: two readers of one rule).
+        $steps = array_map('strval', array_keys(ProductFormView::steps()));
+        $step = in_array($step, $steps, true) ? $step : '1';
         return add_query_arg('step', $step, $urls->product($productId));
     }
 
