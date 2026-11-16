@@ -34,6 +34,11 @@ fi
 # figures, and a bundle that quietly omits one is a bundle the reader cannot
 # notice is short. Each round's `TEST-EVIDENCE-*` stays listed beside its
 # predecessor on purpose: the older one is what the owner compares against.
+# Plus the three `alpha.107` added, for the reason its own mandate's §10
+# gives: the ten items it asks for live in the delivery document, the ten
+# executable steps live in the checklist, and the PASS/Not Run split lives
+# in the test evidence. A bundle short of one of those is a bundle whose
+# reader cannot tell which of the eight sections was measured.
 REQUIRED_DOCS="
 FINAL-RELEASE-CLOSURE-FA.md
 FEATURE-COMPLETENESS-MATRIX-FA.md
@@ -63,6 +68,9 @@ TEST-EVIDENCE-ALPHA106-FA.md
 SOURCE-AUDIT-FINDINGS-ALPHA106-FA.md
 VARIABLE-PRODUCT-ENTRY-POINTS-FA.md
 STAGING-ACCEPTANCE-ALPHA106-FA.md
+VENDOR-DASHBOARD-ALPHA107-FA.md
+STAGING-ACCEPTANCE-ALPHA107-FA.md
+TEST-EVIDENCE-ALPHA107-FA.md
 "
 
 # Read-only tools only, and the list is the one the tests vouch for.
@@ -155,12 +163,15 @@ wp eval-file tools/payment-readiness.php
 # ۵) وابستگی‌های یک فروشگاه، پیش از تصمیم آرشیو
 wp eval-file tools/shop-dependency-census.php <vendor_user_id>
 
-# ترتیب خواندن اسناد — ⛔ پنج سند اول مالِ همین دور اند:
-#   0-الف. PRODUCTION-GO-NOGO-FA.md        ← حکم این دور: ❌ NO-GO
-#   0-ب.  CHANGELOG-FOCUSED-FA.md          ← چه عوض شد، و چه عمداً نشد
-#   0-پ.  STAGING-ACCEPTANCE-NEXT-FA.md    ← ⛔ تنها دستورالعمل اجرایی، ۲۹ ردیف
-#   0-ت.  TEST-EVIDENCE-ALPHA105-FA.md     ← PASS / Not Run، با برچسب هر ردیف
-#   0-ث.  FIELD-EVIDENCE-RECONCILIATION-FA.md
+# ترتیب خواندن اسناد — ⛔ سه سند اول مالِ همین دور اند:
+#   0-الف. VENDOR-DASHBOARD-ALPHA107-FA.md  ← هشت بند، و ده موردِ §۱۰
+#   0-ب.  STAGING-ACCEPTANCE-ALPHA107-FA.md ← ⛔ تنها دستورالعمل اجرایی، ده گام
+#   0-پ.  TEST-EVIDENCE-ALPHA107-FA.md      ← PASS / Not Run، با برچسب هر ردیف
+#   0-ت.  PRODUCTION-GO-NOGO-FA.md        ← حکم دورهای قبل: ❌ NO-GO
+#   0-ث.  CHANGELOG-FOCUSED-FA.md          ← چه عوض شد، و چه عمداً نشد
+#   0-ج.  STAGING-ACCEPTANCE-NEXT-FA.md    ← دستورالعمل دورهای قبل، ۲۹ ردیف
+#   0-چ.  TEST-EVIDENCE-ALPHA105-FA.md     ← مبنای مقایسه
+#   0-ح.  FIELD-EVIDENCE-RECONCILIATION-FA.md
 #   1. FINAL-RELEASE-AUDIT-FA.md        ← جدول GO/NO-GO و موانعِ دورهای قبل
 #   2. PRODUCTION-PREFLIGHT-FA.md       ← فقط خواندن، پیش از هر تصمیمی
 #   3. STAGING-ACCEPTANCE-FINAL-FA.md   ← تنها دستورالعمل اجرایی روی staging
