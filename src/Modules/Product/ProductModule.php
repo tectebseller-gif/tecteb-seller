@@ -50,7 +50,11 @@ use Tecteb\Marketplace\Modules\Product\Application\StorefrontFieldsInterface;
 use Tecteb\Marketplace\Modules\Product\Application\SyncCatalog;
 use Tecteb\Marketplace\Modules\Product\Application\SpecTemplateRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
+use Tecteb\Marketplace\Modules\Product\Application\EditStorefrontVariations;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationOwnership;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationWriterInterface;
+use Tecteb\Marketplace\Modules\Product\Application\StorefrontImageReaderInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductImagePolicy;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStateMachine;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductDecisionRepository;
@@ -58,8 +62,12 @@ use Tecteb\Marketplace\Modules\Product\Infrastructure\DbDefaultCategoryAcceptanc
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbProductRepository;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\DbReviewSeenStore;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\TitleSortRepair;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullStorefrontImages;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullStorefrontVariationReader;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\NullStorefrontVariationWriter;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcStorefrontImages;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcStorefrontVariationReader;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\WooCommerce\WcStorefrontVariationWriter;
 use Tecteb\Marketplace\Modules\Product\Application\BrandDirectoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\BrandProposalRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ManageBrands;
@@ -273,6 +281,16 @@ final class ProductModule implements ModuleInterface
                 ? new WcStorefrontVariationReader($c->get(DatabaseInterface::class))
                 : new NullStorefrontVariationReader();
         });
+        // The picture an IMPORTED product already has on the storefront. The
+        // vendor's own list had no id to resolve for such a product — intake
+        // copies no media, on purpose — so the cell was empty beside a
+        // product whose photo a buyer can see. Read-only, and bound by the
+        // probe like its sibling above.
+        $c->bind(StorefrontImageReaderInterface::class, static function (ContainerInterface $c) {
+            return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
+                ? new WcStorefrontImages($c->get(DatabaseInterface::class))
+                : new NullStorefrontImages();
+        });
         $c->bind(ProductReadiness::class, static fn (ContainerInterface $c) => new ProductReadiness(
             $c->get(SpecTemplateRepositoryInterface::class),
             $c->get(VariationRepositoryInterface::class),
@@ -288,6 +306,31 @@ final class ProductModule implements ModuleInterface
             $c->get(StaffAccess::class),
             $c->get(AuditLogger::class),
             $c->get(StorefrontVariationReaderInterface::class)
+        ));
+        // ⛔ THE OTHER DOOR, and the only thing in this plugin that writes a
+        // REAL `WC_Product_Variation`. §3 of the owner's instruction: the
+        // vendor must be able to correct an imported variation's price and
+        // stock without the WooCommerce admin.
+        //
+        // The writer is chosen by the probe, like every other storefront port,
+        // and the ownership rule is the SAME object `ManageVariations` builds
+        // for itself — so the door that writes our tables and the door that
+        // writes WooCommerce's cannot both open for one product.
+        $c->bind(StorefrontVariationWriterInterface::class, static function (ContainerInterface $c) {
+            return $c->get(DependencyProbeInterface::class)->woocommerceAvailable()
+                ? new WcStorefrontVariationWriter()
+                : new NullStorefrontVariationWriter();
+        });
+        $c->bind(StorefrontVariationOwnership::class, static fn (ContainerInterface $c) => new StorefrontVariationOwnership(
+            $c->get(VariationRepositoryInterface::class),
+            $c->get(StorefrontVariationReaderInterface::class)
+        ));
+        $c->bind(EditStorefrontVariations::class, static fn (ContainerInterface $c) => new EditStorefrontVariations(
+            $c->get(ProductRepositoryInterface::class),
+            $c->get(StorefrontVariationOwnership::class),
+            $c->get(StorefrontVariationWriterInterface::class),
+            $c->get(StaffAccess::class),
+            $c->get(AuditLogger::class)
         ));
         // Which projector is bound is decided by whether WooCommerce is
         // actually running, not by a setting: a marketplace that thinks it

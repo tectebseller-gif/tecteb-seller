@@ -159,7 +159,19 @@ final class ProductFormView
          *
          * @var array<string,mixed>
          */
-        array $brands = []
+        array $brands = [],
+        /**
+         * The picture WOOCOMMERCE holds for this product, when the vendor's
+         * own gallery is empty.
+         *
+         * Shown, never edited. An imported product has no gallery row here —
+         * intake copies no media — so the image step said «هنوز تصویری
+         * ندارید» about a product whose photo buyers can see. The vendor's
+         * gallery is what this form edits; the shop's picture is a fact about
+         * the product, and the two are labelled as the different things they
+         * are.
+         */
+        string $storefrontImageUrl = ''
     ): string {
         $step = array_key_exists($step, self::steps()) ? $step : '1';
         $html = '';
@@ -272,7 +284,7 @@ final class ProductFormView
             // for a brand a manager had already replaced. Measured:
             // `box_shows=سینا طب ۵۲ hidden_carries=آریا طب ۵۲`.
             . self::carryOver($step, $details, $specs, $template, (string) ($brands['value'] ?? $details->brand))
-            . self::gallery($images, $mainImageId, $step, $maxImageBytes)
+            . self::gallery($images, $mainImageId, $step, $maxImageBytes, $storefrontImageUrl)
             . match ($step) {
                 '2' => self::stepPrice(
                     $details,
@@ -1070,8 +1082,13 @@ final class ProductFormView
     }
 
     /** @param list<array{id:int,url:string}> $images */
-    private static function gallery(array $images, int $mainImageId, string $step, int $maxImageBytes = 0): string
-    {
+    private static function gallery(
+        array $images,
+        int $mainImageId,
+        string $step,
+        int $maxImageBytes = 0,
+        string $storefrontImageUrl = ''
+    ): string {
         if ($step !== '1') {
             // Carried, not shown: the gallery belongs to step 1, and the other
             // steps must still post it back or saving would empty it.
@@ -1084,7 +1101,23 @@ final class ProductFormView
 
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('تصویرها', 'tecteb-marketplace-core') . '</legend>';
         if ($images === []) {
-            $html .= '<p class="tv-hint">' . esc_html__('هنوز تصویری ندارید. ارسال محصول برای بررسی دست‌کم یک تصویر لازم دارد.', 'tecteb-marketplace-core') . '</p>';
+            // THE SHOP'S PICTURE, WHEN THERE IS ONE. For an imported product
+            // «هنوز تصویری ندارید» was false in the way that matters: buyers
+            // are looking at a photograph of it. It is shown as what it is —
+            // the picture on the storefront, not a row of this gallery — and
+            // the sentence beside it says the one thing a vendor needs to
+            // know before they upload: adding a picture here replaces it on
+            // the shop once the manager approves, and leaving this step alone
+            // changes nothing.
+            if ($storefrontImageUrl !== '') {
+                $html .= '<div class="tv-gallery__shop">'
+                    . '<img class="tv-gallery__img" src="' . esc_url($storefrontImageUrl) . '" alt="'
+                    . esc_attr__('تصویر فعلی این محصول در فروشگاه', 'tecteb-marketplace-core') . '" width="150" height="150" loading="lazy">'
+                    . '<p class="tv-hint">' . esc_html__('این تصویر فعلی محصول در فروشگاه است و در گالری شما ثبت نشده. اگر تصویری اضافه نکنید، همین تصویر سر جایش می‌مانَد.', 'tecteb-marketplace-core') . '</p>'
+                    . '</div>';
+            } else {
+                $html .= '<p class="tv-hint">' . esc_html__('هنوز تصویری ندارید. ارسال محصول برای بررسی دست‌کم یک تصویر لازم دارد.', 'tecteb-marketplace-core') . '</p>';
+            }
         } else {
             $html .= '<ul class="tv-gallery">';
             foreach ($images as $index => $image) {

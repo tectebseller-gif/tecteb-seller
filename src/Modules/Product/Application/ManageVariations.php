@@ -7,9 +7,7 @@ use Tecteb\Marketplace\Contracts\Files\UploadedFile;
 use Tecteb\Marketplace\Core\Audit\AuditEventCatalog;
 use Tecteb\Marketplace\Core\Audit\AuditLogger;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
-
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
-use Tecteb\Marketplace\Modules\Product\Domain\PriceAndStockOrigin;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductType;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
 use Tecteb\Marketplace\Modules\Vendor\Application\OperationResult;
@@ -69,38 +67,34 @@ final class ManageVariations
      * would otherwise be a route that could still duplicate.
      *
      * It is deliberately NOT a permission and NOT a capability: the vendor may
-     * edit this product, and will be able to edit these combinations once the
-     * marketplace has adopted them. It is «not through this door yet».
+     * edit this product. It is «not through THIS door» — and since §3 of the
+     * owner's instruction there is another: `EditStorefrontVariations` writes
+     * the real `WC_Product_Variation`'s price and stock, and refuses in
+     * exactly the opposite direction. Both read one rule, so a product is
+     * behind one door or the other and never both.
      */
     private function shopOwnsTheCombinations(int $productId, ?int $wcProductId): bool
     {
-        if ($this->storefront === null || $wcProductId === null || $wcProductId <= 0) {
-            return false;
-        }
-        if ($this->variations->attributes($productId) !== [] || $this->variations->variations($productId) !== []) {
-            return false;       // ours, and the shop is the mirror
-        }
-        // ⛔ FAIL-CLOSED, and `alpha.105` was not.
+        // ⛔ THE RULE MOVED OUT, THE CALL SITES DID NOT.
         //
-        // That round ended this method with `->hasVariations()`, which is
-        // `isRead() && variations !== []`. So a shop that could not be read —
-        // WooCommerce momentarily absent, the parent gone, the query failing —
-        // answered FALSE, and FALSE here means «go ahead and write». The one
-        // situation the guard exists for is the one in which it stood aside.
-        //
-        // `PriceAndStockOrigin` has the third answer this needs and is the
-        // same rule the two save paths and readiness read, so a product cannot
-        // be foreign to one of them and ours to another (`alpha.78`). `SHOP`
-        // and `UNKNOWN` both refuse; only a CONFIRMED reading that the shop
-        // holds nothing lets a write through, which is the «Woo variable با
-        // صفر فرزندِ واقعاً تأییدشده را از unreadable تفکیک کن» the
-        // instruction asks for by name.
-        return !PriceAndStockOrigin::decide(
-            ProductType::VARIABLE,
-            false,
-            true,
-            $this->storefront->setFor($wcProductId)
-        )->isOurs();
+        // A second service now asks this same question from the other side —
+        // `EditStorefrontVariations` writes the real `WC_Product_Variation`
+        // and must refuse exactly when this one allows — and two copies of one
+        // rule are how two doors end up open for one product (`alpha.78`). So
+        // the answer lives in `StorefrontVariationOwnership`, which is built
+        // from the two collaborators this service already has: no constructor
+        // argument changed, so every caller and every hand-built test service
+        // goes on working (`alpha.32`), and the five verbs below ask the same
+        // private method they always did.
+        // ⛔ `!oursConfirmed()`, NOT `shopOwns()`. The two are different on an
+        // UNREADABLE shop, which is not-ours and not-shop at once: this door
+        // must refuse there (the `alpha.106` fail-closed half) and the other
+        // door must refuse there too. One shared negation cannot be right in
+        // both directions, so each asks its own positive question — and
+        // `ShopOwnedVariationDoorsAreExclusiveTest` pins both answers for all
+        // three states.
+        return !(new StorefrontVariationOwnership($this->variations, $this->storefront))
+            ->oursConfirmed($productId, ProductType::VARIABLE, $wcProductId);
     }
 
     /** @param list<string> $options */

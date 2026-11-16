@@ -387,11 +387,16 @@ final class AuditEventCatalog
             self::VENDOR_STAFF_ACTIVATED => ['vendor_id'],
             self::VENDOR_STAFF_ROLE_CHANGED => ['vendor_id', 'preset'],
             self::VENDOR_STAFF_STATUS_CHANGED => ['vendor_id', 'status'],
-            self::PRODUCT_SAVED => ['vendor_id', 'product_id', 'status', 'created'],
+            self::PRODUCT_SAVED => ['vendor_id', 'product_id', 'status', 'created', 'variation_id'],
             self::PRODUCT_SUBMITTED => ['vendor_id', 'product_id', 'to'],
             self::PRODUCT_REVIEWED => ['vendor_id', 'product_id', 'decision', 'has_note'],
             self::PRODUCT_STATUS_CHANGED => ['vendor_id', 'product_id', 'from', 'to'],
-            self::PRODUCT_INVENTORY_CHANGED => ['vendor_id', 'product_id', 'stock'],
+            // `variation_id` joined this in the round that gave the vendor a
+            // door to a REAL WooCommerce variation's stock: without it the
+            // row says a number changed on a variable product and not WHICH
+            // child, which is the one fact somebody reading it needs. A key
+            // absent from this list is dropped in silence (`alpha.91`).
+            self::PRODUCT_INVENTORY_CHANGED => ['vendor_id', 'product_id', 'stock', 'variation_id'],
             self::PRODUCT_REVISION_REQUESTED => ['vendor_id', 'product_id', 'revision_id', 'fields'],
             self::PRODUCT_REVISION_REVIEWED => ['vendor_id', 'product_id', 'revision_id', 'decision', 'has_note'],
             self::PRODUCT_TEMPLATE_CHANGED => ['action', 'category', 'field', 'schema_version'],

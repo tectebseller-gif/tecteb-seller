@@ -14,6 +14,7 @@ use Tecteb\Marketplace\Modules\Order\Domain\VendorOrderItem;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorMessages;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorNotice;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
+use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUrls;
 
 /**
  * The vendor's own orders (UX §7).
@@ -413,9 +414,14 @@ final class VendorOrdersView
             return '<p class="tv-hint">' . esc_html(sprintf(__('%s قلم', 'tecteb-marketplace-core'), $fa($total))) . '</p>';
         }
         $base = $status === '' ? $ordersUrl : add_query_arg('status', $status, $ordersUrl);
+        // `VendorUrls::PAGE_PARAM`, not `paged`: the same core query var that
+        // 404'd page two of the products list 404s page two of this one. The
+        // defect was never reported here only because the owner reached the
+        // products list first.
+        $at = static fn (int $target): string => VendorUrls::withPage($base, $target);
         $html = '<nav class="tv-pager" aria-label="' . esc_attr__('صفحه‌بندی سفارش‌ها', 'tecteb-marketplace-core') . '">';
         if ($page > 1) {
-            $html .= '<a class="tv-btn tv-btn--secondary" href="' . esc_url(add_query_arg('paged', $page - 1, $base)) . '">'
+            $html .= '<a class="tv-btn tv-btn--secondary" href="' . esc_url($at($page - 1)) . '">'
                 . esc_html__('صفحه قبل', 'tecteb-marketplace-core') . '</a>';
         }
         $html .= '<span class="tv-pager__status">' . esc_html(sprintf(
@@ -425,7 +431,7 @@ final class VendorOrdersView
             $fa($total)
         )) . '</span>';
         if ($page < $pages) {
-            $html .= '<a class="tv-btn tv-btn--secondary" href="' . esc_url(add_query_arg('paged', $page + 1, $base)) . '">'
+            $html .= '<a class="tv-btn tv-btn--secondary" href="' . esc_url($at($page + 1)) . '">'
                 . esc_html__('صفحه بعد', 'tecteb-marketplace-core') . '</a>';
         }
         return $html . '</nav>';

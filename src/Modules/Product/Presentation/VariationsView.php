@@ -7,6 +7,7 @@ use Tecteb\Marketplace\Core\Support\PersianDigits;
 use Tecteb\Marketplace\Modules\Finance\Presentation\MoneyText;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
+use Tecteb\Marketplace\Modules\Finance\Domain\DecimalAmount;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariation;
 use Tecteb\Marketplace\Modules\Product\Domain\StorefrontVariationSet;
 use Tecteb\Marketplace\Modules\Vendor\Presentation\VendorUi;
@@ -54,11 +55,13 @@ final class VariationsView
         // build them again — producing a second set that the next projection
         // would push into the shop beside the first.
         //
-        // So when the shop has them, the shop's are shown, read-only, with
-        // their real ids; and the «define an attribute» form is NOT offered,
-        // because here it is an invitation to duplicate.
+        // So when the shop has them, the shop's are shown with their real
+        // ids — and since §3 of the November instruction, with a form for
+        // the two figures a vendor may change on each. The «define an
+        // attribute» form is still NOT offered on this branch, because
+        // here it is an invitation to duplicate.
         if ($storefront !== null && $storefront->hasVariations()) {
-            return $html . self::storefrontPanel($storefront, $fa) . '</fieldset>';
+            return $html . self::storefrontPanel($storefront, $productId, $urls, $nonceField, $fa) . '</fieldset>';
         }
         if ($storefront !== null && !$storefront->isRead()) {
             $html .= self::unreadNotice($storefront);
@@ -223,21 +226,31 @@ final class VariationsView
     }
 
     /**
-     * The shop's own combinations, read and shown — and nothing more.
+     * The shop's own combinations — read, shown, and from §3 of the owner's
+     * instruction EDITABLE in exactly two figures.
      *
-     * No form, no button, no id of ours: there is nothing on this panel a
-     * press could write, which is how «از ویرایش تنوعِ پرخطر پیشگیری کن» is
-     * enforced rather than promised. What the vendor gets is the thing they
-     * could not see at all before: which combinations exist, what each costs,
-     * what WooCommerce says about its stock, and the real id to quote.
+     * ⛔ **WHAT IS OFFERED HERE AND WHAT IS NOT.** Two forms per row: the
+     * prices (regular and sale, as one unit — `alpha.83`) and the stock. There
+     * is no «add a combination» form, no «delete» button and no axis form on
+     * this branch, and that absence is the guard rather than a sentence about
+     * one: the shop holds these children, so a combination made here would be
+     * a SECOND set beside them (`alpha.105`). Creating combinations is §4's
+     * door and goes through `tmc_product_variations` for a product the shop
+     * holds none of.
      *
-     * Editing these from the marketplace panel is a separate, later step and
-     * the sentence at the bottom says so — including WHERE the change can be
-     * made today, because a screen that only says «you cannot» teaches people
-     * to look for a way around it.
+     * **Every form carries what the screen SHOWED.** `seen_regular`,
+     * `seen_sale`, `seen_exponent` and `seen_stock` are the figures printed in
+     * this very render, in minor units, so the service can refuse a write over
+     * a value that moved since (`alpha.49`) — and the empty string is «no
+     * figure of that kind», which is not nought.
      */
-    private static function storefrontPanel(StorefrontVariationSet $set, callable $fa): string
-    {
+    private static function storefrontPanel(
+        StorefrontVariationSet $set,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce,
+        callable $fa
+    ): string {
         $money = static function (?int $minor, int $exponent) use ($fa): string {
             if ($minor === null) {
                 return __('نامشخص', 'tecteb-marketplace-core');
@@ -250,7 +263,7 @@ final class VariationsView
 
         $html = VendorUi::notice('info', sprintf(
             /* translators: %s: how many variations WooCommerce holds */
-            __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند: %s ترکیب. این فهرست فقط خوانده می‌شود.', 'tecteb-marketplace-core'),
+            __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند: %s ترکیب. قیمت و موجودی هر کدام را از همین‌جا می‌توانید تغییر دهید.', 'tecteb-marketplace-core'),
             $fa($set->count())
         ));
         if ($set->unreadableChildren > 0) {
@@ -325,11 +338,104 @@ final class VariationsView
                 . esc_html($variation->enabled
                     ? __('فعال', 'tecteb-marketplace-core')
                     : __('غیرفعال در ووکامرس', 'tecteb-marketplace-core')) . '</dd></div>'
-                . '</dl></div></li>';
+                . '</dl>'
+                . self::shopPriceForm($variation, $set->priceExponent, $productId, $urls, $nonce)
+                . self::shopStockForm($variation, $productId, $urls, $nonce)
+                . '</div></li>';
         }
         $html .= '</ul>';
 
-        return $html . VendorUi::notice('info', __('تغییر قیمت یا موجودی این ترکیب‌ها فعلاً از ووکامرس انجام می‌شود؛ ویرایش آن‌ها از این پنل مرحلهٔ بعدی مهاجرت است. ساختن ترکیب تازه در این پنل، نسخهٔ دومی از همین ترکیب‌ها می‌سازد، پس در دسترس نیست.', 'tecteb-marketplace-core'));
+        return $html . VendorUi::notice('info', __('قیمت و موجودی هر ترکیب را از همین‌جا می‌توانید تغییر دهید؛ تغییر روی همان ترکیب ووکامرس با همان شناسه ثبت می‌شود. ساختن یا حذف ترکیب در این پنل در دسترس نیست، چون ترکیب‌های این محصول در ووکامرس ثبت شده‌اند و ساختن دوباره‌شان نسخهٔ دومی می‌سازد.', 'tecteb-marketplace-core'));
+    }
+
+    /**
+     * One real variation's two prices, as one form.
+     *
+     * ⛔ **THE TWO MOVE TOGETHER**, because `applySale()` has been called from
+     * inside the price branch since `alpha.6` and `alpha.83` took all four
+     * sale fields out of the approval cycle with the regular price for this
+     * reason: a vendor who drops a sale and raises the price must not get the
+     * raise live over a sale still running. Two separate buttons would be two
+     * separate halves of one decision.
+     *
+     * The values are printed as the DECIMAL WooCommerce stores, at the shop's
+     * own scale, so the box shows the vendor the figure that is actually on
+     * the product. Typing is read back through `DecimalAmount` at the same
+     * scale — exact or refused — and Persian digits are accepted.
+     */
+    private static function shopPriceForm(
+        StorefrontVariation $variation,
+        int $exponent,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce
+    ): string {
+        $text = static function (?int $minor) use ($exponent): string {
+            // '' for «no price of that kind», which is the state WooCommerce
+            // stores as an empty string and is not the same as nought.
+            return $minor === null ? '' : (string) (DecimalAmount::toDecimal($minor, $exponent) ?? '');
+        };
+        $seen = static fn (?int $minor): string => $minor === null ? '' : (string) $minor;
+        $id = $variation->wcVariationId;
+
+        return '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-inline">' . $nonce
+            . '<input type="hidden" name="tmc_vendor_action" value="save_shop_variation_prices">'
+            . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
+            . '<input type="hidden" name="variation_id" value="' . esc_attr((string) $id) . '">'
+            // WHAT THIS RENDER SHOWED, so the save can refuse over a figure
+            // that moved in the meantime rather than overwrite it.
+            . '<input type="hidden" name="seen_regular" value="' . esc_attr($seen($variation->regularPriceMinor)) . '">'
+            . '<input type="hidden" name="seen_sale" value="' . esc_attr($seen($variation->salePriceMinor)) . '">'
+            . '<input type="hidden" name="seen_exponent" value="' . esc_attr((string) $exponent) . '">'
+            . '<label class="tv-label" for="f-var-regular-' . esc_attr((string) $id) . '">'
+            . esc_html__('قیمت (تومان)', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input tv-input--short" type="text" inputmode="decimal"'
+            . ' id="f-var-regular-' . esc_attr((string) $id) . '" name="var_regular"'
+            . ' value="' . esc_attr($text($variation->regularPriceMinor)) . '">'
+            . '<label class="tv-label" for="f-var-sale-' . esc_attr((string) $id) . '">'
+            . esc_html__('قیمت حراج (اختیاری)', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input tv-input--short" type="text" inputmode="decimal"'
+            . ' id="f-var-sale-' . esc_attr((string) $id) . '" name="var_sale"'
+            . ' value="' . esc_attr($text($variation->salePriceMinor)) . '">'
+            . VendorUi::submit(__('ذخیرهٔ قیمت', 'tecteb-marketplace-core'), 'secondary')
+            . '</form>';
+    }
+
+    /**
+     * One real variation's stock.
+     *
+     * `seen_stock` is EMPTY when this child keeps no number of its own — a
+     * variation that inherits the parent's answer, which WooCommerce models as
+     * «Manage stock?» unticked. Saving a number for such a child turns
+     * management on FOR THE CHILD; the parent's flag is never touched, which
+     * is the `alpha.106` protection and the §3 line «`manage_stock` والد
+     * ناخواسته فعال نشود».
+     */
+    private static function shopStockForm(
+        StorefrontVariation $variation,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce
+    ): string {
+        $id = $variation->wcVariationId;
+        $managed = $variation->manageStock && $variation->stockQuantity !== null;
+
+        return '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-inline">' . $nonce
+            . '<input type="hidden" name="tmc_vendor_action" value="save_shop_variation_stock">'
+            . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
+            . '<input type="hidden" name="variation_id" value="' . esc_attr((string) $id) . '">'
+            . '<input type="hidden" name="seen_stock" value="'
+            . esc_attr($managed ? (string) $variation->stockQuantity : '') . '">'
+            . '<label class="tv-label" for="f-var-stock-' . esc_attr((string) $id) . '">'
+            . esc_html__('موجودی', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input tv-input--short" type="text" inputmode="numeric"'
+            . ' id="f-var-stock-' . esc_attr((string) $id) . '" name="stock"'
+            . ' value="' . esc_attr($managed ? (string) $variation->stockQuantity : '') . '">'
+            . ($managed ? '' : '<p class="tv-hint">'
+                . esc_html__('این ترکیب الان موجودی مستقل ندارد و از والد پیروی می‌کند. با ثبت یک عدد، موجودی خودش شمرده می‌شود.', 'tecteb-marketplace-core')
+                . '</p>')
+            . VendorUi::submit(__('ذخیرهٔ موجودی', 'tecteb-marketplace-core'), 'secondary')
+            . '</form>';
     }
 
     /**

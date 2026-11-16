@@ -167,6 +167,28 @@ final class PriceAndStockOrigin
     }
 
     /**
+     * Is the SHOP confirmedly the source — not «ours», and not «I could not
+     * read it»?
+     *
+     * ⛔ **IT IS NOT `!isOurs()`, AND A TEST CAUGHT ME WRITING IT THAT WAY.**
+     * `UNKNOWN` is also not-ours, so `!isOurs()` is TRUE for a shop that could
+     * not be read — and the door this answers opens a write straight at a real
+     * `WC_Product_Variation`. The first version of
+     * `StorefrontVariationOwnership::shopOwns()` asked `!isOurs()` and
+     * `StorefrontVariationEditTest::testAnUnreadableShopIsRefusedRatherThan
+     * Assumed()` reported the write going through: fail-OPEN, which is exactly
+     * the half `alpha.105` got wrong and `alpha.106` fixed one object along.
+     *
+     * The two guards therefore ask two different positive questions and both
+     * refuse on `UNKNOWN`: `mayWriteParentFigures()` needs a confirmed OURS,
+     * this needs a confirmed SHOP.
+     */
+    public function isShop(): bool
+    {
+        return $this->state === self::SHOP;
+    }
+
+    /**
      * May anything write this product's own price, stock or stock status?
      *
      * FALSE for both `SHOP` and `UNKNOWN`, and that is the whole point of the

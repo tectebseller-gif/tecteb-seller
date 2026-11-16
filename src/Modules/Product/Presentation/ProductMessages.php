@@ -814,7 +814,42 @@ final class ProductMessages
             // adopted them. Saying «not through this door yet» and WHERE the
             // change is made today is the difference between a fallback and a
             // dead end (§3-۹).
-            'variations_live_in_shop' => __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند و از این پنل خوانده می‌شوند. ساختن یا حذف ترکیب از اینجا نسخهٔ دومی می‌سازد، پس انجام نشد؛ تغییر قیمت و موجودی این ترکیب‌ها فعلاً در ووکامرس انجام می‌شود.', 'tecteb-marketplace-core'),
+            'variations_live_in_shop' => __('ترکیب‌های این محصول در ووکامرس ثبت شده‌اند. ساختن یا حذف ترکیب از اینجا نسخهٔ دومی می‌سازد، پس انجام نشد؛ قیمت و موجودی همین ترکیب‌ها را از فهرست بالا، روی خودِ ترکیب، تغییر دهید.', 'tecteb-marketplace-core'),
+            // ---- §3: a REAL WooCommerce variation's own figures ----------
+            //
+            // Separate codes from the five verbs above, because they are about
+            // a different store: these writes land on `WC_Product_Variation`
+            // itself. Each refusal names what happened rather than «ذخیره
+            // نشد», and the two «moved» messages print the figure the shop
+            // holds NOW so the vendor can see what they are deciding about.
+            'variation_price_saved' => __('قیمت این ترکیب در ووکامرس ثبت شد.', 'tecteb-marketplace-core'),
+            'variation_stock_saved' => __('موجودی این ترکیب در ووکامرس ثبت شد.', 'tecteb-marketplace-core'),
+            'variation_price_moved' => __('قیمت این ترکیب از لحظه‌ای که این صفحه باز شد عوض شده، پس چیزی بازنویسی نشد. صفحه را تازه کنید و دوباره تصمیم بگیرید.', 'tecteb-marketplace-core'),
+            'variation_stock_moved' => ($context['found'] ?? null) === null
+                ? __('موجودی این ترکیب از لحظه‌ای که این صفحه باز شد عوض شده، پس چیزی بازنویسی نشد. صفحه را تازه کنید.', 'tecteb-marketplace-core')
+                : sprintf(
+                    /* translators: %s: the stock WooCommerce holds now */
+                    __('موجودی این ترکیب حالا %s است، نه عددی که این صفحه نشان می‌داد؛ پس چیزی بازنویسی نشد. صفحه را تازه کنید.', 'tecteb-marketplace-core'),
+                    $fa($context['found'])
+                ),
+            'variation_sale_not_below_price' => __('قیمت حراج باید از قیمت اصلی کمتر باشد، وگرنه ووکامرس آن را نادیده می‌گیرد. حراج ثبت نشد.', 'tecteb-marketplace-core'),
+            'variation_not_a_child' => __('این ترکیب از ترکیب‌های همین محصول نیست، پس چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'variation_parent_not_variable' => __('این محصول در ووکامرس «متغیر» نیست، پس ترکیبی برای ویرایش ندارد.', 'tecteb-marketplace-core'),
+            'variation_no_woocommerce' => __('ووکامرس در دسترس نیست، پس ترکیب‌های فروشگاه خوانده و نوشته نمی‌شوند.', 'tecteb-marketplace-core'),
+            'variation_shop_unreadable' => __('واحد قیمت فروشگاه خوانده نشد، پس هیچ عددی معنا نداشت و چیزی نوشته نشد.', 'tecteb-marketplace-core'),
+            'variation_no_storefront_product' => __('این محصول هنوز در ووکامرس ساخته نشده، پس ترکیبی برای ویرایش ندارد.', 'tecteb-marketplace-core'),
+            'variations_not_live_in_shop' => __('ترکیب‌های این محصول را خودِ بازارگاه نگه می‌دارد، پس از فهرست ترکیب‌های همین صفحه ویرایش می‌شوند، نه از این مسیر.', 'tecteb-marketplace-core'),
+            'variation_price_not_written' => __('قیمت این ترکیب ذخیره نشد. دوباره تلاش کنید؛ تا آن موقع قیمت قبلی سر جایش است.', 'tecteb-marketplace-core'),
+            'variation_stock_not_written' => __('موجودی این ترکیب ذخیره نشد. دوباره تلاش کنید؛ تا آن موقع موجودی قبلی سر جایش است.', 'tecteb-marketplace-core'),
+            // ⛔ ITS OWN CODE, not `bad_price`. That one is the marketplace
+            // row's price field and says «قیمت نمی‌تواند منفی باشد» — a true
+            // sentence about a different refusal. A variation's price is
+            // refused for a second reason as well: a decimal the SHOP's
+            // scale cannot hold exactly, which is rejected rather than
+            // rounded (`alpha.39`). Reusing the key would have replaced a
+            // healthy message with a confusing one.
+            'variation_bad_price' => __('قیمت را با رقم و در واحد همین فروشگاه بنویسید؛ قیمت منفی یا عددی که با دقت این فروشگاه ذخیره‌شدنی نباشد پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
+            'variation_bad_stock' => __('موجودی را با رقم و بدون علامت منفی بنویسید.', 'tecteb-marketplace-core'),
             'incomplete_attribute' => __('کلید و عنوان ویژگی هر دو لازم‌اند.', 'tecteb-marketplace-core'),
             'attribute_needs_options' => __('ویژگی بدون گزینه ساخته نمی‌شود؛ دست‌کم یک گزینه بنویسید.', 'tecteb-marketplace-core'),
             'attributes_first' => __('اول ویژگی‌ها (مثل اندازه یا رنگ) را تعریف کنید، بعد ترکیب‌ها را.', 'tecteb-marketplace-core'),
@@ -922,6 +957,7 @@ final class ProductMessages
             // page red would make «هنوز چیزی انجام نشده» look like a failure.
             'bulk_previewed',
             'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
+            'variation_price_saved', 'variation_stock_saved',
             'seo_saved', 'projected', 'withdrawn',
             'prepared', 'product_corrected', 'nothing_changed',
             'proposal_accepted', 'storefront_kept',

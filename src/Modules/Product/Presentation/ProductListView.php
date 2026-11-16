@@ -121,7 +121,7 @@ final class ProductListView
             $html .= self::row($product, $urls, $nonceField, $fa, $mayEdit, $thumbnails[$product->id] ?? '', $ranges[$product->id] ?? null);
         }
         $html .= '</ul>';
-        $html .= self::pager($page, $total, $currentStatus, $urls, $fa);
+        $html .= self::pager($page, $total, $currentStatus, $search, $urls, $fa);
         return $html . self::csvFold($urls, $nonceField, $mayEdit) . '</section>';
     }
 
@@ -382,16 +382,30 @@ final class ProductListView
             . '</form>';
     }
 
-    /** @param callable(string|int):string $fa */
-    private static function pager(int $page, int $total, string $status, VendorUrls $urls, callable $fa): string
+    /**
+     * @param callable(string|int):string $fa
+     *
+     * The link is built by `VendorUrls::productsList()`, which is the only
+     * place that knows a list address is «status + search + page». Two things
+     * were wrong here until this round and both were measured:
+     *
+     *  * the page number went out as `paged`, a WordPress PUBLIC query var,
+     *    which 404s the request before this plugin is asked anything — see
+     *    `VendorUrls::PAGE_PARAM` for core's two rules and the file they are
+     *    read from;
+     *  * the base was `productsInStatus($status)` alone, so paging a search
+     *    DROPPED the search and page two of «چسب تزریق» showed the unsearched
+     *    list.
+     */
+    private static function pager(int $page, int $total, string $status, string $search, VendorUrls $urls, callable $fa): string
     {
         $pages = (int) ceil($total / self::PER_PAGE);
         if ($pages <= 1) {
             return '<p class="tv-hint">' . esc_html(sprintf(__('%s محصول', 'tecteb-marketplace-core'), $fa($total))) . '</p>';
         }
-        $link = static function (int $target, string $label) use ($status, $urls): string {
+        $link = static function (int $target, string $label) use ($status, $search, $urls): string {
             return '<a class="tv-btn tv-btn--secondary" href="'
-                . esc_url(add_query_arg('paged', $target, $urls->productsInStatus($status))) . '">' . esc_html($label) . '</a>';
+                . esc_url($urls->productsList($status, $search, $target)) . '">' . esc_html($label) . '</a>';
         };
         $html = '<nav class="tv-pager" aria-label="' . esc_attr__('صفحه‌بندی محصولات', 'tecteb-marketplace-core') . '">';
         if ($page > 1) {

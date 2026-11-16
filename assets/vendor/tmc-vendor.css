@@ -588,6 +588,33 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
   background: var(--tv-surface-2);
 }
 
+/* The picture WooCommerce already holds for an imported product, shown in the
+ * image step when the vendor's own gallery is empty. A framed thumbnail with
+ * its sentence beside it, deliberately NOT styled like a `tv-gallery__item`:
+ * it carries no radio, no checkbox and no reorder buttons, because it is a
+ * fact about the product rather than a row the vendor edits. */
+.tv-gallery__shop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tv-s3);
+  padding: var(--tv-s3);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface-2);
+}
+
+.tv-gallery__shop .tv-gallery__img {
+  display: block;
+  inline-size: 96px;
+  block-size: 96px;
+  object-fit: cover;
+  border-radius: var(--tv-radius-sm);
+  background: var(--tv-surface);
+}
+
+.tv-gallery__shop .tv-hint { margin: 0; flex: 1 1 14rem; }
+
 /* The two controls under a thumbnail are tap targets, not captions. The
  * browser default for a radio or a checkbox is 13px — below WCAG 2.2's 24px
  * floor and simply hard to hit on a phone — so they are sized here the same

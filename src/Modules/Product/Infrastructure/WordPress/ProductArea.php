@@ -9,6 +9,7 @@ use Tecteb\Marketplace\Contracts\FlashStoreInterface;
 use Tecteb\Marketplace\Infrastructure\WordPress\Http\Request;
 use Tecteb\Marketplace\Modules\Product\Application\EstimateVendorShare;
 use Tecteb\Marketplace\Modules\Product\Application\ManageProducts;
+use Tecteb\Marketplace\Modules\Product\Application\EditStorefrontVariations;
 use Tecteb\Marketplace\Modules\Product\Application\ManageVariations;
 use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Application\ProductCategoryDirectoryInterface;
@@ -80,6 +81,11 @@ final class ProductArea
         'bulk_products', 'preview_bulk_products',
         'export_products', 'import_products', 'apply_products_csv',
         'save_attribute', 'delete_attribute', 'save_variation', 'delete_variation', 'save_variation_stock',
+        // §3: the two figures a vendor may change on a REAL imported
+        // variation. Separate verbs from the five above because they go
+        // through a separate service to a separate store — WooCommerce's
+        // own child — and the two services refuse in opposite directions.
+        'save_shop_variation_prices', 'save_shop_variation_stock',
     ];
 
     private const FORM_TTL = 600;
@@ -142,8 +148,28 @@ final class ProductArea
     {
         $request = $view->request;
         $status = ProductStatus::tryFrom($request->queryKey('status'));
-        $page = max(1, $request->queryInt('paged'));
+        $page = max(1, $request->queryInt(VendorUrls::PAGE_PARAM));
         $search = $request->queryText('q');
+
+        // COUNTED FIRST, THEN CLAMPED, THEN READ.
+        //
+        // A page number past the end used to be read literally: the offset
+        // ran off the end of the list, the screen said «در این وضعیت محصولی
+        // ندارید» and the pager — which is only drawn when there are rows —
+        // was not there to come back with. On a 184-product shop that is a
+        // dead end reachable with one keystroke in the address bar, and the
+        // empty state's advice («وضعیت دیگری را ببینید») is wrong, because
+        // the products exist and are one page back.
+        //
+        // The last page is what such a request gets, which is what the
+        // manager's catalogue has done since `alpha.33`. The count is not an
+        // extra query: this screen already asked for it, one line below.
+        $total = $this->products()->countForVendor($vendorUserId, $status, $search);
+        $lastPage = max(1, (int) ceil($total / ProductListView::PER_PAGE));
+        if ($page > $lastPage) {
+            $page = $lastPage;
+        }
+
         $products = $this->products()->forVendor(
             $vendorUserId,
             $status,
@@ -156,7 +182,7 @@ final class ProductArea
             $this->products()->countsByStatus($vendorUserId),
             $status?->value ?? '',
             $page,
-            $this->products()->countForVendor($vendorUserId, $status, $search),
+            $total,
             $view->urls,
             $view->nonceField,
             $withNotice ? $view->notice : null,
@@ -345,7 +371,11 @@ final class ProductArea
                 $productId,
                 $mayEdit,
                 is_array($carried) && (int) ($carried['product_id'] ?? -1) === $productId ? $carried : null
-            )
+            ),
+            // The shop's own picture, when the vendor's gallery is empty. Read
+            // from the same reader the list uses, so one product cannot show
+            // two different pictures on two screens.
+            $this->storefrontImageFor((int) ($product?->wcProductId ?? 0), $imageIds, $mainImageId)
         );
     }
 
@@ -514,6 +544,32 @@ final class ProductArea
                 $request->postInt('product_id'),
                 $request->postInt('variation_id'),
                 $this->number($request->postText('stock'))
+            )),
+            'save_shop_variation_prices' => $this->onVariation($request, $urls, fn (): OperationResult => $this->shopVariations()->updatePrices(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postInt('variation_id'),
+                // THE TYPED TEXT, not a parsed number: the shop's own price
+                // scale decides what it means, and the service asks the shop.
+                $request->postText('var_regular'),
+                $request->postText('var_sale'),
+                // What the screen SHOWED, in minor units at the scale it
+                // printed in. An empty field is «no price of that kind»,
+                // which is a different fact from «nought» (`alpha.28`).
+                $this->seenMinor($request->postText('seen_regular')),
+                $this->seenMinor($request->postText('seen_sale')),
+                $this->seenMinor($request->postText('seen_exponent'))
+            )),
+            'save_shop_variation_stock' => $this->onVariation($request, $urls, fn (): OperationResult => $this->shopVariations()->updateStock(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id'),
+                $request->postInt('variation_id'),
+                $this->number($request->postText('stock')),
+                // `null` is «the screen said this child keeps no number of its
+                // own», which is a real state and not a missing field.
+                $this->seenMinor($request->postText('seen_stock'))
             )),
             default => null,
         };
@@ -888,6 +944,19 @@ final class ProductArea
         return $this->container->get(ManageVariations::class);
     }
 
+    /**
+     * §3's service: the vendor's figures on a REAL WooCommerce variation.
+     *
+     * Deliberately NOT `variationService()`. That one writes our own tables
+     * and refuses when the shop holds the combinations; this one writes the
+     * shop's child and refuses when it does not. One rule decides which,
+     * so a product is behind exactly one of them.
+     */
+    private function shopVariations(): EditStorefrontVariations
+    {
+        return $this->container->get(EditStorefrontVariations::class);
+    }
+
     private function variationRepository(): VariationRepositoryInterface
     {
         return $this->container->get(VariationRepositoryInterface::class);
@@ -912,6 +981,22 @@ final class ProductArea
     private function optionalNumber(string $raw): ?int
     {
         return trim($raw) === '' ? null : $this->number($raw);
+    }
+
+    /**
+     * A figure the FORM carried back, read as the integer it was printed as.
+     *
+     * Not `number()`: these fields are not typed by anybody. The view prints
+     * them from what it showed, in minor units, in Latin digits, so the only
+     * question is whether the field was there at all — and an absent or
+     * non-numeric field is `null`, which the services read as «the screen
+     * showed no figure». A vendor who strips these fields out of the form gets
+     * a refusal from the compare-and-set, never a blind write.
+     */
+    private function seenMinor(string $raw): ?int
+    {
+        $raw = trim($raw);
+        return preg_match('/^-?\d+$/', $raw) === 1 ? (int) $raw : null;
     }
 
     // ------------------------------------------------------------- plumbing
@@ -1193,18 +1278,74 @@ final class ProductArea
                 $ids[$product->id] = (int) $main;
             }
         }
-        if ($ids === []) {
-            return [];
-        }
-        $library = $this->container->get(ProductImageLibraryInterface::class);
         $out = [];
-        foreach ($ids as $productId => $mediaId) {
-            $url = $library->thumbnailUrl($mediaId);
-            if ($url !== '') {
-                $out[$productId] = $url;
+        if ($ids !== []) {
+            $library = $this->container->get(ProductImageLibraryInterface::class);
+            foreach ($ids as $productId => $mediaId) {
+                $url = $library->thumbnailUrl($mediaId);
+                if ($url !== '') {
+                    $out[$productId] = $url;
+                }
+            }
+        }
+
+        // THE SHOP'S OWN PICTURE, for the rows that still have none.
+        //
+        // An imported product has no `tmc_product_images` row — intake records
+        // the fields a marketplace row owns and copies no media, deliberately
+        // — so the loop above found nothing to resolve and the view drew its
+        // «no picture» placeholder beside a product whose photo is on the shop
+        // page right now. That was the owner's report: «برخی تصاویر بندانگشتی
+        // خالی‌اند، درحالی‌که تصویر در WooCommerce موجود است».
+        //
+        // Asked only for the rows that need it, and in one query for all of
+        // them. ⛔ Nothing is written: no attachment is copied, re-parented or
+        // put into the vendor's gallery — an id this shop does not own would
+        // be dropped by the next save anyway, and a copy would be a second
+        // attachment for a picture that already has one.
+        $missing = [];
+        foreach ($products as $product) {
+            if (isset($out[$product->id])) {
+                continue;
+            }
+            $wcId = (int) ($product->wcProductId ?? 0);
+            if ($wcId > 0) {
+                $missing[$product->id] = $wcId;
+            }
+        }
+        if ($missing === []) {
+            return $out;
+        }
+        $fromShop = $this->storefrontImages()->thumbnailUrls(array_values(array_unique($missing)));
+        foreach ($missing as $productId => $wcId) {
+            if (isset($fromShop[$wcId]) && $fromShop[$wcId] !== '') {
+                $out[$productId] = $fromShop[$wcId];
             }
         }
         return $out;
+    }
+
+    /**
+     * The picture the EDIT FORM shows for a product whose gallery is empty.
+     *
+     * The same reader the list uses, so the two screens cannot show different
+     * pictures for one product — «تصویر باید در فهرست و فرم ویرایش یکسان و
+     * درست باشد». Empty when the vendor has a gallery of their own (that is
+     * what the form edits), when there is no storefront product, or when the
+     * shop has no featured image either.
+     */
+    private function storefrontImageFor(int $wcProductId, array $imageIds, int $mainImageId): string
+    {
+        if ($wcProductId <= 0 || $imageIds !== [] || $mainImageId > 0) {
+            return '';
+        }
+        $urls = $this->storefrontImages()->thumbnailUrls([$wcProductId]);
+        return (string) ($urls[$wcProductId] ?? '');
+    }
+
+    private function storefrontImages(): \Tecteb\Marketplace\Modules\Product\Application\StorefrontImageReaderInterface
+    {
+        return $this->container->get(\Tecteb\Marketplace\Modules\Product\Application\StorefrontImageReaderInterface::class);
     }
 
     /** @param list<int> $imageIds @return list<array{id:int,url:string}> */

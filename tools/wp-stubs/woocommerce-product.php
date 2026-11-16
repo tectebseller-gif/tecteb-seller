@@ -422,6 +422,12 @@ namespace {
                 return 'simple';
             }
 
+            /** WooCommerce's own: a product keeps its own stock row. */
+            public function get_stock_managed_by_id(): int
+            {
+                return $this->get_id();
+            }
+
             /**
              * What a buyer would pay: the sale price while one is set, else the
              * regular one. The real class derives this; the stub keeps the same
@@ -597,6 +603,24 @@ namespace {
             public function get_type(): string
             {
                 return 'variation';
+            }
+
+            /**
+             * ⛔ WooCommerce's OWN answer, and the reason it must be modelled:
+             * `WC_Product_Variation::get_stock_managed_by_id()` returns the
+             * variation's id only while the variation manages its own stock,
+             * and the PARENT's id otherwise.
+             *
+             * This is the id `wc_update_product_stock()` writes, so a caller
+             * that ran that function against an UNMANAGED child would move the
+             * parent's `_stock` row — which `alpha.106` exists to prevent. The
+             * double answered nothing at all before this round, so neither the
+             * projector's guarded write nor the vendor's variation write could
+             * be measured here; both call this method.
+             */
+            public function get_stock_managed_by_id(): int
+            {
+                return $this->get_manage_stock() ? $this->get_id() : (int) $this->get_parent_id();
             }
 
             /**
@@ -868,10 +892,102 @@ namespace {
         }
     }
 
+    /**
+     * WooCommerce's own stock statement, modelled far enough that the GUARD
+     * decides.
+     *
+     * ⛔ **WHY THIS STUB GREW A BODY.** It used to `return $quantity` and
+     * write nothing, so every guard that rides on
+     * `woocommerce_update_product_stock_query` — the projector's approved-stock
+     * write since `alpha.50`, and the vendor's own variation stock since §3 —
+     * was unreachable in this suite: the filter was never applied, so a
+     * condition that should have blocked a write could not be measured, and a
+     * test about it would have passed on a build with no guard at all. A
+     * double that models a verb more simply than the real one tests a
+     * different contract (`alpha.59`, `alpha.105`).
+     *
+     * What is modelled, from `WC_Product_Data_Store_CPT::update_product_stock()`:
+     *
+     *  - the `_stock` row is ENSURED to exist before the statement, which is
+     *    WooCommerce's own `add_post_meta()` call and the reason a child that
+     *    has just had `manage_stock` ticked can be written to at all;
+     *  - the statement is passed through
+     *    `woocommerce_update_product_stock_query` with `($sql, $id, $value,
+     *    $operation)`, in that order;
+     *  - a trailing `AND meta_value + 0 = N` on the filtered statement is
+     *    honoured NUMERICALLY against the stored row — which is what MySQL
+     *    does with it, and the whole point of the comparison being `+ 0`: the
+     *    same stock reaches that row as «7» from `save()` and as «7.000000»
+     *    from here;
+     *  - the value written is `number_format($q, 6, '.', '')`, the dialect
+     *    WooCommerce writes, so a read-back that compares strings sees what a
+     *    real site would show.
+     *
+     * What is NOT modelled, and is written down rather than implied: the
+     * `wc_product_meta_lookup` table, the three stock hooks, the post-meta
+     * cache, and `relative` operations. No code under test reads any of them
+     * through this path, and a stub that pretended to would be claiming more
+     * than it does.
+     */
     if (!function_exists('wc_update_product_stock')) {
-        function wc_update_product_stock(mixed $product = null, mixed $quantity = null, string $operation = 'set'): mixed
-        {
+        function wc_update_product_stock(
+            mixed $product = null,
+            mixed $quantity = null,
+            string $operation = 'set',
+            bool $updating = false
+        ): mixed {
+            $id = is_object($product) && method_exists($product, 'get_stock_managed_by_id')
+                ? (int) $product->get_stock_managed_by_id()
+                : (int) $product;
+            if ($id <= 0 || $quantity === null) {
+                return false;
+            }
+            $value = number_format((float) $quantity, 6, '.', '');
+            // WooCommerce ensures the row exists before it updates it.
+            if (!array_key_exists('_stock', \TmcWpStubs\State::$postMeta[$id] ?? [])) {
+                \TmcWpStubs\State::$postMeta[$id]['_stock'] = $value;
+            }
+            $sql = "UPDATE postmeta SET meta_value = {$value} WHERE post_id = {$id} AND meta_key='_stock'";
+            $filtered = (string) apply_filters(
+                'woocommerce_update_product_stock_query',
+                $sql,
+                $id,
+                $quantity,
+                $operation
+            );
+            if (preg_match('/AND meta_value \+ 0 = (-?\d+)\s*$/', $filtered, $m) === 1) {
+                $stored = \TmcWpStubs\State::$postMeta[$id]['_stock'] ?? null;
+                if ($stored === null || (int) round((float) $stored) !== (int) $m[1]) {
+                    return $quantity;      // the statement matched no row
+                }
+            }
+            \TmcWpStubs\State::$postMeta[$id]['_stock'] = $value;
             return $quantity;
+        }
+    }
+
+    if (!function_exists('wc_update_product_stock_status')) {
+        function wc_update_product_stock_status(int $productId, string $status): void
+        {
+            \TmcWpStubs\State::$postMeta[$productId]['_stock_status'] = $status;
+            $product = \wc_get_product($productId);
+            if (is_object($product) && method_exists($product, 'set_stock_status')) {
+                $product->set_stock_status($status);
+            }
+        }
+    }
+
+    if (!function_exists('wc_stock_amount')) {
+        function wc_stock_amount(mixed $amount): mixed
+        {
+            return (int) round((float) $amount);
+        }
+    }
+
+    if (!function_exists('wc_get_price_decimals')) {
+        function wc_get_price_decimals(): int
+        {
+            return (int) \TmcWpStubs\State::$priceDecimals;
         }
     }
 }

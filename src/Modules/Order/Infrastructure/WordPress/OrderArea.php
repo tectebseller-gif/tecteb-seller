@@ -47,7 +47,7 @@ final class OrderArea
 
         $request = $view->request;
         $status = OrderItemStatus::tryFrom($request->queryKey('status'));
-        $page = max(1, $request->queryInt('paged'));
+        $page = max(1, $request->queryInt(VendorUrls::PAGE_PARAM));
         $items = $orders->listFor(
             $view->userId,
             $vendorUserId,

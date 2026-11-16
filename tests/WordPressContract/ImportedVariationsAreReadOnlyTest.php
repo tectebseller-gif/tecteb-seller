@@ -133,9 +133,94 @@ final class ImportedVariationsAreReadOnlyTest extends ContractTestCase
         self::assertStringContainsString('۵۰ عددی', $html);
         self::assertStringContainsString('۱۰۰ عددی', $html);
         self::assertStringContainsString('۲۰۰ عددی', $html);
-        // No form at all: there is nothing on this panel a press could write.
-        self::assertStringNotContainsString('<form', $html);
-        self::assertStringNotContainsString('save_variation', $html);
+
+        // ⛔ **THIS ASSERTION WAS REWRITTEN, NOT RELAXED, AND THE OWNER MOVED
+        // IT.** Until §3 of the November instruction it read
+        // `assertStringNotContainsString('<form', $html)` — «there is nothing
+        // on this panel a press could write» — which was the right rule while
+        // the only door into a variation was `ManageVariations`, whose writes
+        // would have produced a second set of combinations beside
+        // WooCommerce's own.
+        //
+        // §3 asks for the other half: «فروشنده بتواند قیمت اصلی، قیمت حراج و
+        // موجودی تنوع‌های واقعی را ویرایش کند». So the panel now offers exactly
+        // two forms per combination, and what this test pins is that the set
+        // is EXACTLY those two — because the thing the old assertion was
+        // protecting is still true and still needs a guard: a create, delete
+        // or attribute form on this branch would be the duplicate
+        // `alpha.105` closed.
+        self::assertStringContainsString('save_shop_variation_prices', $html);
+        self::assertStringContainsString('save_shop_variation_stock', $html);
+        foreach (array_keys(self::CHILDREN) as $id) {
+            self::assertStringContainsString(
+                'name="variation_id" value="' . $id . '"',
+                $html,
+                "variation {$id} must be editable by its REAL id"
+            );
+        }
+        // The five verbs that write OUR tables stay unreachable from here.
+        foreach ([
+            'value="save_variation"',
+            'value="save_variation_stock"',
+            'value="delete_variation"',
+            'value="save_attribute"',
+            'value="delete_attribute"',
+        ] as $forbidden) {
+            self::assertStringNotContainsString(
+                $forbidden,
+                $html,
+                $forbidden . ' would make a SECOND set of combinations beside the shop\'s'
+            );
+        }
+        // Two forms per combination and not one more.
+        self::assertSame(
+            2 * count(self::CHILDREN),
+            substr_count($html, '<form'),
+            'exactly the price form and the stock form, for each combination'
+        );
+
+        // ⛔ AND EVERY FORM CARRIES WHAT THIS RENDER SHOWED, which is what
+        // lets the save refuse over a figure that moved since (`alpha.49`).
+        // The 200-pack keeps no number of its own, so its `seen_stock` is
+        // EMPTY — «به‌ازای والد» — and that is a different fact from nought.
+        self::assertStringContainsString('name="seen_regular" value="2600000"', $html);
+        self::assertStringContainsString('name="seen_sale" value="8900000"', $html);
+        self::assertStringContainsString('name="seen_exponent" value="0"', $html);
+        self::assertStringContainsString('name="seen_stock" value="8"', $html);
+        self::assertStringContainsString('name="seen_stock" value=""', $html);
+    }
+
+    /**
+     * ⛔ AND RENDERING THAT PANEL STILL WRITES NOTHING.
+     *
+     * The forms are new; the no-write property is not. This is the same
+     * question `testTheReaderCallsNoSetterOnAnyChild()` asks of the reader,
+     * asked of the RENDER — because a panel that printed an editable value by
+     * loading a product and saving it would be a write nobody asked for, and
+     * the two tests would otherwise both be about the reader.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testRenderingTheEditablePanelCallsNoSetterOnAnyChild(): void
+    {
+        $this->bootPlugin(true);
+        $this->arrangeImportedParent();
+
+        VariationsView::render(
+            self::PRODUCT_ROW,
+            [],
+            [],
+            [],
+            $this->urls(),
+            '<input type="hidden" name="_wpnonce" value="x">',
+            $this->reader()->setFor(self::PARENT)
+        );
+
+        foreach ([self::PARENT, ...array_keys(self::CHILDREN)] as $id) {
+            $product = \wc_get_product($id);
+            self::assertInstanceOf(\WC_Product::class, $product);
+            self::assertSame([], $product->wrote, "rendering must not write to {$id}");
+        }
     }
 
     /**
