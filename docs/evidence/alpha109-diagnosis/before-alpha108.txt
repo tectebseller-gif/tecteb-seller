@@ -1,0 +1,103 @@
+# §17 scenario one, measured on the INSTALLED alpha.108 bytes.
+# site: disposable WordPress 7.1 + WooCommerce 11.0.1 on 127.0.0.1:8081
+# plugin: 0.1.0-alpha.108
+# schema: 39
+# date: 2026-11-17T09:18:02Z
+
+## verb: attributes
+save_attribute_parameters=6
+attribute_flags_supported=no
+axis_code=attribute_saved
+fact_code=attribute_saved
+attribute_rows=2
+attr_pack-count_options=["۵۰ عددی","۱۰۰ عددی","۲۰۰ عددی"]
+attr_pack-count_visible=__absent__
+attr_pack-count_variation=__absent__
+attr_material_options=["پلاستیک","فلز"]
+attr_material_visible=__absent__
+attr_material_variation=__absent__
+
+## verb: generate
+build_verb_exists=no
+preview_verb_exists=no
+manual_192b_code=incomplete_combination
+manual_6321_code=incomplete_combination
+manual_61a2_code=incomplete_combination
+variation_rows=3
+var_1_combination=pack-count=۵۰ عددی
+var_1_price=120000
+var_1_stock=7
+var_2_combination=pack-count=۱۰۰ عددی
+var_2_price=220000
+var_2_stock=7
+var_3_combination=pack-count=۲۰۰ عددی
+var_3_price=400000
+var_3_stock=7
+
+## verb: edit-one
+target_variation=1
+price_before=120000
+edit_one_verb_exists=no
+resave_code=incomplete_combination
+price_after=120000
+rows_after=3
+row_field_salePriceMinor=present
+row_field_saleFrom=__absent__
+row_field_saleTo=__absent__
+row_field_weight=__absent__
+row_field_length=__absent__
+row_field_width=__absent__
+row_field_height=__absent__
+row_field_shippingClass=__absent__
+row_field_description=__absent__
+row_field_manageStock=__absent__
+row_field_backorders=__absent__
+
+## verb: project
+wc_before=15
+submit_code=not_submittable
+submit_context=[]
+approve_code=invalid_transition
+approve_context={"from":"published","to":"published"}
+wc_product=15
+wc_class=WC_Product_Variable
+wc_type=variable
+wc_status=publish
+wcattr_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87_name=تعداد در بسته
+wcattr_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87_visible=yes
+wcattr_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87_variation=yes
+wcattr_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87_options=["۵۰ عددی","۱۰۰ عددی","۲۰۰ عددی"]
+wcattr_%d8%ac%d9%86%d8%b3_name=جنس
+wcattr_%d8%ac%d9%86%d8%b3_visible=yes
+wcattr_%d8%ac%d9%86%d8%b3_variation=yes
+wcattr_%d8%ac%d9%86%d8%b3_options=["پلاستیک","فلز"]
+wc_variation_attribute_count=2
+wc_children=3
+child_16_attributes={"%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87":"۵۰ عددی","%d8%ac%d9%86%d8%b3":""}
+child_16_price=120000
+child_16_stock=7
+child_16_purchasable=yes
+child_17_attributes={"%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87":"۱۰۰ عددی","%d8%ac%d9%86%d8%b3":""}
+child_17_price=220000
+child_17_stock=7
+child_17_purchasable=yes
+child_18_attributes={"%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87":"۲۰۰ عددی","%d8%ac%d9%86%d8%b3":""}
+child_18_price=400000
+child_18_stock=7
+child_18_purchasable=yes
+parent_purchasable=yes
+parent_price_html_has_range=yes
+permalink=http://127.0.0.1:8081/?product=%d8%b3%d8%b1%d8%b3%d9%88%d8%b2%d9%86-%d8%a2%d8%b2%d9%85%d9%88%d9%86-%db%b1%db%b0%db%b8
+
+## verb: buy
+selector_axes=["تعداد در بسته","جنس"]
+selector_axis_options={"تعداد در بسته":["۵۰ عددی","۱۰۰ عددی","۲۰۰ عددی"],"جنس":["پلاستیک","فلز"]}
+available_variations=3
+first_variation_id=16
+first_variation_attributes={"attribute_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87":"۵۰ عددی","attribute_%d8%ac%d9%86%d8%b3":""}
+first_variation_in_stock=yes
+first_variation_purchasable=yes
+match_by_persian_key=0
+match_by_sanitised_key=17
+sanitised_key=attribute_%d8%aa%d8%b9%d8%af%d8%a7%d8%af-%d8%af%d8%b1-%d8%a8%d8%b3%d8%aa%d9%87
+

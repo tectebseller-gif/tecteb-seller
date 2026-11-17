@@ -460,6 +460,126 @@ final class VendorBuiltVariationsTest extends ContractTestCase
         return new ProductAttribute(1, 'bundle', 'بسته', ['۵۰ عددی', '۱۰۰ عددی'], 0);
     }
 
+    /**
+     * §4/§7, the generated row with no price: it is NOT a storefront child
+     * yet, so the parent's public price range does not start at nought and
+     * the buyer's selector does not offer an option nobody priced.
+     *
+     * ⛔ MEASURED ON A REAL INSTALL FIRST. After pressing the generate button
+     * on WooCommerce 11.0.1, `get_price_html()` read «۰ تومان – ۴۰۰٬۰۰۰
+     * تومان» and `get_available_variations()` returned nine where three had
+     * prices. The six new children were `is_in_stock() === false`, so nothing
+     * was buyable for nought — the safe direction, and not the point: the
+     * range was wrong on a page a buyer reads, and a vendor who writes the
+     * stock before the price would have closed that gap themselves.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAGeneratedRowWithNoPriceIsNotYetAStorefrontChild(): void
+    {
+        $this->arrange();
+
+        $result = $this->projector()->project($this->row(), [$this->axis()], [
+            $this->variation(1, '۵۰ عددی', 2_600_000, 'VB-50', 8),
+            // What `buildVariations()` writes: the combination, and no price.
+            new ProductVariation(2, self::ROW, ['bundle' => '۱۰۰ عددی'], 0, null, '', 0),
+        ]);
+        self::assertTrue($result['ok'], (string) $result['code']);
+        $parentId = (int) $result['wc_product_id'];
+
+        $children = $this->children($parentId);
+        self::assertCount(1, $children, 'only the priced combination reached the shop');
+        $child = \wc_get_product((int) $children[0]);
+        self::assertInstanceOf(\WC_Product_Variation::class, $child);
+        self::assertSame(
+            1,
+            (int) \get_post_meta((int) $children[0], WooCommerceProjector::VARIATION_META, true),
+            'and it is the priced row, not whichever came first'
+        );
+        // The unpriced row holds no link, which is already how this projector
+        // says «not mirrored» — no new vocabulary was invented for it.
+        self::assertArrayNotHasKey(2, $result['variation_links']);
+        self::assertArrayHasKey(1, $result['variation_links']);
+    }
+
+    /**
+     * …and the moment the vendor writes the price, the child appears — in the
+     * SAME projection path, with no second verb and no duplicate.
+     *
+     * ⛔ The control that makes the test above mean something: a guard that
+     * simply never created the child would pass that one too.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testWritingThePriceBringsTheChildIntoBeingWithoutDuplicating(): void
+    {
+        $this->arrange();
+
+        $priced = $this->variation(1, '۵۰ عددی', 2_600_000, 'VB-50', 8);
+        $first = $this->projector()->project($this->row(), [$this->axis()], [
+            $priced,
+            new ProductVariation(2, self::ROW, ['bundle' => '۱۰۰ عددی'], 0, null, '', 0),
+        ]);
+        // ⛔ The parent id travels back, as it does from the real caller: the
+        // row carries `wcProductId` once the catalogue has stored the link,
+        // and a test that leaves it null measures a SECOND parent and reads
+        // the first one's children — which is how the first draft of this
+        // test passed for the wrong reason.
+        $firstParent = (int) $first['wc_product_id'];
+        self::assertCount(1, $this->children($firstParent), 'only the priced row so far');
+
+        $second = $this->projector()->project($this->row($firstParent), [$this->axis()], [
+            $priced,
+            $this->variation(2, '۱۰۰ عددی', 5_000_000, 'VB-100', 3),
+        ]);
+        self::assertTrue($second['ok'], (string) $second['code']);
+        self::assertSame($firstParent, (int) $second['wc_product_id']);
+
+        $children = $this->children($firstParent);
+        self::assertCount(2, $children, 'the priced row joined; the first was not duplicated');
+        $stamps = [];
+        foreach ($children as $childId) {
+            $stamps[] = (int) \get_post_meta((int) $childId, WooCommerceProjector::VARIATION_META, true);
+        }
+        \sort($stamps);
+        self::assertSame([1, 2], $stamps);
+    }
+
+    /**
+     * ⛔ AND THE NARROWING IS ASSERTED, not just written in a comment: a price
+     * CLEARED after the child exists still travels to the shop.
+     *
+     * Skipping that case would leave WooCommerce holding the old number with
+     * no row willing to correct it — worse than the defect this closes. The
+     * guard reads `$isNew`, and this is the half of it that is easy to lose
+     * in a later edit.
+     */
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
+    public function testAPriceClearedAfterTheChildExistsStillReachesTheShop(): void
+    {
+        $this->arrange();
+
+        $first = $this->projector()->project($this->row(), [$this->axis()], [
+            $this->variation(1, '۵۰ عددی', 2_600_000, 'VB-50', 8),
+        ]);
+        $parentId = (int) $first['wc_product_id'];
+        $childId = (int) $this->children($parentId)[0];
+        self::assertSame('2600000', (string) \wc_get_product($childId)->get_regular_price());
+
+        $again = $this->projector()->project($this->row($parentId), [$this->axis()], [
+            new ProductVariation(1, self::ROW, ['bundle' => '۵۰ عددی'], 0, null, 'VB-50', 8),
+        ]);
+        self::assertSame($parentId, (int) $again['wc_product_id']);
+
+        self::assertCount(1, $this->children($parentId), 'no second child was made');
+        self::assertSame(
+            '0',
+            (string) \wc_get_product($childId)->get_regular_price(),
+            'the shop must not keep a price the row no longer holds'
+        );
+    }
+
     private function variation(
         int $id,
         string $option,

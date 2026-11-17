@@ -828,6 +828,61 @@ final class ProductMessages
             'variation_saved' => __('ترکیب ذخیره شد.', 'tecteb-marketplace-core'),
             'variation_deleted' => __('ترکیب حذف شد.', 'tecteb-marketplace-core'),
             'not_variable' => __('این کار فقط برای محصول «متغیر» معنا دارد.', 'tecteb-marketplace-core'),
+
+            // ---- §3/§4/§8: an attribute's ROLE, and the generator ---------
+            //
+            // ⛔ EACH ONE NAMES WHAT HAPPENED AND WHAT TO DO NEXT. The round
+            // these came from measured a vendor whose attribute could only be
+            // an axis and whose product then refused every save with
+            // «incomplete_combination» — a true sentence about a wrong
+            // question. A refusal that does not say which door is open is the
+            // display half of that same defect.
+            'attribute_roles_unavailable' => sprintf(
+                /* translators: %s is the attribute's label. */
+                ($context['supported'] ?? '') === 'unknown'
+                    ? __('نقش ویژگی «%s» الان خواندنی نیست، پس تغییر آن ثبت نشد و مقدار فعلی دست‌نخورده مانْد. چند لحظه بعد دوباره تلاش کنید.', 'tecteb-marketplace-core')
+                    : __('ساختار دادهٔ این سایت هنوز به‌روز نشده است، پس نقش ویژگی «%s» قابل ثبت نیست و چیزی عوض نشد. پس از به‌روزرسانی ساختار، این دو گزینه کار می‌کنند.', 'tecteb-marketplace-core'),
+                (string) ($context['attribute'] ?? '')
+            ),
+            // §8's own sentence: the count comes with the refusal, and NOTHING
+            // is deleted — «از حذف خودکار بدون هشدار جلوگیری کند».
+            'axis_has_variations' => sprintf(
+                /* translators: 1: attribute label, 2: how many combinations name it. */
+                __('ویژگی «%1$s» در %2$s ترکیب ثبت‌شده به کار رفته است، پس نمی‌تواند از حالت «استفاده برای ساخت تنوع» خارج شود. هیچ ترکیبی حذف نشد؛ اول آن ترکیب‌ها را حذف کنید و بعد این گزینه را خاموش کنید.', 'tecteb-marketplace-core'),
+                (string) ($context['attribute'] ?? ''),
+                PersianDigits::toPersian((string) ($context['variations'] ?? 0))
+            ),
+            'axes_first' => __('هیچ‌کدام از ویژگی‌های این محصول برای ساخت تنوع علامت نخورده‌اند. گزینهٔ «استفاده برای ساخت تنوع» را روی دست‌کم یکی از آن‌ها فعال کنید.', 'tecteb-marketplace-core'),
+            // A key the vendor sent that belongs to a FACT attribute. Separate
+            // from `unknown_attribute`, because «این ویژگی را نمی‌شناسم» and
+            // «این ویژگی محور نیست» send the vendor to two different places.
+            'not_an_axis' => sprintf(
+                /* translators: %s is the attribute key. */
+                __('ویژگی «%s» برای ساخت تنوع علامت نخورده است، پس در ترکیب‌ها نقشی ندارد و مقدارش اینجا پذیرفته نمی‌شود.', 'tecteb-marketplace-core'),
+                (string) ($context['attribute'] ?? '')
+            ),
+            'variations_built' => sprintf(
+                /* translators: 1: rows created, 2: rows that already existed. */
+                __('%1$s ترکیب تازه ساخته شد و %2$s ترکیب قبلی دست‌نخورده مانْد. قیمت هر ترکیب تازه خالی است؛ آن را روی خودِ ترکیب بنویسید.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['built'] ?? 0)),
+                PersianDigits::toPersian((string) ($context['existing'] ?? 0))
+            ),
+            'variations_already_built' => __('همهٔ ترکیب‌های این ویژگی‌ها از قبل ثبت شده‌اند، پس چیزی ساخته نشد.', 'tecteb-marketplace-core'),
+            // ⛔ NOT «ذخیره نشد». The rows went out and the COMMIT is what did
+            // not answer, so this says what was attempted and asks the vendor
+            // to look rather than claiming a number it cannot read
+            // (`alpha.74`).
+            'build_not_confirmed' => sprintf(
+                /* translators: %s is how many combinations were attempted. */
+                __('ساخت %s ترکیب فرستاده شد ولی تأیید نهایی ذخیره‌سازی نرسید، پس نمی‌توانیم بگوییم ثبت شد یا نشد. فهرست ترکیب‌ها را ببینید و اگر ساخته نشده‌اند دوباره تلاش کنید؛ ترکیب تکراری ساخته نمی‌شود.', 'tecteb-marketplace-core'),
+                PersianDigits::toPersian((string) ($context['attempted'] ?? 0))
+            ),
+            // ⛔ SAVED, AND THE SHOP WAS NOT TOLD. Not «ذخیره نشد» — the row
+            // moved and the storefront did not, which is a different thing to
+            // do about. The sentence says both halves and names the retry,
+            // because a vendor who reads «ذخیره نشد» types it all again.
+            'saved_but_shop_not_updated' => __('تغییر شما ذخیره شد، ولی به‌روزرسانی صفحهٔ محصول در فروشگاه انجام نشد. دادهٔ شما از بین نرفته است؛ چند لحظه بعد یک تغییر کوچک دیگر ذخیره کنید یا از مدیر بخواهید همگام‌سازی این محصول را بزند.', 'tecteb-marketplace-core'),
+            'build_not_atomic' => __('ساخت گروهی ترکیب‌ها انجام نشد، چون این سایت نمی‌تواند همهٔ آن‌ها را به‌صورت یکجا ثبت کند و ثبت نیمه‌کاره مجموعهٔ ناسازگار می‌سازد. ترکیب‌ها را یکی‌یکی از فرم پایین اضافه کنید.', 'tecteb-marketplace-core'),
             // ⛔ Not «شما اجازه ندارید»: the vendor may edit this product, and
             // will be able to edit these combinations once the marketplace has
             // adopted them. Saying «not through this door yet» and WHERE the
@@ -976,6 +1031,11 @@ final class ProductMessages
             // page red would make «هنوز چیزی انجام نشده» look like a failure.
             'bulk_previewed',
             'attribute_saved', 'attribute_deleted', 'variation_added', 'variation_saved', 'variation_deleted',
+            // A build that created rows, and a build that found nothing left
+            // to create. The second is not a warning: the set is complete, and
+            // painting it red would make «کار تمام است» look like a failure —
+            // the same reading `bulk_previewed` is on this list for.
+            'variations_built', 'variations_already_built',
             'variation_price_saved', 'variation_stock_saved',
             'seo_saved', 'projected', 'withdrawn',
             'prepared', 'product_corrected', 'nothing_changed',

@@ -238,6 +238,28 @@ final class ProductFormView
                 // at once would believe they had taken a sold-out item down.
                 // What IS immediate is said by name, and so is what is not.
                 : __('این محصول منتشر شده است. کد SKU و حدود خرید (حداقل، حداکثر و گام) فوری اعمال می‌شوند. تغییر عنوان، قیمت، دسته، برند، مشخصات و موجودی به‌صورت «نسخه پیشنهادی» ثبت می‌شود و نسخه فعلی روی سایت تا تأیید مدیر تغییر نمی‌کند.', 'tecteb-marketplace-core'));
+            // ⛔ AND THE SENTENCE ABOVE IS NOT TRUE OF THE COMBINATIONS, so
+            // this one says so rather than letting the page claim a review
+            // that does not happen.
+            //
+            // Measured on a live WooCommerce 11.0.1 install: on a PUBLISHED
+            // product, writing a price into one combination's card put that
+            // price on the storefront child in the same request — 145,000
+            // toman typed, child 26 created at 145,000, `available_variations`
+            // 3 → 4 — while a change to the parent's own title or price went
+            // to the review queue as the sentence above promises. Both are
+            // what the code does today; only one of them was being said.
+            //
+            // ⛔ THE POLICY IS NOT CHANGED HERE. Whether a combination's
+            // price should wait for a manager is §11's question and the
+            // owner's decision, not a side effect of a text fix. What this
+            // release does is stop the page from describing a queue the
+            // combination never enters — «نمایش نتیجه واقعی عملیات» (§7), and
+            // the same rule the comment above already follows: what IS
+            // immediate is said by name, and so is what is not.
+            if ($details->type === ProductType::VARIABLE) {
+                $html .= VendorUi::notice('warning', __('توجه: قیمت، قیمت حراج، کد SKU و موجودیِ هر ترکیب فوری روی فروشگاه اعمال می‌شوند و به صف بررسی مدیر نمی‌روند. جملهٔ بالا دربارهٔ خودِ محصول است، نه ترکیب‌ها.', 'tecteb-marketplace-core'));
+            }
         }
         if ($hasPendingRevision) {
             // Which version is in the boxes, said out loud. The old sentence
@@ -393,7 +415,16 @@ final class ProductFormView
                 // `null` when the marketplace holds its own axes: then this is
                 // a variable product the marketplace built and the shop is its
                 // mirror, not its source (§3-۲).
-                $variable['storefront'] ?? null
+                $variable['storefront'] ?? null,
+                // `true` the roles can be recorded, `false` the columns are
+                // not there yet, `null` the question could not be answered.
+                // `array_key_exists` rather than `??` so a stored `false`
+                // stays a false (`alpha.52`).
+                array_key_exists('roles_supported', $variable) ? $variable['roles_supported'] : true,
+                // The generator's own count, from the service. `[]` on a
+                // product that does not exist yet, which the panel reads as
+                // «nothing to say» rather than as nought combinations.
+                $variable['preview'] ?? []
             );
         }
 

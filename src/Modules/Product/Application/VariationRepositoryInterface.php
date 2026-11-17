@@ -18,8 +18,33 @@ interface VariationRepositoryInterface
     /** @return list<ProductAttribute> */
     public function attributes(int $productId): array;
 
-    /** @param list<string> $options @return int attribute id, 0 on failure */
-    public function saveAttribute(int $productId, string $key, string $label, array $options, int $sort = 0): int;
+    /**
+     * Whether the store can record what an attribute is FOR.
+     *
+     * `true` it can, `false` the columns are not there yet, `null` the
+     * question could not be answered. Three answers because swapping this
+     * plugin's files does not run a migration (`alpha.67`), so a release can
+     * serve one request against a table without the columns — and because a
+     * failed catalogue read is not an answer but a reason to refuse a role
+     * change rather than write one that will not be honoured (`alpha.68`).
+     */
+    public function rolesSupported(): ?bool;
+
+    /**
+     * @param list<string> $options
+     * @param bool $visible    listed among the product's properties
+     * @param bool $variation  used to build combinations
+     * @return int attribute id, 0 on failure
+     */
+    public function saveAttribute(
+        int $productId,
+        string $key,
+        string $label,
+        array $options,
+        int $sort = 0,
+        bool $visible = true,
+        bool $variation = true
+    ): int;
 
     public function deleteAttribute(int $productId, int $attributeId): bool;
 

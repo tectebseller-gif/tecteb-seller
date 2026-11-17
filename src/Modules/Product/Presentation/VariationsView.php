@@ -35,7 +35,10 @@ final class VariationsView
         array $thumbnails,
         VendorUrls $urls,
         string $nonceField,
-        ?StorefrontVariationSet $storefront = null
+        ?StorefrontVariationSet $storefront = null,
+        ?bool $rolesSupported = true,
+        /** @var array{total?:?int,existing?:int,stale?:?int,missing?:?int,over?:bool,limit?:int} */
+        array $preview = []
     ): string {
         $fa = static fn (string|int $v): string => PersianDigits::toPersian((string) $v);
         $html = '<fieldset class="tv-fieldset"><legend>' . esc_html__('ویژگی‌ها و ترکیب‌ها', 'tecteb-marketplace-core') . '</legend>';
@@ -68,29 +71,181 @@ final class VariationsView
         }
 
         $html .= '<p class="tv-hint">' . esc_html__('محصول متغیر تا وقتی دست‌کم یک ترکیب فعال با قیمت نداشته باشد، آمادهٔ فروش شمرده نمی‌شود و ارسال نمی‌شود.', 'tecteb-marketplace-core') . '</p>';
-        $html .= self::attributeList($attributes, $productId, $urls, $nonceField);
-        $html .= self::attributeForm($productId, $urls, $nonceField);
 
-        if ($attributes === []) {
-            return $html . '</fieldset>';
+        // ⛔ TWO NUMBERED SECTIONS, in the order §12 asks for: «نوع محصول ←
+        // ویژگی‌ها ← ساخت تنوع‌ها ← ویرایش قیمت و موجودی هر تنوع». The second
+        // one does not appear at all until the first has produced an axis,
+        // because a «ساخت تنوع» button with nothing to vary along is a button
+        // that can only fail.
+        $html .= '<h3 class="tv-vsec__title">'
+            . esc_html__('۱. ویژگی‌های محصول', 'tecteb-marketplace-core') . '</h3>';
+        $html .= self::attributeList($attributes, $productId, $urls, $nonceField, $rolesSupported);
+        $html .= self::attributeForm($productId, $urls, $nonceField, $rolesSupported);
+
+        $html .= '<h3 class="tv-vsec__title">'
+            . esc_html__('۲. ساخت و مدیریت تنوع‌ها', 'tecteb-marketplace-core') . '</h3>';
+        $axes = ProductAttribute::axesOf($attributes);
+        if ($axes === []) {
+            // §4's own sentence, and the button is not drawn at all — «تا
+            // زمانی که ویژگی قابل‌استفاده وجود ندارد، دکمه ایجاد تنوع فعال
+            // نشود».
+            return $html . VendorUi::notice('info', $attributes === []
+                ? __('برای ساخت تنوع، ابتدا یک ویژگی تعریف کنید و گزینهٔ «استفاده برای ساخت تنوع» را فعال کنید.', 'tecteb-marketplace-core')
+                : __('هیچ‌کدام از ویژگی‌های این محصول برای ساخت تنوع علامت نخورده‌اند. برای ساخت تنوع، گزینهٔ «استفاده برای ساخت تنوع» را روی دست‌کم یکی از آن‌ها فعال کنید.', 'tecteb-marketplace-core'))
+                . '</fieldset>';
         }
+        $html .= self::buildPanel($preview, $productId, $urls, $nonceField, $fa);
         $html .= self::variationList($variations, $attributes, $thumbnails, $productId, $urls, $nonceField, $fa);
-        $html .= self::variationForm($attributes, $productId, $urls, $nonceField);
+        $html .= self::variationForm($axes, $productId, $urls, $nonceField);
         return $html . '</fieldset>';
     }
 
-    /** @param list<ProductAttribute> $attributes */
-    private static function attributeList(array $attributes, int $productId, VendorUrls $urls, string $nonce): string
-    {
+    /**
+     * «این کار N ترکیب می‌سازد» — before anything is built.
+     *
+     * ⛔ **THE NUMBER COMES FROM THE SERVICE, NOT FROM THIS VIEW.** A count
+     * computed here would be a second copy of the rule the generator enforces,
+     * and the two would disagree the first time the cap moved (`alpha.78`).
+     * `ManageVariations::previewCombinations()` writes nothing and is asked on
+     * the render that draws this panel.
+     *
+     * Three shapes, because the vendor needs a different sentence in each:
+     *
+     *  - nothing missing → the set is complete and the button is NOT drawn.
+     *    A button that can only answer «variations_already_built» is a button
+     *    that teaches people to ignore buttons.
+     *  - over the cap → the cap is STATED with its number and the button is
+     *    not drawn, which is §4's «با پیام واضح امتناع کن». `total` is `null`
+     *    for a product of four thirty-option axes, so the sentence names the
+     *    limit rather than a figure it cannot print.
+     *  - something to build → the count, the existing rows, and what pressing
+     *    the button would add.
+     *
+     * ⛔ **AND THE PANEL NEVER CLAIMS THE RESULT.** It says what the generate
+     * WOULD do; the sentence after the press comes from the service's own
+     * answer (§7: «نمایش نتیجه واقعی عملیات، نه پیام موفقیت پیش از ذخیره»).
+     *
+     * @param array{total?:?int,existing?:int,stale?:?int,missing?:?int,over?:bool,limit?:int} $preview
+     */
+    private static function buildPanel(
+        array $preview,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce,
+        callable $fa
+    ): string {
+        if ($preview === []) {
+            return '';
+        }
+        $limit = (int) ($preview['limit'] ?? 0);
+        $existing = (int) ($preview['existing'] ?? 0);
+        // `array_key_exists`, because `null` here means «more than this
+        // marketplace will talk about» and is not the same answer as nought.
+        $total = array_key_exists('total', $preview) ? $preview['total'] : null;
+        $missing = array_key_exists('missing', $preview) ? $preview['missing'] : null;
+        $stale = array_key_exists('stale', $preview) ? $preview['stale'] : null;
+        $over = (bool) ($preview['over'] ?? false);
+
+        $html = '<div class="tv-build"><h4 class="tv-build__title">'
+            . esc_html__('ساخت خودکار ترکیب‌ها', 'tecteb-marketplace-core') . '</h4>';
+
+        if ($over) {
+            return $html . VendorUi::notice('warning', sprintf(
+                /* translators: %s is the cap, in Persian digits. */
+                __('ویژگی‌های انتخاب‌شده بیش از %s ترکیب می‌سازند و این بیشتر از سقف مجاز است. برای ساخت خودکار، تعداد گزینه‌های یکی از ویژگی‌ها را کم کنید یا ترکیب‌ها را یکی‌یکی از فرم پایین اضافه کنید.', 'tecteb-marketplace-core'),
+                $fa($limit)
+            )) . '</div>';
+        }
+
+        $html .= '<p class="tv-build__count">' . esc_html(sprintf(
+            /* translators: 1: total combinations, 2: rows that match them. */
+            __('ویژگی‌های انتخاب‌شده %1$s ترکیب می‌سازند و %2$s ترکیب از آن‌ها تا حالا ثبت شده است.', 'tecteb-marketplace-core'),
+            $fa((int) $total),
+            $fa($existing)
+        )) . '</p>';
+
+        // ⛔ THE ROWS THAT NO LONGER MATCH, NAMED AND NOT TOUCHED. Adding an
+        // axis makes every earlier combination incomplete, and the first draft
+        // of this panel counted them as «ثبت‌شده» — so it printed «۶ ترکیب
+        // می‌سازند و ۳ ثبت شده» beside «۶ ترکیب تازه ساخته می‌شود», which does
+        // not add up and was measured on a live render. They are a vendor's
+        // own data: this says they are there and the vendor deletes them, if
+        // they want to, from the list below. Nothing here removes anything.
+        if (is_int($stale) && $stale > 0) {
+            $html .= VendorUi::notice('warning', sprintf(
+                /* translators: %s is how many stored combinations no longer match. */
+                __('%s ترکیبِ ثبت‌شده با ویژگی‌های فعلی نمی‌خوانَد — این‌ها پیش از تغییر ویژگی‌ها ساخته شده‌اند. هیچ‌کدام حذف نشده است؛ اگر لازم نیستند، از فهرست پایین خودتان حذفشان کنید.', 'tecteb-marketplace-core'),
+                $fa($stale)
+            ));
+        }
+
+        if ($missing === null || $missing <= 0) {
+            return $html . VendorUi::notice('success', __('همهٔ ترکیب‌های این ویژگی‌ها ثبت شده‌اند. چیزی برای ساختن نمانده است.', 'tecteb-marketplace-core'))
+                . '</div>';
+        }
+
+        return $html
+            . '<p class="tv-build__hint">' . esc_html(sprintf(
+                /* translators: %s is how many rows the button would add. */
+                __('با زدن این دکمه %s ترکیب تازه ساخته می‌شود. ترکیب‌های موجود دست نمی‌خورند و قیمت هر ترکیب تازه خالی می‌مانَد تا خودتان آن را بنویسید.', 'tecteb-marketplace-core'),
+                $fa($missing)
+            )) . '</p>'
+            . self::inlineForm(
+                $urls,
+                $nonce,
+                'build_variations',
+                ['product_id' => (string) $productId],
+                __('ساخت ترکیب‌های باقی‌مانده', 'tecteb-marketplace-core')
+            )
+            . '</div>';
+    }
+
+    /**
+     * Every attribute as its own editable card, with what it is FOR on it.
+     *
+     * ⛔ **EACH CARD CARRIES ITS OWN PREFILLED FORM, AND THE IDS ARE UNIQUE.**
+     * `VendorUi::input()` builds `id="f-{name}"`, so one shared helper across
+     * N cards would print N elements under one id — the defect `alpha.57`
+     * measured on a nonce whose name collided with a panel's own id, found by
+     * a browser and by nothing else. The fields here are built by hand with
+     * the attribute id in every id.
+     *
+     * Editing was possible before only by retyping the key in the bottom form
+     * and hoping it matched; §3 asks for «ویژگی موجود را ویرایش کند» and this
+     * is it.
+     *
+     * @param list<ProductAttribute> $attributes
+     */
+    private static function attributeList(
+        array $attributes,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce,
+        ?bool $rolesSupported
+    ): string {
         if ($attributes === []) {
-            return VendorUi::notice('info', __('هنوز ویژگی‌ای تعریف نشده است. برای نمونه «اندازه» با گزینه‌های کوچک، متوسط و بزرگ.', 'tecteb-marketplace-core'));
+            return VendorUi::notice('info', __('هنوز ویژگی‌ای تعریف نشده است. برای نمونه «تعداد در بسته» با گزینه‌های ۵۰ عددی، ۱۰۰ عددی و ۲۰۰ عددی.', 'tecteb-marketplace-core'));
         }
         $html = '<ul class="tv-attrs">';
         foreach ($attributes as $attribute) {
             $html .= '<li class="tv-attrs__item"><div class="tv-attrs__head">'
                 . '<strong>' . esc_html($attribute->label) . '</strong> '
-                . '<bdi class="tv-code">' . esc_html($attribute->key) . '</bdi></div>'
+                . '<bdi class="tv-code">' . esc_html($attribute->key) . '</bdi> '
+                . VendorUi::chip(
+                    $attribute->variation ? 'success' : 'neutral',
+                    $attribute->variation
+                        ? __('محور تنوع', 'tecteb-marketplace-core')
+                        : __('فقط مشخصه', 'tecteb-marketplace-core')
+                )
+                . VendorUi::chip(
+                    $attribute->visible ? 'success' : 'neutral',
+                    $attribute->visible
+                        ? __('در صفحهٔ محصول', 'tecteb-marketplace-core')
+                        : __('پنهان در صفحهٔ محصول', 'tecteb-marketplace-core')
+                )
+                . '</div>'
                 . '<p>' . esc_html(implode('، ', $attribute->options)) . '</p>'
+                . self::attributeEditForm($attribute, $productId, $urls, $nonce, $rolesSupported)
                 . self::inlineForm($urls, $nonce, 'delete_attribute', [
                     'product_id' => (string) $productId,
                     'attribute_id' => (string) $attribute->id,
@@ -100,18 +255,133 @@ final class VariationsView
         return $html . '</ul>';
     }
 
-    private static function attributeForm(int $productId, VendorUrls $urls, string $nonce): string
-    {
-        return '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-subform">'
+    /** One attribute's own form, prefilled, inside a native `<details>`. */
+    private static function attributeEditForm(
+        ProductAttribute $attribute,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce,
+        ?bool $rolesSupported
+    ): string {
+        $id = (string) $attribute->id;
+        $labelId = 'f-attr-label-' . $id;
+        $optionsId = 'f-attr-options-' . $id;
+
+        return '<details class="tv-attrs__edit"><summary>'
+            . esc_html__('ویرایش این ویژگی', 'tecteb-marketplace-core') . '</summary>'
+            . '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-subform">'
             . $nonce
             . '<input type="hidden" name="tmc_vendor_action" value="save_attribute">'
             . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
-            . '<h3 class="tv-subform__title">' . esc_html__('افزودن یا ویرایش ویژگی', 'tecteb-marketplace-core') . '</h3>'
-            . VendorUi::input('attr_key', __('کلید (انگلیسی و ثابت)', 'tecteb-marketplace-core'), '', true, 'text', 'ltr')
-            . VendorUi::input('attr_label', __('عنوان فارسی', 'tecteb-marketplace-core'), '')
+            // The key travels hidden and is NOT editable: it names this axis
+            // in every combination already stored, and renaming it would
+            // orphan each one of them.
+            . '<input type="hidden" name="attr_key" value="' . esc_attr($attribute->key) . '">'
+            . '<div class="tv-field"><label class="tv-label" for="' . esc_attr($labelId) . '">'
+            . esc_html__('عنوان فارسی', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input" type="text" id="' . esc_attr($labelId) . '" name="attr_label"'
+            . ' value="' . esc_attr($attribute->label) . '"></div>'
+            . '<div class="tv-field"><label class="tv-label" for="' . esc_attr($optionsId) . '">'
+            . esc_html__('گزینه‌ها — هر گزینه در یک سطر', 'tecteb-marketplace-core') . '</label>'
+            . '<textarea class="tv-input" id="' . esc_attr($optionsId) . '" name="attr_options" rows="3">'
+            . esc_textarea(implode("\n", $attribute->options)) . '</textarea></div>'
+            . self::roleControls($attribute->visible, $attribute->variation, $id, $rolesSupported)
+            . '<p class="tv-form__actions">'
+            . VendorUi::submit(__('ذخیرهٔ این ویژگی', 'tecteb-marketplace-core'), 'secondary')
+            . '</p></form></details>';
+    }
+
+    /**
+     * The two decisions §3 asks for — or the named reason they are not offered.
+     *
+     * ⛔ **NOT OFFERED IS NOT THE SAME AS OFFERED AND IGNORED.** When the
+     * store cannot record a role — this release's files reached the site
+     * before migration 40 did (`alpha.67`), or the catalogue could not be read
+     * (`alpha.68`) — the ticks are replaced by a sentence and two hidden
+     * inputs carrying the values that ARE in force. A vendor is never shown a
+     * control whose answer the service would refuse, and the form still posts
+     * the truth rather than two silent noes.
+     */
+    private static function roleControls(
+        bool $visible,
+        bool $variation,
+        string $suffix,
+        ?bool $rolesSupported
+    ): string {
+        if ($rolesSupported !== true) {
+            return '<input type="hidden" name="attr_visible" value="' . ($visible ? '1' : '') . '">'
+                . '<input type="hidden" name="attr_variation" value="' . ($variation ? '1' : '') . '">'
+                . '<p class="tv-hint">' . esc_html(
+                    $rolesSupported === null
+                        ? __('نقش ویژگی‌ها الان خواندنی نیست، پس این دو گزینه نمایش داده نمی‌شوند. مقدار فعلی دست‌نخورده می‌مانَد.', 'tecteb-marketplace-core')
+                        : __('ساختار دادهٔ این سایت هنوز به‌روز نشده است، پس نقش ویژگی‌ها قابل ثبت نیست. پس از به‌روزرسانی، این دو گزینه ظاهر می‌شوند.', 'tecteb-marketplace-core')
+                ) . '</p>';
+        }
+        // ⛔ EACH BOX IS ITS OWN `tv-field tv-field--check`, which is the
+        // primitive `VendorUi::checkbox()` already writes and this stylesheet
+        // already gives a 24px touch target. The first draft invented a
+        // `tv-check` class instead and gave it no rule — `alpha.32` again, in
+        // the round whose §12 asks for exactly that not to happen. Reusing the
+        // primitive also means the two boxes line up with every other
+        // checkbox on the form rather than almost lining up.
+        //
+        // `for`/`id` carry the attribute's own suffix because N cards render N
+        // copies of this helper, and `VendorUi::input()`-style shared ids
+        // would be N elements under one id (`alpha.57`).
+        return self::roleBox(
+            'attr_variation',
+            'f-attr-variation-' . $suffix,
+            __('استفاده برای ساخت تنوع', 'tecteb-marketplace-core'),
+            __('اگر روشن باشد، خریدار از میان گزینه‌های این ویژگی یکی را انتخاب می‌کند.', 'tecteb-marketplace-core'),
+            $variation
+        ) . self::roleBox(
+            'attr_visible',
+            'f-attr-visible-' . $suffix,
+            __('نمایش در صفحهٔ محصول', 'tecteb-marketplace-core'),
+            __('اگر روشن باشد، این ویژگی در جدول مشخصات صفحهٔ محصول دیده می‌شود.', 'tecteb-marketplace-core'),
+            $visible
+        );
+    }
+
+    private static function roleBox(
+        string $name,
+        string $id,
+        string $label,
+        string $hint,
+        bool $checked
+    ): string {
+        return '<div class="tv-field tv-field--check">'
+            . '<label for="' . esc_attr($id) . '">'
+            . '<input type="checkbox" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '" value="1"'
+            . checked($checked, true, false) . '> '
+            . esc_html($label) . '</label>'
+            . '<p class="tv-hint">' . esc_html($hint) . '</p>'
+            . '</div>';
+    }
+
+    private static function attributeForm(
+        int $productId,
+        VendorUrls $urls,
+        string $nonce,
+        ?bool $rolesSupported
+    ): string {
+        return '<details class="tv-attrs__add"><summary>'
+            . esc_html__('افزودن ویژگی تازه', 'tecteb-marketplace-core') . '</summary>'
+            . '<form method="post" action="' . esc_url($urls->products()) . '" class="tv-subform">'
+            . $nonce
+            . '<input type="hidden" name="tmc_vendor_action" value="save_attribute">'
+            . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
+            . VendorUi::input('attr_label', __('عنوان فارسی ویژگی', 'tecteb-marketplace-core'), '', true, 'text', 'rtl',
+                __('برای نمونه: تعداد در بسته', 'tecteb-marketplace-core'))
+            . VendorUi::input('attr_key', __('کلید انگلیسی (اختیاری)', 'tecteb-marketplace-core'), '', true, 'text', 'ltr',
+                __('خالی بگذارید تا خودش ساخته شود. این کلید بعداً عوض نمی‌شود، چون نام این محور در همهٔ ترکیب‌هاست.', 'tecteb-marketplace-core'))
             . VendorUi::textarea('attr_options', __('گزینه‌ها — هر گزینه در یک سطر', 'tecteb-marketplace-core'), '')
-            . '<p class="tv-form__actions">' . VendorUi::submit(__('ذخیره ویژگی', 'tecteb-marketplace-core'), 'secondary') . '</p>'
-            . '</form>';
+            // A NEW attribute arrives with both roles on, which is what every
+            // attribute written before this release means and what the
+            // commonest case wants.
+            . self::roleControls(true, true, 'new', $rolesSupported)
+            . '<p class="tv-form__actions">' . VendorUi::submit(__('ذخیرهٔ ویژگی', 'tecteb-marketplace-core'), 'secondary') . '</p>'
+            . '</form></details>';
     }
 
     /**
@@ -161,7 +431,12 @@ final class VariationsView
                 . esc_html($variation->enabled ? __('فعال', 'tecteb-marketplace-core') : __('غیرفعال', 'tecteb-marketplace-core'))
                 . '</dd></div>'
                 . '</dl>'
+                // Both, on purpose: stock is the edit a vendor makes most and
+                // it keeps its one-click box, while everything else lives in
+                // the card. Removing a control that works would be the
+                // «بازنویسی سلیقه‌ای» the first rule forbids.
                 . self::stockForm($variation, $productId, $urls, $nonce)
+                . self::variationEditForm($variation, $labels, $productId, $urls, $nonce)
                 . self::inlineForm($urls, $nonce, 'delete_variation', [
                     'product_id' => (string) $productId,
                     'variation_id' => (string) $variation->id,
@@ -169,6 +444,99 @@ final class VariationsView
                 . '</div></li>';
         }
         return $html . '</ul>';
+    }
+
+    /**
+     * §5: ONE CARD PER COMBINATION, prefilled, addressed by the combination
+     * this row already holds.
+     *
+     * ⛔ WHAT THIS REPLACES, AND WHY IT WAS BLOCKING. Until this card the
+     * only per-row control was `stockForm()` — one field, `stock` — and the
+     * only way to reach a price was the single «افزودن یا ویرایش ترکیب» form
+     * at the bottom of the section, whose axis dropdowns open on «— انتخاب
+     * کنید —» and whose price, sale, SKU and stock boxes open EMPTY. So
+     * editing one combination meant re-picking every axis and retyping every
+     * number from nothing, with no way to see what the row currently held.
+     *
+     * Measured on the real page after pressing the generate button: the only
+     * field names under a combination were `stock`, and the only actions
+     * `save_variation_stock` and `delete_variation`. A generated row's price
+     * could not be written from this panel at all — and since `alpha.109`'s
+     * projector guard keeps an unpriced row out of the shop, that made the
+     * vendor's path stop dead exactly where §17 says it must not.
+     *
+     * ⛔ NO NEW VERB AND NO NEW SERVICE METHOD. `save_variation` has taken
+     * price, sale price, SKU, stock, image and enabled since `alpha.6`, and
+     * `saveVariation()` finds an existing row BY ITS COMBINATION — so the
+     * combination travels as hidden inputs and the card is an edit of the row
+     * it is printed under, not a second way to create one.
+     *
+     * ⛔ AND THE IDS ARE PER ROW, not from `VendorUi::input()`. That helper
+     * builds `id="f-{name}"` from the field name, so N cards sharing it would
+     * put N elements with one id on the page — the `alpha.57` defect, which
+     * `wp_nonce_field()` caused once already. `stockForm()` right below
+     * already writes `f-varstock-{id}`; this follows it rather than adding an
+     * id parameter to a helper every vendor form shares.
+     *
+     * @param array<string,string> $labels attribute key => label
+     */
+    private static function variationEditForm(
+        ProductVariation $variation,
+        array $labels,
+        int $productId,
+        VendorUrls $urls,
+        string $nonce
+    ): string {
+        $p = 'f-var' . $variation->id . '-';
+        $html = '<details class="tv-vedit"><summary>'
+            . esc_html__('ویرایش این ترکیب', 'tecteb-marketplace-core') . '</summary>'
+            . '<form method="post" action="' . esc_url($urls->products()) . '" enctype="multipart/form-data" class="tv-subform">'
+            . $nonce
+            . '<input type="hidden" name="tmc_vendor_action" value="save_variation">'
+            . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">';
+        // The combination is fixed: this card edits the row it sits under.
+        // Changing which options a row stands for is a delete and an add,
+        // because a combination IS the row's identity here.
+        foreach ($variation->attributes as $key => $value) {
+            $html .= '<input type="hidden" name="variant[' . esc_attr((string) $key) . ']" value="' . esc_attr((string) $value) . '">';
+        }
+        $parts = [];
+        foreach ($variation->attributes as $key => $value) {
+            $parts[] = ($labels[$key] ?? $key) . ': ' . $value;
+        }
+        $html .= '<p class="tv-hint">' . esc_html(implode(' · ', $parts)) . '</p>'
+            . self::field($p . 'price', 'var_price', __('قیمت این ترکیب (تومان)', 'tecteb-marketplace-core'),
+                $variation->priceMinor > 0 ? (string) $variation->priceMinor : '')
+            . self::field($p . 'sale', 'var_sale_price', __('قیمت با تخفیف (اختیاری)', 'tecteb-marketplace-core'),
+                $variation->salePriceMinor === null ? '' : (string) $variation->salePriceMinor)
+            . self::field($p . 'sku', 'var_sku', __('کد SKU این ترکیب', 'tecteb-marketplace-core'), $variation->sku)
+            . self::field($p . 'stock', 'var_stock', __('موجودی', 'tecteb-marketplace-core'), (string) $variation->stock)
+            . '<div class="tv-field"><label class="tv-label" for="' . esc_attr($p . 'image') . '">'
+            . esc_html__('تصویر این ترکیب (اختیاری)', 'tecteb-marketplace-core') . '</label>'
+            . '<input class="tv-input" type="file" id="' . esc_attr($p . 'image') . '" name="variation_image"'
+            . ' accept="image/jpeg,image/png,image/webp"></div>'
+            // `VendorUi::checkbox()` wraps its input inside the label and so
+            // carries no id at all — it is safe to repeat, and it is reused.
+            . VendorUi::checkbox('var_enabled', __('این ترکیب فعال باشد', 'tecteb-marketplace-core'), $variation->enabled)
+            . '<p class="tv-hint">'
+            . esc_html__('وزن، ابعاد، کلاس ارسال، بازه تاریخ حراج، توضیح جداگانه و مدیریت موجودی برای هر ترکیب در این نسخه ذخیره نمی‌شوند؛ کادری برایشان نمی‌بینید تا مقداری ساختگی ثبت نشود. وزن و ابعاد محصول را از مرحله ۲ همین فرم بنویسید.', 'tecteb-marketplace-core')
+            . '</p>'
+            . '<p class="tv-form__actions">' . VendorUi::submit(__('ذخیره این ترکیب', 'tecteb-marketplace-core'), 'secondary') . '</p>'
+            . '</form></details>';
+        return $html;
+    }
+
+    /**
+     * One labelled box whose id is ours rather than derived from the field
+     * name, for the reason written on `variationEditForm()`.
+     */
+    private static function field(string $id, string $name, string $label, string $value): string
+    {
+        return '<div class="tv-field">'
+            . '<label class="tv-label" for="' . esc_attr($id) . '">' . esc_html($label) . '</label>'
+            . '<input class="tv-input" type="text" dir="ltr" id="' . esc_attr($id) . '" name="' . esc_attr($name) . '"'
+            . ' value="' . esc_attr($value) . '">'
+            . '</div>';
     }
 
     private static function stockForm(ProductVariation $variation, int $productId, VendorUrls $urls, string $nonce): string
@@ -193,7 +561,7 @@ final class VariationsView
             . $nonce
             . '<input type="hidden" name="tmc_vendor_action" value="save_variation">'
             . '<input type="hidden" name="product_id" value="' . esc_attr((string) $productId) . '">'
-            . '<h3 class="tv-subform__title">' . esc_html__('افزودن یا ویرایش ترکیب', 'tecteb-marketplace-core') . '</h3>';
+            . '<h3 class="tv-subform__title">' . esc_html__('افزودن یک ترکیب دستی', 'tecteb-marketplace-core') . '</h3>';
         foreach ($attributes as $attribute) {
             $options = ['' => __('— انتخاب کنید —', 'tecteb-marketplace-core')];
             foreach ($attribute->options as $option) {

@@ -10,7 +10,7 @@ namespace Tecteb\Marketplace\Core\Migration;
  */
 final class SchemaVersion
 {
-    public const TARGET = 39;
+    public const TARGET = 40;
 
     public const OPTION = 'tmc_schema_version';
 

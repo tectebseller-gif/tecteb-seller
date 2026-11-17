@@ -88,6 +88,21 @@ final class StyledClassesHaveRulesTest extends TestCase
                 // line, and a four-line preview in a table cell is a smaller
                 // version of the defect this round removed.
                 'src/Modules/Product/Presentation/ProductConflictView.php',
+                // ⛔ ADDED BY §12, WHICH NAMES THE DEFECT IT IS HERE FOR:
+                // «تداخل selectorهایی مانند مشکل قبلی tv-fold نباید تکرار
+                // شود». The variations fieldset was rebuilt into two numbered
+                // sections, per-attribute cards with two `<details>` folds and
+                // a generator panel — nine class names, and on the first draft
+                // NINE of them had no rule in this sheet. One was `tv-check`,
+                // a checkbox class invented beside the `tv-field--check`
+                // primitive that already exists and already has a 46px touch
+                // target; that one was removed rather than styled.
+                //
+                // Adding this file also surfaced `.tv-code`, which FIVE views
+                // write and nothing matched — measured on `alpha.108`. Its
+                // rule is in the sheet now, so this list reports this round's
+                // work rather than a four-view defect it did not cause.
+                'src/Modules/Product/Presentation/VariationsView.php',
             ],
         ],
     ];

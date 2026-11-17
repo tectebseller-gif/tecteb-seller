@@ -1613,3 +1613,132 @@ textarea.tv-input { min-height: calc(var(--tv-touch) * 2); }
 .tv-next-action {
   margin-block-start: var(--tv-s4);
 }
+
+/*
+ * ۱. ویژگی‌ها / ۲. ساخت و مدیریت تنوع‌ها — the two sections §12 asks the
+ * variations fieldset to be split into.
+ *
+ * The heading is the only thing that separates them, so it has to read as a
+ * section heading rather than as another form label: the dashed rule above it
+ * is the same one `.tv-subform` uses, so the three blocks inside one fieldset
+ * are divided the same way everywhere.
+ *
+ * The first one gets no rule: a line above the first thing inside a
+ * `<legend>`'s box is a line next to a line.
+ */
+.tv-vsec__title {
+  margin-block-start: var(--tv-s5);
+  padding-block-start: var(--tv-s4);
+  border-block-start: 1px dashed var(--tv-border);
+}
+
+.tv-vsec__title:first-of-type {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+/*
+ * The generator's count panel.
+ *
+ * It is a quiet panel on purpose. The number it prints is a PREDICTION — «این
+ * کار ۱۲ ترکیب می‌سازد» — and the sentence that reports what actually happened
+ * comes back as a `.tv-notice` after the press (§7: «نمایش نتیجه واقعی
+ * عملیات، نه پیام موفقیت پیش از ذخیره»). Styling the prediction like a result
+ * would be the display half of that same defect.
+ */
+.tv-build {
+  margin-block-start: var(--tv-s4);
+  padding: var(--tv-s4);
+  background: var(--tv-surface-2);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius);
+}
+
+.tv-build__title {
+  margin-block-end: var(--tv-s2);
+}
+
+.tv-build__count {
+  font-weight: 700;
+}
+
+.tv-build__hint {
+  color: var(--tv-muted);
+}
+
+/*
+ * One attribute, one card — and the two folds inside it.
+ *
+ * `<details>` is the control: no JavaScript, and a keyboard reaches it because
+ * `<summary>` is focusable by itself. `.tv-fold` is NOT reused here, because
+ * that root belongs to `DashboardView` and giving a second component the same
+ * block root is what cost `alpha.108` the vendor dashboard's card rhythm. Two
+ * names, two owners.
+ */
+.tv-attrs__edit,
+.tv-attrs__add {
+  margin-block-start: var(--tv-s3);
+}
+
+.tv-attrs__edit > summary,
+.tv-attrs__add > summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-block-size: var(--tv-touch);
+  display: flex;
+  align-items: center;
+  gap: var(--tv-s2);
+}
+
+.tv-attrs__edit[open] > summary,
+.tv-attrs__add[open] > summary {
+  margin-block-end: var(--tv-s3);
+}
+
+/*
+ * A stable key, shown as what it is: machine text.
+ *
+ * ⛔ FIVE VIEWS WROTE THIS CLASS AND NOTHING MATCHED IT. Measured on
+ * `alpha.108`: `StaffView`, `StoreView`, `VariationsView`, `SupportArea` and
+ * `VendorOrdersView` all print `.tv-code` and the sheet had no rule for it, so
+ * every invite link, shortcode and attribute key rendered as body text. The
+ * rule is added here rather than left alone because this round puts
+ * `VariationsView` on `StyledClassesHaveRulesTest`, and a guard that would
+ * report a real four-view defect as this round's failure is a guard nobody
+ * will read. `direction: ltr` because every value it holds is ASCII.
+ */
+.tv-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  direction: ltr;
+  unicode-bidi: isolate;
+  background: var(--tv-surface-2);
+  border: 1px solid var(--tv-border);
+  border-radius: var(--tv-radius-sm);
+  padding: 2px var(--tv-s2);
+  font-size: 0.9375rem;
+  word-break: break-all;
+}
+
+/* §5's per-combination card. Same `<details>` shape as `.tv-attrs__edit`
+   above it — native, keyboard-reachable and working with JavaScript off —
+   and set apart from the row's one-click stock box rather than replacing
+   it. */
+.tv-vedit {
+  margin-block-start: var(--tv-s3);
+  border-block-start: 1px solid var(--tv-border);
+  padding-block-start: var(--tv-s3);
+}
+
+.tv-vedit > summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-block-size: var(--tv-touch);
+  display: flex;
+  align-items: center;
+  gap: var(--tv-s2);
+}
+
+.tv-vedit[open] > summary {
+  margin-block-end: var(--tv-s3);
+}

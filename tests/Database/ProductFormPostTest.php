@@ -23,6 +23,8 @@ use Tecteb\Marketplace\Modules\Product\Application\ProductRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\BrandName;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductDetails;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductStatus;
+use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
+use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\WordPress\ProductArea;
 use Tecteb\Marketplace\Modules\Vendor\Infrastructure\DbVendorRepository;
 use Tecteb\Marketplace\Modules\Product\Application\StorefrontVariationReaderInterface;
@@ -587,6 +589,146 @@ final class ProductFormPostTest extends DatabaseTestCase
     }
 
     /** A variable product of this vendor, pointed at a WooCommerce product. */
+    // --------------------------------- §5 the per-combination card on the form
+
+    /**
+     * WHAT THIS PROVES: every combination gets its OWN card, prefilled from
+     * its own row, and the one-click stock box is still there beside it.
+     *
+     * ⛔ WHY THIS IS A §5 TEST AND NOT A FLOURISH. Measured on the real page
+     * after a generate: the only field name printed under a combination was
+     * `stock`, and the only actions `save_variation_stock` and
+     * `delete_variation`. The one place that could write a price was the
+     * single form at the foot of the section, whose axis dropdowns open on
+     * «— انتخاب کنید —» and whose boxes open EMPTY — so a generated row's
+     * price could not be written from this panel at all, and with
+     * `alpha.109`'s projector guard an unpriced row never becomes a
+     * storefront child. The vendor's path stopped dead there.
+     */
+    public function testEveryCombinationGetsItsOwnPrefilledCard(): void
+    {
+        $productId = $this->variableLinkedProduct(7740);
+        $this->variationRepo()->saveAttribute($productId, 'bundle', 'بسته', ['۵۰ عددی', '۱۰۰ عددی']);
+        $this->variationRepo()->saveVariation($productId, new ProductVariation(
+            0, $productId, ['bundle' => '۵۰ عددی'], 2_600_000, null, 'PK-50', 8
+        ));
+        // A generated row: a combination and nothing else.
+        $this->variationRepo()->saveVariation($productId, new ProductVariation(
+            0, $productId, ['bundle' => '۱۰۰ عددی'], 0, null, '', 0
+        ));
+
+        $html = $this->renderArea(['product' => (string) $productId, 'step' => '2']);
+
+        self::assertSame(2, \substr_count($html, 'class="tv-vedit"'), 'one card per combination');
+        // Prefilled from the row, and EMPTY where the row holds no price —
+        // «۰» would be a number nobody decided (`alpha.106`).
+        self::assertMatchesRegularExpression('/id="f-var\d+-price"[^>]*value="2600000"/', $html);
+        self::assertMatchesRegularExpression('/id="f-var\d+-price"[^>]*value=""/', $html);
+        self::assertMatchesRegularExpression('/id="f-var\d+-sku"[^>]*value="PK-50"/', $html);
+        // The combination travels with the card as HIDDEN inputs, so the save
+        // edits THIS row. Counted as hidden on purpose: the «افزودن یک ترکیب
+        // دستی» form at the foot of the section carries a `variant[bundle]`
+        // SELECT, so a plain count of the name is three here and would have
+        // been read as «one card has none».
+        self::assertSame(2, \substr_count($html, 'type="hidden" name="variant[bundle]"'));
+        self::assertStringContainsString('value="۱۰۰ عددی"', $html);
+        // ⛔ And the stock box that was already there is still there: removing
+        // a control that works would be the «بازنویسی سلیقه‌ای» §1 forbids.
+        self::assertSame(2, \substr_count($html, 'value="save_variation_stock"'));
+        // The fields this release cannot store are absent AND explained,
+        // rather than rendered and thrown away (§5).
+        self::assertStringNotContainsString('name="var_weight"', $html);
+        self::assertStringContainsString('ذخیره نمی‌شوند', $html);
+    }
+
+    /**
+     * ⛔ AND THE PAGE CARRIES NO DUPLICATE DOM ID, which is the defect N cards
+     * invite and which this page actually had.
+     *
+     * `VendorUi::input()` builds `id="f-{name}"` from the field name, so cards
+     * sharing it would put N elements with one id on the page — the
+     * `alpha.57` defect. The cards write their own per-row ids instead. The
+     * measurement then surfaced a SECOND one, older than this round:
+     * `wp_nonce_field()` gives its input `id` equal to its name, and every
+     * vendor form prints the same field, so any page with two forms had two
+     * elements with that id. Nine cards made it nine.
+     *
+     * ⛔ THE NONCE HALF IS NOT ASSERTED HERE, and saying so matters more than
+     * asserting it in the wrong place: `renderArea()` hands this area its own
+     * stub field (`name="_wpnonce"`, no id), so the real
+     * `wp_nonce_field()` output never reaches this HTML. The fix is measured
+     * where it lives, on `VendorRoutes::nonceField()`, in the contract suite.
+     */
+    public function testTheProductFormPageHasNoDuplicateDomIds(): void
+    {
+        $productId = $this->variableLinkedProduct(7741);
+        $this->variationRepo()->saveAttribute($productId, 'bundle', 'بسته', ['۵۰ عددی', '۱۰۰ عددی', '۲۰۰ عددی']);
+        foreach (['۵۰ عددی', '۱۰۰ عددی', '۲۰۰ عددی'] as $i => $option) {
+            $this->variationRepo()->saveVariation($productId, new ProductVariation(
+                0, $productId, ['bundle' => $option], ($i + 1) * 1_000_000, null, 'PK-' . $i, 4
+            ));
+        }
+
+        $html = $this->renderArea(['product' => (string) $productId, 'step' => '2']);
+
+        \preg_match_all('/\sid="([^"]+)"/', $html, $matches);
+        $seen = [];
+        $twice = [];
+        foreach ($matches[1] as $id) {
+            if (isset($seen[$id])) {
+                $twice[$id] = true;
+                continue;
+            }
+            $seen[$id] = true;
+        }
+        self::assertSame([], \array_keys($twice), 'two elements may not share one id');
+        // And the page really did carry many ids, so the check above was not
+        // satisfied by an empty page (`alpha.46`: a check that cannot fail has
+        // not passed).
+        self::assertGreaterThan(20, \count($matches[1]));
+        self::assertSame(3, \substr_count($html, 'class="tv-vedit"'));
+    }
+
+    /**
+     * ⛔ THE PUBLISHED NOTICE MUST NOT PROMISE A REVIEW THE COMBINATIONS NEVER
+     * ENTER.
+     *
+     * Measured live on WooCommerce 11.0.1: on a published product, a price
+     * typed into one combination's card reached the storefront child in the
+     * same request, while the parent's own title and price went to the review
+     * queue exactly as the notice says. Both are today's behaviour; only one
+     * was being said, so the page was claiming a queue for the other.
+     *
+     * The POLICY is §11's question and the owner's. This asserts only that
+     * the page tells the truth about what it does.
+     */
+    public function testAPublishedVariableProductSaysItsCombinationsApplyAtOnce(): void
+    {
+        $productId = $this->variableLinkedProduct(7742);
+        $this->variationRepo()->saveAttribute($productId, 'bundle', 'بسته', ['۵۰ عددی']);
+        $this->variationRepo()->saveVariation($productId, new ProductVariation(
+            0, $productId, ['bundle' => '۵۰ عددی'], 2_600_000, null, 'PK-50', 8
+        ));
+        self::assertTrue($this->products->updateStatus($productId, ProductStatus::Published));
+
+        $html = $this->renderArea(['product' => (string) $productId, 'step' => '2']);
+
+        // The old sentence is still there — it is true of the product itself.
+        self::assertStringContainsString('به‌صورت «نسخه پیشنهادی» ثبت می‌شود', $html);
+        // And the correction beside it, naming what does NOT wait.
+        self::assertStringContainsString('به صف بررسی مدیر نمی‌روند', $html);
+        self::assertStringContainsString('هر ترکیب', $html);
+    }
+
+    /**
+     * The real binding, so the rows these two tests write are the rows the
+     * form will read — not a second repository beside the container's.
+     */
+    private function variationRepo(): VariationRepositoryInterface
+    {
+        return Bootstrap::container()->get(VariationRepositoryInterface::class);
+    }
+
     private function variableLinkedProduct(int $wcProductId): int
     {
         $created = $this->products->create(

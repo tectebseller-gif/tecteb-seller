@@ -305,7 +305,17 @@ final class ProductModule implements ModuleInterface
             $c->get(ProductImageLibraryInterface::class),
             $c->get(StaffAccess::class),
             $c->get(AuditLogger::class),
-            $c->get(StorefrontVariationReaderInterface::class)
+            $c->get(StorefrontVariationReaderInterface::class),
+            // One unit of work for the generator. `DatabaseInterface` IS a
+            // `TransactionInterface` (it extends it), so this asks the gateway
+            // itself rather than depending on the Migration module's binding
+            // being registered first.
+            $c->get(DatabaseInterface::class),
+            // So a vendor's attribute or variation edit on a PUBLISHED product
+            // reaches the shop. Measured gap: this service wrote our tables
+            // and the storefront never heard, so §9's «نمایش واقعی در صفحه
+            // محصول» failed after the save had already succeeded.
+            $c->get(SyncCatalog::class)
         ));
         // ⛔ THE OTHER DOOR, and the only thing in this plugin that writes a
         // REAL `WC_Product_Variation`. §3 of the owner's instruction: the

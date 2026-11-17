@@ -73,6 +73,36 @@ final class VendorRoutes
     public const NONCE_ACTION = 'tmc_vendor_action';
     public const NONCE_FIELD = 'tmc_vendor_nonce';
 
+    /**
+     * The nonce field, WITHOUT the id WordPress puts on it.
+     *
+     * ⛔ `wp_nonce_field()` gives its input `id="tmc_vendor_nonce"` — the same
+     * string as the name — and every form in the vendor area prints the same
+     * field. So any page carrying two forms has carried two elements with one
+     * id since this area was built, and the products step now prints ten
+     * (nine per-combination cards plus the add form). Measured on the real
+     * page: `tmc_vendor_nonce` was the only duplicated id, nine times over.
+     *
+     * The id is removed rather than made unique because nothing wants it:
+     * every reader in this repository and in `tools/browser/` selects the
+     * field by NAME. Everything else `wp_nonce_field()` emits — the value and
+     * the `_wp_http_referer` hidden input its third argument adds — is left
+     * exactly as it was, so the referer check behaves as before.
+     *
+     * This is the `alpha.57` defect, which the same function caused on the
+     * admin commission panel and which was fixed there the same way.
+     */
+    private static function nonceField(): string
+    {
+        return (string) preg_replace(
+            '/\s+id="' . preg_quote(self::NONCE_FIELD, '/') . '"/',
+            '',
+            (string) wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false),
+            1
+        );
+    }
+
+
     /** @var list<string> the views this module itself answers on */
     public const VIEWS = ['dashboard', 'application', 'store', 'staff', 'invite'];
 
@@ -487,7 +517,7 @@ final class VendorRoutes
                 $found->ok ? $token : '',
                 (string) ($found->context['display_name'] ?? ''),
                 (string) ($found->context['username'] ?? ''),
-                wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false),
+                self::nonceField(),
                 $notice,
                 AcceptStaffInvitation::MIN_PASSWORD
             ),
@@ -623,7 +653,7 @@ final class VendorRoutes
             $request->queryKey('tmc_notice'),
             $this->container->get(FlashStoreInterface::class)->take(self::flashKey($userId))
         );
-        $nonceField = wp_nonce_field(self::NONCE_ACTION, self::NONCE_FIELD, true, false);
+        $nonceField = self::nonceField();
         $storeName = $workspace->profile?->storeName ?? ($workspace->application?->details->storeName ?? '');
 
         // The store and staff pages belong to an approved vendor. Anyone else

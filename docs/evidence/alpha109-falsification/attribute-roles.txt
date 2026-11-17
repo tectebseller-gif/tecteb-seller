@@ -1,0 +1,43 @@
+# Falsification of the attribute-role and generator guards.
+# Tree: quiet (no other suite running; pgrep -cf phpunit = 0 before the loop).
+# Each mutation applied alone, suite run, file restored, hash compared.
+# Baseline on the healthy tree: OK (22 tests, 150 assertions)
+
+M1  isAxis() ignores the flag — i.e. exactly alpha.108's behaviour
+    src/Modules/Product/Domain/ProductAttribute.php
+    -   return $this->variation && $this->isUsable();
+    +   return $this->isUsable();
+    verdict: FAILURES — 3 failures          [falsified]
+
+M2  the §8 demotion guard is removed
+    src/Modules/Product/Application/ManageVariations.php
+    -   if ($was !== null && $was->variation && !$variation) {
+    +   if (false) {
+    verdict: FAILURES — 1 failure           [falsified]
+
+M3  the build runs with no transaction instead of refusing
+    -   if ($this->transaction === null || !$this->transaction->begin()) {
+    +   if (false) {
+    verdict: ERRORS — 1 error, 1 failure    [falsified]
+
+M4  the derived key is random rather than derived from the label
+    -   substr(hash('sha256', $label), 0, 12)
+    +   substr(hash('sha256', (string) random_int(1, 9999999)), 0, 12)
+    verdict: FAILURES — 1 failure           [falsified]
+
+M5  the generator rebuilds combinations that already exist
+    -   if ($key === '' || isset($existing[$key])) {
+    +   if ($key === '') {
+    verdict: FAILURES — 1 failure           [falsified]
+
+restored byte-for-byte:
+  f9a86c8b85c8d9918d13223f3d1b5e5dfe987d086929a98f9c637865cbae1bb9  src/Modules/Product/Domain/ProductAttribute.php   OK
+  f744a3c5ede542d97a89a26325d31bb39763394d20df43cce776842dc91ac352  src/Modules/Product/Application/ManageVariations.php  OK
+
+# ⛔ AND ONE FINDING FROM THE TESTS THEMSELVES, NOT FROM READING THE CODE.
+# The first run of the new tests answered `build_not_atomic`: the fixture's
+# ordinary ManageVariations was built with five arguments and therefore had no
+# transaction, while the container gives it one. The guard fired correctly on a
+# fixture that did not match production. A fixture wired differently from the
+# container measures a service that does not ship (`alpha.105`), so the fixture
+# was corrected rather than the guard loosened.

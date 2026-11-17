@@ -1,0 +1,149 @@
+# §4 → §5 → shop, measured on a live WordPress with real WooCommerce 11.0.1
+#
+# Site: disposable demo (DB `tmc_demo`), vendor panel reached over HTTP as a
+# real logged-in vendor. Every write below went through the vendor form's own
+# POST — no `wp eval` shortcut into a service.
+#
+# ⛔ NOTHING ON staging.tecteb.com OR tecteb.com WAS TOUCHED. The reference
+# ids of §6 (parent 11955, children 11966/11965/11967) were neither read nor
+# written; the product here is demo product 1 / WooCommerce 15.
+
+## 0. Starting state (three priced combinations on one axis)
+marketplace_rows=3
+wc_children=3
+price_html=135,000 تومان – 400,000 تومان
+
+## 1. A second axis was added, then the generator pressed (real form POST)
+POST tmc_vendor_action=build_variations product_id=1            HTTP=200
+notice: ۶ ترکیب تازه ساخته شد و ۳ ترکیب قبلی دست‌نخورده مانْد. قیمت هر ترکیب
+        تازه خالی است؛ آن را روی خودِ ترکیب بنویسید.
+notice: ۳ ترکیبِ ثبت‌شده با ویژگی‌های فعلی نمی‌خوانَد — … هیچ‌کدام حذف نشده است.
+notice: همهٔ ترکیب‌های این ویژگی‌ها ثبت شده‌اند. چیزی برای ساختن نمانده است.
+
+marketplace_rows=9          # 3 kept + 6 created
+wc_children=3               # only the PRICED rows are storefront children
+price_html=135,000 تومان – 400,000 تومان      # no «۰ تومان»
+available_variations=3
+
+rows after the build, read from the table:
+  id 1  pack-count=۵۰ عددی                     price 135000   (untouched)
+  id 2  pack-count=۱۰۰ عددی                    price 220000   (untouched)
+  id 3  pack-count=۲۰۰ عددی                    price 400000   (untouched)
+  id 13 material=پلاستیک|pack-count=۵۰ عددی    price 0
+  id 14 material=فلز|pack-count=۵۰ عددی        price 0
+  id 15 material=پلاستیک|pack-count=۱۰۰ عددی   price 0
+  id 16 material=فلز|pack-count=۱۰۰ عددی       price 0
+  id 17 material=پلاستیک|pack-count=۲۰۰ عددی   price 0
+  id 18 material=فلز|pack-count=۲۰۰ عددی       price 0
+
+audit (`wp_tmc_audit_events`), the two rows the build wrote:
+  product.saved   {"vendor_id":2,"product_id":1,"status":"variations_built","created":false}
+  product.synced  {"vendor_id":2,"product_id":1,"wc_product_id":15,"action":"publish"}
+  — the second is `tellTheShop()`, one second later: §9's push happened.
+
+## 2. BEFORE the projector guard, the same build on the same site
+wc_children=9
+price_html=0 تومان – 400,000 تومان
+available_variations=9
+child 20 price=0 purchasable=true in_stock=false   # not buyable, but offered
+  ⇒ the range was wrong on a page a buyer reads, and a vendor who wrote the
+    stock before the price would have closed the gap themselves.
+
+## 3. One generated row priced through the new per-combination card
+POST tmc_vendor_action=save_variation product_id=1
+     variant[pack-count]=۵۰ عددی  variant[material]=پلاستیک
+     var_price=145000  var_sku=PK50-PLA  var_stock=5  var_enabled=1   HTTP=200
+notice: ترکیب ذخیره شد.
+
+row 13:        price=145000  sku=PK50-PLA  stock=5  enabled=1
+marketplace_rows=9                      # no row added, the row was EDITED
+wc_children=4                           # the child came into being
+child 26:      price=145000  stock=5  sku=PK50-PLA  stamp=13
+               purchasable=true  in_stock=true
+price_html=135,000 تومان – 400,000 تومان
+available_variations=4
+
+  ⇒ exact toman→storage conversion (§7), the row addressed by its own
+    combination, no duplicate child, and the result reported AFTER the save.
+
+## 4. The page itself
+edit cards rendered: 9        (one per combination, `<details class="tv-vedit">`)
+one-click stock boxes kept: 9 (`save_variation_stock`, unchanged)
+price prefill, row 1:  135000
+price prefill, row 13: ''     (empty, because the row holds no price)
+hidden combination inputs: 15 (3 stale × 1 axis + 6 new × 2 axes)
+duplicate DOM ids: none       (34 forms on the page)
+
+## 5. The duplicate-id defect this page surfaced, and its fix
+Before: `tmc_vendor_nonce` appeared as an id nine times over — `wp_nonce_field()`
+gives its input `id` equal to its name, and every vendor form prints the same
+field. Pre-existing since the vendor area was built; the nine cards made it
+visible. After `VendorRoutes::nonceField()` strips that one attribute:
+duplicate ids = none, nonce inputs by name = 34, `_wp_http_referer` = 34.
+
+## 6. §9 the public product page (real WooCommerce 11.0.1, HTTP GET)
+variations_form present:            yes
+axis selects:                       attribute_تعداد-در-بسته · attribute_جنس
+attribute table rows:               both axes listed
+data-product_variations entries:    4
+  ۵۰ عددی  / (any جنس)   135,000 تومان   in_stock=true
+  ۱۰۰ عددی / (any جنس)   220,000 تومان   in_stock=true
+  ۲۰۰ عددی / (any جنس)   400,000 تومان   in_stock=true
+  ۵۰ عددی  / پلاستیک     145,000 تومان   in_stock=true
+second select offers:               ['پلاستیک'] only
+  ⇒ WooCommerce offers only the options that have a purchasable variation.
+    The three «any جنس» rows are the stale combinations of §4; they are the
+    rows the panel told the vendor about and refused to delete.
+
+⛔ The live theme, Elementor and JetWooBuilder are NOT RUN: no such
+environment exists here. What is proven is that the markup WooCommerce's own
+`variations_form` needs is produced; which builder renders it is untested.
+
+## 7. §10 the buyer path, end to end, with NO real payment
+add to cart (variation 26, qty 2):  HTTP 200, «2 × … have been added»
+cart line:                          تعداد در بسته: ۵۰ عددی · جنس: پلاستیک
+cart unit / total:                  145,000 / 290,000 تومان
+checkout (payment_method=cod):      {"result":"success","order_id":27}
+order 27:                           status=processing total=290000 IRT
+                                    payment=cod  date_paid=false   ⇒ no payment
+order 27 line:                      product_id=15  variation_id=26  qty=2
+                                    total=290000, both axes in the item meta
+child 26 stock:                     5 → 3   (the right child, by exactly 2)
+
+second order, same variation, qty 1: {"result":"success","order_id":28}
+
+marketplace capture, `wp_tmc_order_items`:
+  id 1  order 27  wc_product 15  variation_id 26  vendor 2  qty 2
+        unit_price_minor 1450000000  base_minor 2900000000  (exponent 4, IRT)
+        vendor_share_minor 2900000000  commission_minor 0  rate_source none
+        ledger_event order:27:item:1  status placed  wc_order_status processing
+  id 2  order 28  variation_id 26  qty 1  base_minor 1450000000
+        ledger_event order:28:item:2
+ledger, both orders balanced:
+  vendor_earning -2900000000 / central_payment +2900000000  (order:27:item:1)
+  vendor_earning -1450000000 / central_payment +1450000000  (order:28:item:2)
+
+⛔ A CORRECTION TO MY OWN FIRST READING. I first reported «the marketplace
+recorded no vendor line» for order 27. That was wrong, and the mistake was
+mine, not the plugin's: the query named a column `wc_variation_id` that does
+not exist (`variation_id` does), and `$wpdb->get_results()` answers a failed
+query with `[]` — the same «nought is not an answer» trap this repository
+keeps paying for (`alpha.8`). Read straight from the table, order 27 was
+captured at 10:52:44, BEFORE the local trial switch was touched at all.
+
+⛔ AND THE TRIAL SWITCH WAS NOT NEEDED, so it is not part of this proof. It
+was turned on at 10:53 to test the second order and turned off again
+(`requested=false active=false`); order 27 proves the order gate was already
+open on this environment — `OPEN_DECISIONS = []` and no Dokan present.
+⛔ `commission_minor = 0` with `rate_source = none` is not a failure: no
+commission rule exists for this demo product, and «none is a result, not a
+refusal» (`alpha.104`).
+
+## 8. What the demo site needed, and why it is not a product change
+Two settings were changed on the DISPOSABLE demo site to make an order
+possible at all, and neither is a change to the plugin:
+  - `woocommerce_cod_settings.enabled = yes`  (cash on delivery: no gateway,
+    no real money — exactly what §10 asks for)
+  - `define('WP_ENVIRONMENT_TYPE','local')` in that site's `wp-config.php`
+⛔ Neither was applied to staging or production, and no payment gateway was
+installed or configured anywhere.

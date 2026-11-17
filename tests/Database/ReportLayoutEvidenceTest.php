@@ -64,8 +64,24 @@ final class ReportLayoutEvidenceTest extends DatabaseTestCase
      * same fixtures), so nothing was lost. The lesson is about ORDER: bump the
      * version BEFORE running the suites, or the first run writes where the
      * guard would have stopped it.
+     *
+     * ⛔ It fired a third time in `alpha.109`, and this round it earned its
+     * keep twice over. The suites had already been run once on this tree
+     * while the header still said `alpha.108` — the same ORDER mistake as
+     * `alpha.103` — so a database run wrote into the delivered folder before
+     * the bump. But this time the files did NOT come back byte-identical:
+     * `git status` showed both HTML files modified, and the first differing
+     * byte (measured, not guessed) was a new
+     * `<input type="hidden" name="_wp_http_referer" value="" />` beside the
+     * nonce. That is this round's own fix to the WordPress stub — real
+     * WordPress 7.1 emits that field and the stub was dropping it
+     * (`alpha.59`: a double that models a verb differently tests a different
+     * contract). So the delivered `alpha.108` HTML was restored from git and
+     * this name moved forward; the new HTML belongs to this round, under this
+     * round's folder, where the browser run can measure it without touching
+     * a delivered measurement.
      */
-    private const EVIDENCE = 'docs/evidence/alpha108-reports';
+    private const EVIDENCE = 'docs/evidence/alpha109-reports';
 
     private OrderItemRepositoryInterface $items;
 

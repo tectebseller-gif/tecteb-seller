@@ -74,6 +74,7 @@ use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0031SupplierOb
 use Tecteb\Marketplace\Modules\Finance\Infrastructure\Migrations\M0033MoneyUnitOnRows;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0034UnitPriceMayBeUnknown;
 use Tecteb\Marketplace\Modules\Order\Infrastructure\Migrations\M0039WcOrderStatusOnRows;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0040AttributeRoles;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0035ProductCategorySet;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0036DefaultCategoryAcceptance;
 use Tecteb\Marketplace\Modules\Migration\Infrastructure\Migrations\M0037ShopRecordConfirmation;
@@ -595,6 +596,7 @@ final class Bootstrap
             new M0037ShopRecordConfirmation(),
             new M0038ObservedMirroredStatusBackfill(),
             new M0039WcOrderStatusOnRows(),
+            new M0040AttributeRoles(),
         ];
     }
 

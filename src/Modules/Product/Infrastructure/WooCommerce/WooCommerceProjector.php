@@ -1863,6 +1863,34 @@ final class WooCommerceProjector implements CatalogProjectorInterface
             }
             $wcVariationId = $existing[$variation->id] ?? 0;
             $isNew = $wcVariationId <= 0;
+            // A ROW THE VENDOR HAS NOT PRICED YET IS NOT A STOREFRONT CHILD.
+            //
+            // `buildVariations()` deliberately leaves each generated row's
+            // price empty — the panel says so in the sentence beside the
+            // button — and projecting those rows put «۰ تومان» at the bottom
+            // of the parent's public price range and a phantom option on the
+            // buyer's selector. Measured on a real WooCommerce 11.0.1 install
+            // after a six-combination build: `get_price_html()` read «۰ تومان
+            // – ۴۰۰٬۰۰۰ تومان» and `get_available_variations()` returned nine
+            // where three were priced. The children were `is_in_stock() ===
+            // false`, so nothing was buyable for nought — but a vendor who
+            // writes the stock before the price would have made it so, and
+            // the range was already wrong on a page a buyer reads.
+            //
+            // The rule is `ProductVariation::isComplete()`, which has said
+            // «a variation is sellable when it has a price» since it was
+            // written; this is a second reader of it, not a second rule
+            // (`alpha.78`).
+            //
+            // ⛔ IT IS NARROWED TO `$isNew` ON PURPOSE. A child that already
+            // exists keeps being written exactly as before, because skipping
+            // one would leave the shop holding the OLD price with no row
+            // willing to correct it — worse than the defect. So a price that
+            // is cleared after the child exists still travels, and only a row
+            // that never reached the shop waits for its number.
+            if ($isNew && !$variation->isComplete()) {
+                continue;
+            }
             $wcVariation = $isNew ? new \WC_Product_Variation() : wc_get_product($wcVariationId);
             if (!$wcVariation instanceof \WC_Product_Variation) {
                 $wcVariation = new \WC_Product_Variation();

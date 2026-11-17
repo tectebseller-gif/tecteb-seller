@@ -577,6 +577,18 @@ function check_admin_referer(string $action, string $queryArg = '_wpnonce'): int
 function wp_nonce_field(string $action, string $name = '_wpnonce', bool $referer = true, bool $echo = true): string
 {
     $field = '<input type="hidden" id="' . esc_attr($name) . '" name="' . esc_attr($name) . '" value="' . esc_attr(wp_create_nonce($action)) . '" />';
+    // ⛔ THE REFERER INPUT, because WordPress emits it and this double did
+    // not. Measured against real WordPress 7.1:
+    //   <input type="hidden" id="x" name="x" value="…" />
+    //   <input type="hidden" name="_wp_http_referer" value="" />
+    // With the third argument ignored, no contract test could see that second
+    // input — so a change that dropped the referer check would have looked
+    // identical from here (`alpha.59`: a double that models a verb
+    // differently from the real one is testing a different contract).
+    if ($referer) {
+        $field .= '<input type="hidden" name="_wp_http_referer" value="'
+            . esc_attr((string) ($_SERVER['REQUEST_URI'] ?? '')) . '" />';
+    }
     if ($echo) {
         echo $field;
     }

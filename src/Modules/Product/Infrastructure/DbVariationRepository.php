@@ -9,14 +9,37 @@ use Tecteb\Marketplace\Modules\Product\Application\VariationRepositoryInterface;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductAttribute;
 use Tecteb\Marketplace\Modules\Product\Domain\ProductVariation;
 use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0006CatalogAndOrders as T;
+use Tecteb\Marketplace\Modules\Product\Infrastructure\Migrations\M0040AttributeRoles as Roles;
 
 /** Attributes and variations on the plugin's own tables. */
 final class DbVariationRepository implements VariationRepositoryInterface
 {
+    /** Memoised per INSTANCE and never for a `null` (`alpha.68`). */
+    private ?bool $roles = null;
+
     public function __construct(
         private readonly DatabaseInterface $db,
         private readonly ClockInterface $clock
     ) {
+    }
+
+    /**
+     * Whether the attribute table carries the two role columns.
+     *
+     * `null` means the question could not be answered, which is a reason for
+     * the caller to refuse a role change rather than write one that will not
+     * be honoured.
+     */
+    public function rolesSupported(): ?bool
+    {
+        if ($this->roles === null) {
+            $answer = Roles::carriedBy($this->db);
+            if ($answer === null) {
+                return null;        // not memoised: ask again next time
+            }
+            $this->roles = $answer;
+        }
+        return $this->roles;
     }
 
     public function attributes(int $productId): array
@@ -32,22 +55,62 @@ final class DbVariationRepository implements VariationRepositoryInterface
                 (string) $row['attr_key'],
                 (string) $row['label'],
                 is_array($options) ? array_values(array_map('strval', $options)) : [],
-                (int) $row['sort_order']
+                (int) $row['sort_order'],
+                // ⛔ A MISSING KEY IS «TRUE», NOT «FALSE», and that is the
+                // compatibility argument rather than a convenience. This
+                // release's files can serve one request against a table that
+                // migration 40 has not yet reached (`alpha.67`: swapping the
+                // files runs nothing), and in that state no vendor can ever
+                // have expressed a different decision — every row means both
+                // flags true, because that is what the projector wrote
+                // unconditionally. `array_key_exists` rather than `??` so a
+                // stored `0` stays a nought (`alpha.52`).
+                !array_key_exists(Roles::VISIBLE, $row) || (int) $row[Roles::VISIBLE] === 1,
+                !array_key_exists(Roles::VARIATION, $row) || (int) $row[Roles::VARIATION] === 1
             );
         }, $rows);
     }
 
-    public function saveAttribute(int $productId, string $key, string $label, array $options, int $sort = 0): int
-    {
+    public function saveAttribute(
+        int $productId,
+        string $key,
+        string $label,
+        array $options,
+        int $sort = 0,
+        bool $visible = true,
+        bool $variation = true
+    ): int {
+        // ⛔ THE ROLE COLUMNS ARE NAMED ONLY WHEN THEY EXIST. A statement that
+        // names a column the table has not got fails as a whole, so on a
+        // database this release's files reached before migration 40 did, an
+        // unconditional write would lose the attribute itself rather than
+        // just its roles (`alpha.67`). An unreadable catalogue takes the same
+        // branch for the write; the SERVICE asks `rolesSupported()` and
+        // refuses a role CHANGE there, so a vendor's decision is never
+        // silently dropped at the moment they make it.
+        $carried = $this->rolesSupported() === true;
+        $columns = 'product_id, attr_key, label, options, sort_order, created_at'
+            . ($carried ? ', ' . Roles::VISIBLE . ', ' . Roles::VARIATION : '');
+        $values = '%d, %s, %s, %s, %d, %s' . ($carried ? ', %d, %d' : '');
+        $update = 'label = VALUES(label), options = VALUES(options), sort_order = VALUES(sort_order)'
+            . ($carried
+                ? ', ' . Roles::VISIBLE . ' = VALUES(' . Roles::VISIBLE . ')'
+                  . ', ' . Roles::VARIATION . ' = VALUES(' . Roles::VARIATION . ')'
+                : '');
+        $parameters = [
+            $productId, $key, $label,
+            (string) json_encode(array_values($options), JSON_UNESCAPED_UNICODE),
+            $sort, $this->now(),
+        ];
+        if ($carried) {
+            $parameters[] = $visible ? 1 : 0;
+            $parameters[] = $variation ? 1 : 0;
+        }
         $written = $this->db->execute(
-            'INSERT INTO `' . $this->attributesTable() . '` (product_id, attr_key, label, options, sort_order, created_at)
-             VALUES (%d, %s, %s, %s, %d, %s)
-             ON DUPLICATE KEY UPDATE label = VALUES(label), options = VALUES(options), sort_order = VALUES(sort_order)',
-            [
-                $productId, $key, $label,
-                (string) json_encode(array_values($options), JSON_UNESCAPED_UNICODE),
-                $sort, $this->now(),
-            ]
+            'INSERT INTO `' . $this->attributesTable() . '` (' . $columns . ')
+             VALUES (' . $values . ')
+             ON DUPLICATE KEY UPDATE ' . $update,
+            $parameters
         );
         if ($written === null) {
             return 0;

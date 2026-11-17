@@ -262,7 +262,11 @@ final class ShopOwnedVariationDoorsAreExclusiveTest extends TestCase
                 return $this->holds ? [new ProductAttribute(1, 'bundle', 'بسته', ['۵۰ عددی'], 0)] : [];
             }
 
-            public function saveAttribute(int $productId, string $key, string $label, array $options, int $sort = 0): int
+            public function rolesSupported(): ?bool
+            {
+                return true;
+            }
+            public function saveAttribute(int $productId, string $key, string $label, array $options, int $sort = 0, bool $visible = true, bool $variation = true): int
             {
                 return 0;
             }

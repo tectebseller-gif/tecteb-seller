@@ -1,0 +1,128 @@
+FALSIFICATION — the refusal codes that had no assertion
+=======================================================
+Round: 0.1.0-alpha.109   File under mutation: src/Modules/Product/Application/ManageVariations.php
+Baseline sha256: 51c15207df9dffc14dad5b1e42427572f0233303abfe9b4307091ae6be13bb8c
+Suite: database (PHP 8.3.6), filtered to the six tests added for these codes.
+Restore: from a SAVED COPY, never `git checkout --` — that discards uncommitted
+work (`alpha.71`, which this repository paid for once already).
+
+HOW THE GAP WAS FOUND
+---------------------
+Not by reading. By the systematic count `alpha.108 §5` prescribes: pull every
+`failure('...')` this round introduced out of the source and intersect it with
+the test suite. Result before any test was written:
+
+    attribute_roles_unavailable     files asserting = 0
+    too_many_variations             files asserting = 0
+    build_not_confirmed             files asserting = 0
+    axes_first                      files asserting = 0
+    saved_but_shop_not_updated      files asserting = 0
+    build_not_atomic                files asserting = 1
+    axis_has_variations             files asserting = 1
+    variations_already_built        files asserting = 1
+    variations_built                files asserting = 1
+
+Five refusals, three of them produced at more than one call site, and not one
+assertion in the repository reached any of them. §4 and §7 of the owner's
+instruction both ASK for those refusals by name.
+
+REACHABILITY, BY ARITHMETIC RATHER THAN BY HOPE
+-----------------------------------------------
+`MAX_VARIATIONS` is 60 and `combinationsOf()` gives up above `MAX_VARIATIONS * 2`
+= 120. So:
+
+    2 x 5 x 7 =  70  -> walker builds all of them, the CAP refuses, with a number
+    2 x 8 x 8 = 128  -> past the walker, the refusal must invent NO number
+
+Both are inside `ProductAttribute::MAX_OPTIONS` (30), so both are reachable from
+a fixture. That is what made the two cap tests writable at all.
+
+THE MUTATIONS
+-------------
+Each applied to the quiet tree, each run alone, each restored and the restore
+verified with `sha256sum -c` before the next.
+
+ #  mutation                                              verdict
+ 1  MAX_VARIATIONS: 60 -> 600                             2 failures  FALSIFIED
+ 2  the `if ($axes === [])` guard deleted                 1 failure   FALSIFIED
+ 3  the roles-unavailable guard forced to `if (false)`     1 failure   FALSIFIED
+ 4  commit() still called, its answer discarded            1 failure   FALSIFIED
+ 5  the shop's refusal swallowed: `return $saved;`         1 failure   FALSIFIED
+
+Mutation 5 was WRONG ON ITS FIRST DRAFT and that is recorded rather than tidied
+away: it injected `return $result;` and the parameter is named `$saved`, so every
+one of the six tests ERRORED on an undefined variable. Six errors is not a
+measurement — a mutation that breaks the file measures nothing about the claim
+(`alpha.82`). Rewritten to swallow the refusal the way the pre-alpha.109 code
+did, it produced exactly one failure, and the control
+(`testAPublishedProductsVariationEditIsPushedToTheShop`) stayed GREEN — which is
+what says the mutation was narrow enough to be about this claim and no other.
+
+Baseline after the whole sweep: OK (6 tests, 48 assertions), and
+`sha256sum -c` clean on every restore.
+
+WHAT THIS DOES NOT PROVE
+------------------------
+`testACommitThatDoesNotAnswerReportsAttemptedRatherThanBuilt` uses a double
+whose `commit()` rolls the real transaction back before answering `false`,
+because a double that merely lied would leave this connection inside an open
+transaction and poison every test after it. So the row count after that test
+measures MY ROLLBACK, not the service. The assertions that carry weight there
+are the code, the `attempted` figure, and the ABSENCE of `built` — asserted with
+`array_key_exists`, because a missing key and a `0` are the same thing to `??`
+and the whole claim is that they are not (`alpha.28`).
+
+
+THE REST OF THIS ROUND'S GUARDS
+===============================
+Same discipline: quiet tree, one mutation at a time, saved copies, and
+`sha256sum -c` verified clean after every restore.
+
+Baselines
+  VendorRoutes.php      1721c96ec958f197aa372cc91e9a9c1b39b46af789279221692565f84e2130a6
+  VariationsView.php    2e01713768129cd12fb6dd277a3a3b594675c6080c3c089e300fe6d3355aa5c4
+  ProductFormView.php   f941080dd8f97a983a60aae9fee4af69ff57ce07709eff1c46198b8762efc135
+  ManageVariations.php  51c15207df9dffc14dad5b1e42427572f0233303abfe9b4307091ae6be13bb8c
+
+  #  mutation                                            suite(s)             verdict
+  6  nonceField(): the id strip removed                  contract             1 failure  FALSIFIED
+  7  every card's fields forced to one id                database             2 failures FALSIFIED
+  8  the per-variation card removed from the list        database             1 failure  FALSIFIED
+  9  the §11 sentence not printed                        database             1 failure  FALSIFIED
+ 10  `stale` folded into `existing`                      database             2 failures FALSIFIED
+
+⛔ WHAT MUTATION 6 EXPOSED, AND IT IS A FINDING ABOUT MY OWN TEST
+----------------------------------------------------------------
+With the nonce id put back — the real alpha.108 defect — the CONTRACT test went
+red and `testTheProductFormPageHasNoDuplicateDomIds` stayed **GREEN**:
+
+    [M6 nonce id kept]  contract: 1 failure
+    [M6 on the page  ]  database: OK (1 test, 6 assertions)
+
+That is not the page test failing to work; it is the page test being about
+something else. `renderArea()` injects the harness's own nonce field, so the
+rendered page in that suite never carries the real one — which the test's own
+docblock says, and which is why the nonce half was put in the contract suite in
+the first place. But the acceptance matrix listed BOTH tests against defect 19,
+and that was wrong: only the contract test guards the duplicate NONCE id. The
+matrix is corrected.
+
+Mutation 7 is what shows the page test is not vacuous: force every card's
+fields to share one id and it goes red, two failures. So the page test guards
+the per-variation card ids — `VendorUi::input()` hardcodes `id = 'f-' . $name`,
+and N cards sharing one name is N duplicate ids (`alpha.57`). That is a real
+claim, measured, and it is the claim that test actually makes.
+
+⛔ AND MUTATION 9 WAS WRONG ON ITS FIRST DRAFT TOO
+--------------------------------------------------
+The first attempt sliced the `if` block out of ProductFormView.php by text
+offsets and cut past the closing brace:
+
+    PHP Parse error: syntax error, unexpected token "private" ... line 459
+
+One error, one test, and NOTHING measured — a mutation that breaks the file says
+nothing about the claim (`alpha.82`). Rewritten as `if (false)`, which leaves the
+file valid and removes exactly the sentence, it produced one failure. Two of the
+ten mutations in this round needed a second draft for the same reason, and both
+are written down rather than quietly fixed: a sweep that only records its
+successes is a sweep nobody can check.

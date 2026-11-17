@@ -83,6 +83,7 @@ final class ProductArea
         'bulk_products', 'preview_bulk_products',
         'export_products', 'import_products', 'apply_products_csv',
         'save_attribute', 'delete_attribute', 'save_variation', 'delete_variation', 'save_variation_stock',
+        'build_variations',
         // §3: the two figures a vendor may change on a REAL imported
         // variation. Separate verbs from the five above because they go
         // through a separate service to a separate store — WooCommerce's
@@ -536,7 +537,14 @@ final class ProductArea
                 $request->postInt('product_id'),
                 $request->postText('attr_key'),
                 $request->postText('attr_label'),
-                $this->linesOf($request->postTextarea('attr_options'))
+                $this->linesOf($request->postTextarea('attr_options')),
+                // An unticked checkbox is not posted, so absence IS «no» here
+                // — which is what the vendor means by unticking it. The form
+                // renders both boxes with their stored state, so a save that
+                // carries neither is a save of two deliberate noes and not a
+                // form that forgot to send them.
+                $request->postChecked('attr_visible'),
+                $request->postChecked('attr_variation')
             )),
             'delete_attribute' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->deleteAttribute(
                 $userId,
@@ -556,6 +564,16 @@ final class ProductArea
                 0,
                 $request->postChecked('var_enabled'),
                 $request->file('variation_image')
+            )),
+            // §4's generator. One field — the product — because every other
+            // input it needs is already a fact of that product: the axes, their
+            // options and the rows that exist. A form that also carried the
+            // count would be a form whose number could disagree with the one
+            // the service enforces.
+            'build_variations' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->buildVariations(
+                $userId,
+                $vendorUserId,
+                $request->postInt('product_id')
             )),
             'delete_variation' => $this->onVariation($request, $urls, fn (): OperationResult => $this->variationService()->deleteVariation(
                 $userId,
@@ -1246,6 +1264,20 @@ final class ProductArea
             'storefront' => $attributes === [] && $variations === []
                 ? $this->storefrontVariations()->setFor($wcProductId)
                 : null,
+            // Whether the store can record what an attribute is FOR. The form
+            // offers the two role controls only when it can, so a vendor is
+            // never shown a tick whose answer would be refused — three
+            // answers, because «could not find out» is not «absent»
+            // (`alpha.68`).
+            'roles_supported' => $this->variationRepository()->rolesSupported(),
+            // How many combinations the axes describe, how many exist, and how
+            // many a generate would add — §4's «قبل از ایجاد، تعداد ترکیب‌ها
+            // نمایش داده شود». Asked of the SERVICE, not recomputed here: the
+            // panel and the generator must never be able to disagree about the
+            // number or the cap (`alpha.78`).
+            'preview' => $productId > 0
+                ? $this->variationService()->previewCombinations($productId)
+                : [],
         ];
         // ⛔ WHERE THIS PRODUCT'S PRICE AND STOCK LIVE, decided HERE because
         // this is the only place that holds all four facts at once — the type,
